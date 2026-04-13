@@ -1,0 +1,684 @@
+/**
+ * @module lib/api
+ * @description API client service for all MCP Server endpoints.
+ *
+ * Provides a unified interface for all API endpoints with proper error handling
+ * and type safety.
+ */
+
+import type {
+  // Health & Info
+  HealthResponse,
+  HealthReadyResponse,
+  InfoResponse,
+
+  // MCP Protocol
+  JsonRpcRequest,
+  JsonRpcResponse,
+  ToolsListResponse,
+  ToolsCallRequest,
+  CallToolResult,
+
+  // Chat
+  ChatRequest,
+  ChatResponse,
+  ConversationsListResponse,
+  ConversationWithMessages,
+  ConversationDeleteResponse,
+
+  // Admin - Providers
+  ProvidersResponse,
+  CreateProviderRequest,
+  ProviderResponse,
+  ProviderRemoveResponse,
+  ProviderDefaultResponse,
+  ModelsListResponse,
+
+  // Admin - Tools
+  ToolsResponse,
+  ToolDetailResponse,
+  UpdateToolRequest,
+  UpdateToolResponse,
+
+  // Metrics
+  MetricsResponse,
+  SystemMetricsResponse,
+
+  // Simulation
+  MockResponse,
+  Scenario,
+  ScenarioResult,
+  LoadConfig,
+  LoadResults,
+  SimulationStatus,
+  MocksListResponse,
+  ScenariosListResponse,
+  HealthCheck,
+  SSEEventType,
+  ToolMetric,
+  RegisteredTool,
+  ErrorMetric,
+  ScenarioStep,
+  SSEEvent,
+  ToolCallEvent,
+  ResultEvent,
+  TokenMetric,
+  RequestMetric,
+  ToolSummary,
+  Model,
+  Provider,
+  ProviderWithId,
+  ToolDefinition,
+  ChatMessage,
+  TokenUsage,
+  ToolCall,
+  Conversation,
+  ConversationMessage,
+  ProviderMetric,
+  SystemMetric,
+  MetricsSummary,
+  StepResult,
+  // Configuration
+  ApiConfig,
+} from '../types/api.js';
+import {DEFAULT_API_CONFIG} from '../types/api.js';
+
+// ====== Configuration ======
+
+const config: ApiConfig = {
+  baseUrl: (import.meta.env as any)?.VITE_API_BASE_URL || DEFAULT_API_CONFIG.baseUrl,
+  timeout: DEFAULT_API_CONFIG.timeout,
+};
+
+// ====== Helper Functions ======
+
+/**
+ * Creates an AbortController with timeout
+ */
+function createTimeoutController(timeout: number): AbortController {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  controller.signal.addEventListener('abort', () => clearTimeout(id));
+  return controller;
+}
+
+/**
+ * Performs an HTTP request with error handling
+ */
+async function request<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  timeout?: number,
+): Promise<T> {
+  const timeoutValue = timeout ?? config.timeout;
+  const controller = createTimeoutController(timeoutValue as number);
+
+  try {
+    const response = await fetch(`${config.baseUrl}${endpoint}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
+    }
+
+    const text = await response.text();
+    if (!text) return undefined as T;
+
+    return JSON.parse(text);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(`Request to ${endpoint} timed out`);
+    }
+    throw error;
+  }
+}
+
+// ====== Health Endpoints ======
+
+/**
+ * GET /health - Basic server health check
+ */
+export async function getHealth(): Promise<HealthResponse> {
+  return request<HealthResponse>('/health');
+}
+
+/**
+ * GET /health/ready - Readiness probe
+ */
+export async function getHealthReady(): Promise<HealthReadyResponse> {
+  return request<HealthReadyResponse>('/health/ready');
+}
+
+/**
+ * GET /info - Server information and capabilities
+ */
+export async function getServerInfo(): Promise<InfoResponse> {
+  return request<InfoResponse>('/info');
+}
+
+/**
+ * GET /info - Get MCP protocol information
+ * Same as getServerInfo but with explicit naming for MCP info page
+ */
+export async function getMcpInfo(): Promise<InfoResponse> {
+  return request<InfoResponse>('/info');
+}
+
+// ====== MCP Protocol Endpoints ======
+
+/**
+ * POST /mcp - Handle JSON-RPC requests
+ */
+export async function sendMcpRequest(
+  rpcRequest: JsonRpcRequest,
+): Promise<JsonRpcResponse> {
+  return request<JsonRpcResponse>('/mcp', {
+    method: 'POST',
+    credentials: 'include',
+    body: JSON.stringify(rpcRequest),
+  });
+}
+
+/**
+ * POST /mcp - Handle batch JSON-RPC requests
+ */
+export async function sendMcpBatch(
+  rpcRequests: JsonRpcRequest[],
+): Promise<JsonRpcResponse[]> {
+  return request<JsonRpcResponse[]>('/mcp', {
+    method: 'POST',
+    body: JSON.stringify(rpcRequests),
+  });
+}
+
+/**
+ * GET /mcp/sse - Get SSE connection for MCP streaming
+ */
+export function getMcpSSE(): EventSource {
+  return new EventSource(`${config.baseUrl}/mcp/sse`, {
+    withCredentials: true,
+  });
+}
+
+/**
+ * List all available tools via MCP protocol
+ */
+export async function listTools(): Promise<ToolsListResponse> {
+  const response = await sendMcpRequest({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/list',
+  });
+
+  if (response.error) {
+    throw new Error(response.error.message);
+  }
+
+  return response.result as ToolsListResponse;
+}
+
+/**
+ * Call a specific tool via MCP protocol
+ */
+export async function callTool(toolRequest: ToolsCallRequest): Promise<CallToolResult> {
+  const response = await sendMcpRequest({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'tools/call',
+    params: toolRequest,
+  });
+
+  if (response.error) {
+    throw new Error(response.error.message);
+  }
+
+  return response.result as CallToolResult;
+}
+
+// ====== Chat Endpoints ======
+
+/**
+ * POST /chat - Send a message and get response
+ */
+export async function sendChat(request: ChatRequest): Promise<ChatResponse> {
+  // @ts-expect-error false positive
+  return request<ChatResponse>('/chat', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * POST /chat/stream - Stream chat response via SSE
+ */
+export function streamChat(request: ChatRequest): EventSource {
+  // Send the message first
+  fetch(`${config.baseUrl}/chat/stream`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(request),
+  }).then(async (res) => {
+    if (!res.ok || !res.body) {
+      throw new Error(`Stream failed: ${res.statusText}`);
+    }
+  });
+
+  return new EventSource(`${config.baseUrl}/chat/stream`);
+}
+
+/**
+ * GET /chat/conversations - List all conversations
+ */
+export async function listConversations(): Promise<ConversationsListResponse> {
+  return request<ConversationsListResponse>('/chat/conversations');
+}
+
+/**
+ * GET /chat/conversations/:id - Get a conversation with messages
+ */
+export async function getConversation(id: string): Promise<ConversationWithMessages> {
+  return request<ConversationWithMessages>(`/chat/conversations/${encodeURIComponent(id)}`);
+}
+
+/**
+ * DELETE /chat/conversations/:id - Delete a conversation
+ */
+export async function deleteConversation(id: string): Promise<ConversationDeleteResponse> {
+  return request<ConversationDeleteResponse>(`/chat/conversations/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+// ====== Admin - Provider Endpoints ======
+
+/**
+ * GET /admin/providers - List all providers
+ */
+export async function listProviders(): Promise<ProvidersResponse> {
+  return request<ProvidersResponse>('/admin/providers');
+}
+
+/**
+ * POST /admin/providers - Add a new provider
+ */
+export async function createProvider(provider: CreateProviderRequest): Promise<ProviderResponse> {
+  return request<ProviderResponse>('/admin/providers', {
+    method: 'POST',
+    body: JSON.stringify(provider),
+  });
+}
+
+/**
+ * DELETE /admin/providers/:name - Remove a provider
+ */
+export async function removeProvider(name: string): Promise<ProviderRemoveResponse> {
+  return request<ProviderRemoveResponse>(`/admin/providers/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * POST /admin/providers/:name/default - Set provider as default
+ */
+export async function setDefaultProvider(name: string): Promise<ProviderDefaultResponse> {
+  return request<ProviderDefaultResponse>(`/admin/providers/${encodeURIComponent(name)}/default`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * GET /admin/providers/:name/models - List models from a provider
+ */
+export async function listProviderModels(name: string): Promise<ModelsListResponse> {
+  return request<ModelsListResponse>(`/admin/providers/${encodeURIComponent(name)}/models`);
+}
+
+// ====== Admin - Tool Endpoints ======
+
+/**
+ * GET /admin/tools - List all tools
+ */
+export async function listAdminTools(): Promise<ToolsResponse> {
+  return request<ToolsResponse>('/admin/tools');
+}
+
+/**
+ * GET /admin/tools/:name - Get tool details
+ */
+export async function getToolDetails(name: string): Promise<ToolDetailResponse> {
+  return request<ToolDetailResponse>(`/admin/tools/${encodeURIComponent(name)}`);
+}
+
+/**
+ * PATCH /admin/tools/:name - Enable/disable a tool
+ */
+export async function updateTool(
+  name: string,
+  update: UpdateToolRequest,
+): Promise<UpdateToolResponse> {
+  return request<UpdateToolResponse>(`/admin/tools/${encodeURIComponent(name)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(update),
+  });
+}
+
+// ====== Export Configuration ======
+
+/**
+ * Set custom API configuration
+ */
+export function setApiConfig(customConfig: Partial<ApiConfig>): void {
+  Object.assign(config, customConfig);
+}
+
+/**
+ * Get current API configuration
+ */
+export function getApiConfig(): Readonly<ApiConfig> {
+  return config;
+}
+
+/**
+ * Update the base URL at runtime
+ */
+export function setApiBaseUrl(url: string): void {
+  config.baseUrl = url;
+}
+
+// ====== Re-export Types for Convenience ======
+export type {
+  // Health & Info
+  HealthResponse,
+  HealthReadyResponse,
+  InfoResponse,
+
+  // MCP Protocol
+  JsonRpcRequest,
+  JsonRpcResponse,
+  ToolsListResponse,
+  ToolsCallRequest,
+  CallToolResult,
+  ToolDefinition,
+  HealthCheck,
+  // Chat
+  ChatRequest,
+  ChatResponse,
+  ChatMessage,
+  TokenUsage,
+  ToolCall,
+
+  // Conversations
+  Conversation,
+  ConversationWithMessages,
+  ConversationsListResponse,
+  ConversationDeleteResponse,
+  ConversationMessage,
+
+  // Admin - Providers
+  Provider,
+  ProviderWithId,
+  ProvidersResponse,
+  CreateProviderRequest,
+  ProviderResponse,
+  ProviderRemoveResponse,
+  ProviderDefaultResponse,
+  Model,
+  ModelsListResponse,
+
+  // Admin - Tools
+  ToolSummary,
+  ToolsResponse,
+  ToolDetailResponse,
+  UpdateToolRequest,
+  UpdateToolResponse,
+  RegisteredTool,
+
+  // Metrics
+  MetricsResponse,
+  SystemMetricsResponse,
+  RequestMetric,
+  ToolMetric,
+  TokenMetric,
+  ProviderMetric,
+  ErrorMetric,
+  SystemMetric,
+  MetricsSummary,
+
+  // Simulation
+  MockResponse,
+  Scenario,
+  ScenarioStep,
+  ScenarioResult,
+  StepResult,
+  LoadConfig,
+  LoadResults,
+  SimulationStatus,
+  MocksListResponse,
+  ScenariosListResponse,
+
+  // SSE
+  SSEEventType,
+  SSEEvent,
+  ToolCallEvent,
+  ResultEvent,
+
+  // API Config
+  ApiConfig,
+};
+
+// ====== Metrics Endpoints ======
+
+/**
+ * GET /metrics - Get metrics summary
+ */
+export async function getMetrics(hours?: number): Promise<MetricsResponse> {
+  const query = hours ? `?hours=${hours}` : '';
+  return request<MetricsResponse>(`/metrics${query}`);
+}
+
+/**
+ * GET /metrics/requests - Get request metrics
+ */
+export async function getRequestMetrics(): Promise<{
+  total: number;
+  avgLatencyMs: number;
+  percentiles: { p50: number; p95: number; p99: number };
+  byEndpoint: Record<string, number>;
+  byStatusCode: Record<string, number>;
+  recentRequests: Array<Record<string, unknown>>;
+}> {
+  return request('/metrics/requests');
+}
+
+/**
+ * GET /metrics/tools - Get tool execution metrics
+ */
+export async function getToolMetrics(): Promise<{
+  totalCalls: number;
+  successRate: number;
+  avgDurationMs: number;
+  byTool: Record<string, { calls: number; avgDurationMs: number; successRate: number }>;
+  recentExecutions: Array<Record<string, unknown>>;
+}> {
+  return request('/metrics/tools');
+}
+
+/**
+ * GET /metrics/tokens - Get token usage metrics
+ */
+export async function getTokenMetrics(): Promise<{
+  totalInput: number;
+  totalOutput: number;
+  totalTokens: number;
+  estimatedCost: number;
+  byProvider: Record<string, { inputTokens: number; outputTokens: number; totalTokens: number; requests: number }>;
+  recentUsage: Array<Record<string, unknown>>;
+}> {
+  return request('/metrics/tokens');
+}
+
+/**
+ * GET /metrics/providers - Get provider performance metrics
+ */
+export async function getProviderMetrics(): Promise<{
+  byProvider: Record<string, { avgLatencyMs: number; requestCount: number; successRate: number; lastStatus: string }>;
+  liveStatus: Record<string, { status: string; latencyMs?: number; message?: string }>;
+  registeredProviders: string[];
+  defaultProvider: string;
+}> {
+  return request('/metrics/providers');
+}
+
+/**
+ * GET /metrics/errors - Get error metrics
+ */
+export async function getErrorMetrics(): Promise<{
+  total: number;
+  byType: Record<string, number>;
+  recentErrors: Array<Record<string, unknown>>;
+}> {
+  return request('/metrics/errors');
+}
+
+/**
+ * GET /metrics/system - Get system resource metrics
+ */
+export async function getSystemMetrics(): Promise<SystemMetricsResponse> {
+  return request<SystemMetricsResponse>('/metrics/system');
+}
+
+// ====== Simulation Endpoints ======
+
+/**
+ * GET /simulate/scenarios - List all scenarios
+ */
+export async function listScenarios(): Promise<ScenariosListResponse> {
+  return request<ScenariosListResponse>('/simulate/scenarios');
+}
+
+/**
+ * GET /simulate/scenarios/:name - Get scenario details
+ */
+export async function getScenario(name: string): Promise<Scenario> {
+  return request<Scenario>(`/simulate/scenarios/${encodeURIComponent(name)}`);
+}
+
+/**
+ * POST /simulate/scenarios/:name/run - Run a scenario
+ */
+export async function runScenario(name: string, options?: { useMocks?: boolean }): Promise<{
+  scenario: string;
+  result: ScenarioResult;
+}> {
+  return request(`/simulate/scenarios/${encodeURIComponent(name)}/run`, {
+    method: 'POST',
+    body: JSON.stringify(options || {}),
+  });
+}
+
+/**
+ * GET /simulate/mocks - List all mock configurations
+ */
+export async function listMocks(): Promise<MocksListResponse> {
+  return request<MocksListResponse>('/simulate/mocks');
+}
+
+/**
+ * POST /simulate/mocks - Set a mock response
+ */
+export async function setMock(mock: {
+  tool: string;
+  content: Array<{ type: 'text'; text: string }>;
+  isError?: boolean;
+  delayMs?: number;
+  failureRate?: number;
+}): Promise<{ status: string; tool: string }> {
+  return request('/simulate/mocks', {
+    method: 'POST',
+    body: JSON.stringify(mock),
+  });
+}
+
+/**
+ * DELETE /simulate/mocks/:tool - Remove a mock
+ */
+export async function removeMock(tool: string): Promise<{ status: string; tool: string }> {
+  return request(`/simulate/mocks/${encodeURIComponent(tool)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * POST /simulate/mocks/clear - Clear all mocks
+ */
+export async function clearMocks(): Promise<{ status: string; clearedCount: number }> {
+  return request('/simulate/mocks/clear', {
+    method: 'POST',
+  });
+}
+
+/**
+ * GET /simulate/mode - Get mock mode status
+ */
+export async function getMockMode(): Promise<{ mockModeEnabled: boolean }> {
+  return request<{ mockModeEnabled: boolean }>('/simulate/mode');
+}
+
+/**
+ * PATCH /simulate/mode - Set mock mode
+ */
+export async function setMockMode(enabled: boolean): Promise<{ status: string; mockModeEnabled: boolean }> {
+  return request('/simulate/mode', {
+    method: 'PATCH',
+    body: JSON.stringify({enabled}),
+  });
+}
+
+/**
+ * POST /simulate/load - Run load simulation
+ */
+export async function runLoadSimulation(config: LoadConfig): Promise<{
+  status: string;
+  results: LoadResults;
+}> {
+  return request('/simulate/load', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  });
+}
+
+/**
+ * POST /simulate/tool - Execute a single tool for testing
+ */
+export async function executeTool(test: {
+  name: string;
+  args?: Record<string, unknown>;
+  useMock?: boolean;
+}): Promise<{
+  success: boolean;
+  tool: string;
+  args: Record<string, unknown>;
+  result?: CallToolResult;
+  error?: string;
+  durationMs: number;
+  timestamp: string;
+}> {
+  return request('/simulate/tool', {
+    method: 'POST',
+    body: JSON.stringify(test),
+  });
+}
+
+/**
+ * GET /simulate/status - Get simulation framework status
+ */
+export async function getSimulationStatus(): Promise<SimulationStatus> {
+  return request<SimulationStatus>('/simulate/status');
+}
