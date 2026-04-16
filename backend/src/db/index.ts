@@ -1,19 +1,19 @@
 /**
  * @module db
  * @description Sequelize database connection and initialization.
- * 
+ *
  * Uses SQLite for zero-configuration, file-based persistence.
  * The database file is created automatically on first run.
- * 
+ *
  * ## Usage
- * 
+ *
  * ```typescript
  * import { db } from '@/db';
  * import { Provider } from '@/db/models';
- * 
+ *
  * // Query all providers
  * const providers = await Provider.findAll();
- * 
+ *
  * // Create a new provider
  * await Provider.create({
  *   name: 'my-ollama',
@@ -57,7 +57,7 @@ export const db = new Sequelize({
 /**
  * @model Provider
  * @description Stores LLM provider configurations (Ollama, OpenAI-compatible, etc.)
- * 
+ *
  * Each provider can be used as a backend for the MCP agent.
  * Only one provider should be marked as default at a time.
  */
@@ -150,6 +150,41 @@ export class ToolConfig extends Model<InferAttributes<ToolConfig>, InferCreation
   declare updatedAt: CreationOptional<Date>;
 }
 
+/**
+ * @model CustomTool
+ * @description Stores user-defined custom MCP tools with executable code.
+ *
+ * Custom tools allow users to define their own tool functions via the API.
+ * The handler code is stored as JavaScript/TypeScript and executed safely.
+ */
+export class CustomTool extends Model<InferAttributes<CustomTool>, InferCreationAttributes<CustomTool>> {
+  declare id: CreationOptional<number>;
+  /** Unique tool name (used in MCP protocol) */
+  declare name: string;
+  /** Human-readable display name */
+  declare displayName: string;
+  /** Detailed description shown to users and LLM */
+  declare description: string;
+  /** JSON Schema for the tool's input parameters */
+  declare inputSchema: string;
+  /** The executable handler code (JavaScript function body) */
+  declare handlerCode: string;
+  /** Whether this tool is currently enabled */
+  declare enabled: boolean;
+  /** Tool category for organizational purposes */
+  declare category: CreationOptional<string | null>;
+  /** Icon/emoji for the tool UI */
+  declare icon: CreationOptional<string | null>;
+  /** Extra configuration JSON (API keys, endpoints, etc.) */
+  declare settings: CreationOptional<string | null>;
+  /** Last tested arguments for testing */
+  declare lastTestArgs: CreationOptional<string | null>;
+  /** Last test result for feedback */
+  declare lastTestResult: CreationOptional<string | null>;
+  declare createdAt: CreationOptional<Date>;
+  declare updatedAt: CreationOptional<Date>;
+}
+
 // ─── Model Initialization ─────────────────────────────────────────────────────
 
 Provider.init(
@@ -212,12 +247,34 @@ ToolConfig.init(
   { sequelize: db, tableName: 'tool_configs' },
 );
 
+CustomTool.init(
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    name: { type: DataTypes.STRING, allowNull: false, unique: true },
+    displayName: { type: DataTypes.STRING, allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    inputSchema: { type: DataTypes.TEXT, allowNull: false },
+    handlerCode: { type: DataTypes.TEXT, allowNull: false },
+    enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    category: { type: DataTypes.STRING, allowNull: true, defaultValue: 'custom' },
+    icon: { type: DataTypes.STRING, allowNull: true },
+    settings: { type: DataTypes.TEXT, allowNull: true },
+    lastTestArgs: { type: DataTypes.TEXT, allowNull: true },
+    lastTestResult: { type: DataTypes.TEXT, allowNull: true },
+    createdAt: { type: DataTypes.DATE, allowNull: false },
+    updatedAt: { type: DataTypes.DATE, allowNull: false },
+  },
+  { sequelize: db, tableName: 'custom_tools' },
+);
+
 // ─── Associations ─────────────────────────────────────────────────────────────
 
 Provider.hasMany(Conversation, { foreignKey: 'providerId', as: 'conversations' });
 Conversation.belongsTo(Provider, { foreignKey: 'providerId', as: 'provider' });
 Conversation.hasMany(Message, { foreignKey: 'conversationId', as: 'messages' });
 Message.belongsTo(Conversation, { foreignKey: 'conversationId', as: 'conversation' });
+
+// Custom tools have no direct associations currently, but could be linked to users in future
 
 // ─── Database Initialization ──────────────────────────────────────────────────
 
@@ -243,6 +300,42 @@ export async function initDatabase(): Promise<void> {
       isDefault: true,
     });
     console.log('✅ Seeded default Ollama provider');
+  }
+
+  // Seed example custom tools if none exist
+  const customToolCount = await CustomTool.count();
+  if (customToolCount === 0) {
+    const exampleTools = [
+      {
+        name: 'example_calculator',
+        displayName: 'Example Calculator',
+        description: 'A simple calculator that performs basic arithmetic operations.',
+        inputSchema: JSON.stringify({
+          type: 'object',
+          properties: {
+            a: { type: 'number', description: 'First number' },
+            b: { type: 'number', description: 'Second number' },
+            operation: { type: 'string', enum: ['add', 'subtract', 'multiply', 'divide'], description: 'Operation to perform' }
+          },
+          required: ['a', 'b', 'operation']
+        }, null, 2),
+        handlerCode: `const { a, b, operation } = args;
+const results = {
+  add: a + b,
+  subtract: a - b,
+  multiply: a * b,
+  divide: b !== 0 ? a / b : "Error: Division by zero"
+};
+return {
+  content: [{ type: 'text', text: \`\${operation}(\${a}, \${b}) = \${results[operation]}\` }]
+};`,
+        enabled: true,
+        category: 'examples',
+        icon: '🧮'
+      }
+    ];
+    await CustomTool.bulkCreate(exampleTools);
+    console.log('✅ Seeded example custom tools');
   }
 }
 
