@@ -1,3 +1,11 @@
+// noinspection ExceptionCaughtLocallyJS
+
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 /**
  * @module lib/api
  * @description API client service for all MCP Server endpoints.
@@ -79,7 +87,10 @@ import type {
   MetricsSummary,
   StepResult,
   // Configuration
-  ApiConfig,
+  ApiConfig, CustomToolTemplatesResponse, ToggleCustomToolResponse, TestCustomToolResponse, TestCustomToolRequest,
+  DeleteCustomToolResponse, UpdateCustomToolRequest, CreateCustomToolRequest, CreateCustomToolResponse,
+  UpdateCustomToolResponse, CustomToolDetailResponse, CustomToolsListResponse,CustomTool, CustomToolSummary, ToggleCustomToolRequest,
+  CustomToolTemplate, CustomToolInputSchema
 } from '../types/api.js';
 import {DEFAULT_API_CONFIG} from '../types/api.js';
 
@@ -247,11 +258,10 @@ export async function callTool(toolRequest: ToolsCallRequest): Promise<CallToolR
 /**
  * POST /chat - Send a message and get response
  */
-export async function sendChat(request: ChatRequest): Promise<ChatResponse> {
-  // @ts-expect-error false positive
+export async function sendChat(params: ChatRequest): Promise<ChatResponse> {
   return request<ChatResponse>('/chat', {
     method: 'POST',
-    body: JSON.stringify(request),
+    body: JSON.stringify(params),
   });
 }
 
@@ -471,6 +481,24 @@ export type {
 
   // API Config
   ApiConfig,
+
+  // Custom Tools
+  CustomTool,
+  CustomToolSummary,
+  CustomToolsListResponse,
+  CustomToolDetailResponse,
+  CreateCustomToolRequest,
+  CreateCustomToolResponse,
+  UpdateCustomToolRequest,
+  UpdateCustomToolResponse,
+  DeleteCustomToolResponse,
+  TestCustomToolRequest,
+  TestCustomToolResponse,
+  ToggleCustomToolRequest,
+  ToggleCustomToolResponse,
+  CustomToolTemplate,
+  CustomToolTemplatesResponse,
+  CustomToolInputSchema,
 };
 
 // ====== Metrics Endpoints ======
@@ -682,3 +710,96 @@ export async function executeTool(test: {
 export async function getSimulationStatus(): Promise<SimulationStatus> {
   return request<SimulationStatus>('/simulate/status');
 }
+
+// ========== Custom Tools Endpoints ==========
+
+/**
+ * GET /api/custom-tools - List all custom tools
+ */
+export async function listCustomTools(params?: {
+  enabled?: boolean;
+  category?: string;
+  search?: string;
+}): Promise<CustomToolsListResponse> {
+  const queryParams = new URLSearchParams();
+  if (params?.enabled !== undefined) queryParams.append('enabled', String(params.enabled));
+  if (params?.category) queryParams.append('category', params.category);
+  if (params?.search) queryParams.append('search', params.search);
+
+  const query = queryParams.toString();
+  const endpoint = query ? `/api/custom-tools?${query}` : '/api/custom-tools';
+  return request<CustomToolsListResponse>(endpoint);
+}
+
+/**
+ * GET /api/custom-tools/:id - Get a specific custom tool
+ */
+export async function getCustomTool(id: number): Promise<CustomToolDetailResponse> {
+  return request<CustomToolDetailResponse>(`/api/custom-tools/${id}`);
+}
+
+/**
+ * POST /api/custom-tools - Create a new custom tool
+ */
+export async function createCustomTool(tool: CreateCustomToolRequest): Promise<CreateCustomToolResponse> {
+  return request<CreateCustomToolResponse>('/api/custom-tools', {
+    method: 'POST',
+    body: JSON.stringify(tool),
+  });
+}
+
+/**
+ * PUT /api/custom-tools/:id - Update a custom tool
+ */
+export async function updateCustomTool(
+  id: number,
+  updates: UpdateCustomToolRequest,
+): Promise<UpdateCustomToolResponse> {
+  return request<UpdateCustomToolResponse>(`/api/custom-tools/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+}
+
+/**
+ * DELETE /api/custom-tools/:id - Delete a custom tool
+ */
+export async function deleteCustomTool(id: number): Promise<DeleteCustomToolResponse> {
+  return request<DeleteCustomToolResponse>(`/api/custom-tools/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * POST /api/custom-tools/:id/test - Test a custom tool
+ */
+export async function testCustomTool(
+  id: number,
+  args: TestCustomToolRequest,
+): Promise<TestCustomToolResponse> {
+  return request<TestCustomToolResponse>(`/api/custom-tools/${id}/test`, {
+    method: 'POST',
+    body: JSON.stringify(args),
+  });
+}
+
+/**
+ * POST /api/custom-tools/:id/toggle - Toggle custom tool enabled state
+ */
+export async function toggleCustomTool(
+  id: number,
+  enabled: boolean,
+): Promise<ToggleCustomToolResponse> {
+  return request<ToggleCustomToolResponse>(`/api/custom-tools/${id}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+/**
+ * GET /api/custom-tools/templates - Get example tool templates
+ */
+export async function getCustomToolTemplates(): Promise<CustomToolTemplatesResponse> {
+  return request<CustomToolTemplatesResponse>('/api/custom-tools/templates');
+}
+
