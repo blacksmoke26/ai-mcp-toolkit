@@ -1,4 +1,10 @@
 /**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
+/**
  * @module types/api
  * @description Type definitions for MCP Server API endpoints and data structures.
  */
@@ -8,10 +14,15 @@
 // ============================================================================
 
 export interface ApiResponse<T = unknown> {
+  /** Response status indicator */
   status?: string;
+  /** ISO timestamp of the response */
   timestamp?: string;
+  /** Response payload */
   data?: T;
+  /** Error message if any */
   error?: string;
+  /** Human-readable message */
   message?: string;
 }
 
@@ -20,50 +31,76 @@ export interface ApiResponse<T = unknown> {
 // ============================================================================
 
 export interface HealthResponse {
+  /** Health status */
   status: 'ok';
+  /** ISO timestamp */
   timestamp: string;
+  /** Server uptime in seconds */
   uptime: number;
 }
 
 export interface HealthCheck {
+  /** Database health check */
   database: HealthCheck;
+  /** Check status */
   status: 'ok' | 'error';
+  /** Latency in milliseconds */
   latencyMs?: number;
+  /** Error message if failed */
   error?: string;
 }
 
 export interface HealthReadyResponse {
+  /** Readiness status */
   status: 'ready' | 'degraded';
+  /** ISO timestamp */
   timestamp: string;
+  /** Map of health checks */
   checks: {
+    /** Database check */
     database: HealthCheck;
+    /** Provider-specific checks */
     [key: `provider:${string}`]: HealthCheck;
   };
 }
 
 export interface ServerInfo {
+  /** Server name */
   name: string;
+  /** Server version */
   version: string;
+  /** Protocol version */
   protocol: string;
 }
 
 export interface ProviderInfo {
+  /** List of available providers */
   available: string[];
+  /** Default provider name */
   default: string;
 }
 
 export interface ToolInfo {
+  /** Total number of tools */
   total: number;
+  /** Number of enabled tools */
   enabled: number;
+  /** Tools grouped by category */
   categories: Record<string, string[]>;
 }
 
 export interface InfoResponse {
+  /** Server information */
   server: ServerInfo;
+  /** Provider information */
   providers: ProviderInfo;
+  /** Tool information */
   tools: ToolInfo;
+  /** Number of resources */
   resources: number;
+  /** Number of prompts */
   prompts: number;
+  /** Server uptime in seconds */
   uptime: number;
 }
 
@@ -72,64 +109,97 @@ export interface InfoResponse {
 // ============================================================================
 
 export interface JsonRpcRequest {
+  /** JSON-RPC version */
   jsonrpc: '2.0';
+  /** Request identifier */
   id: number | string;
+  /** Method name to invoke */
   method: string;
+  /** Method parameters */
   params?: unknown;
 }
 
 export interface JsonRpcResponse {
+  /** JSON-RPC version */
   jsonrpc: '2.0';
+  /** Request identifier */
   id: number | string;
+  /** Result payload */
   result?: unknown;
+  /** Error details if any */
   error?: {
+    /** Error code */
     code: number;
+    /** Error message */
     message: string;
+    /** Additional error data */
     data?: unknown;
   };
 }
 
 export interface JsonRpcNotification {
+  /** JSON-RPC version */
   jsonrpc: '2.0';
+  /** Notification method name */
   method: string;
+  /** Notification parameters */
   params?: unknown;
 }
 
 // MCP Tool Definition
 export interface ToolDefinition {
+  /** Tool name */
   name: string;
+  /** Tool description */
   description: string;
+  /** Input JSON schema */
   inputSchema?: {
+    /** Schema type */
     type: string;
+    /** Schema properties */
     properties?: Record<string, {
+      /** Property type */
       type: string;
+      /** Property description */
       description?: string;
+      /** Enum values */
       enum?: string[];
     }>;
+    /** Required properties */
     required?: string[];
   };
 }
 
 // MCP Call Tool Result
 export interface CallToolResult {
+  /** Result content items */
   content: Array<{
+    /** Content type */
     type: 'text' | 'image' | 'resource';
+    /** Text content */
     text?: string;
+    /** Base64 data */
     data?: string;
+    /** MIME type */
     mimeType?: string;
+    /** Resource URI */
     uri?: string;
   }>;
+  /** Error flag */
   isError?: boolean;
 }
 
 // MCP Tools List Response
 export interface ToolsListResponse {
+  /** List of tool definitions */
   tools: ToolDefinition[];
 }
 
 // MCP Tools Call Request
 export interface ToolsCallRequest {
+  /** Tool name */
   name: string;
+  /** Tool arguments */
   arguments: Record<string, unknown>;
 }
 
@@ -138,39 +208,61 @@ export interface ToolsCallRequest {
 // ============================================================================
 
 export interface ChatMessage {
+  /** Message role */
   role: 'system' | 'user' | 'assistant' | 'tool';
+  /** Message content */
   content: string;
 }
 
 export interface ChatRequest {
+  /** Chat messages history */
   messages?: ChatMessage[];
+  /** Single message input */
   message?: string;
+  /** Conversation ID */
   conversationId?: string;
+  /** Provider name */
   provider?: string;
+  /** Model name */
   model?: string;
+  /** Sampling temperature */
   temperature?: number;
+  /** Max tokens to generate */
   maxTokens?: number;
+  /** Max tool iterations */
   maxIterations?: number;
 }
 
 export interface ToolCall {
+  /** Tool name */
   name: string;
+  /** Tool arguments */
   arguments: Record<string, unknown>;
+  /** Tool result */
   result: string;
 }
 
 export interface TokenUsage {
+  /** Prompt token count */
   prompt: number;
+  /** Completion token count */
   completion: number;
+  /** Total token count */
   total: number;
 }
 
 export interface ChatResponse {
+  /** Conversation ID */
   conversationId: string;
+  /** Response content */
   content: string;
+  /** Number of iterations */
   iterations: number;
+  /** Tool calls made */
   toolCalls: ToolCall[];
+  /** Token usage stats */
   tokens: TokenUsage;
+  /** Elapsed time in ms */
   elapsedMs: number;
 }
 
@@ -179,30 +271,43 @@ export interface ChatResponse {
 // ============================================================================
 
 export interface ConversationMessage {
+  /** Message role */
   role: string;
+  /** Message content */
   content: string;
+  /** Tool name if applicable */
   toolName?: string;
+  /** Creation timestamp */
   createdAt: string;
 }
 
 export interface Conversation {
+  /** Conversation ID */
   id: string;
+  /** Conversation title */
   title: string;
+  /** Model used */
   model: string;
+  /** Last message preview */
   lastMessage?: string;
+  /** Last update timestamp */
   updatedAt: string;
 }
 
 export interface ConversationWithMessages extends Conversation {
+  /** Conversation messages */
   messages: ConversationMessage[];
 }
 
 export interface ConversationsListResponse {
+  /** List of conversations */
   conversations: Conversation[];
 }
 
 export interface ConversationDeleteResponse {
+  /** Response status */
   status: string;
+  /** Deleted conversation ID */
   id: string;
 }
 
@@ -211,62 +316,94 @@ export interface ConversationDeleteResponse {
 // ============================================================================
 
 export interface Provider {
+  /** Provider ID */
   id: string;
+  /** Provider name */
   name: string;
+  /** Provider type */
   type: 'ollama' | 'openai';
+  /** Base URL */
   baseUrl: string;
+  /** Default model */
   defaultModel: string;
+  /** API key */
   apiKey?: string;
+  /** Default flag */
   isDefault: boolean;
+  /** Temperature setting */
   temperature?: number;
+  /** Max tokens setting */
   maxTokens?: number;
 }
 
 // @ts-expect-error known issue
 export interface ProviderWithId extends Provider {
+  /** Numeric ID */
   id: number;
+  /** Settings JSON */
   settings?: string;
 }
 
 export interface ProvidersResponse {
+  /** Active providers */
   active: Array<Provider & { id?: number }>;
+  /** Configured providers */
   configured: ProviderWithId[];
+  /** Default provider name */
   default: string;
 }
 
 export interface CreateProviderRequest {
+  /** Provider name */
   name: string;
+  /** Provider type */
   type: 'ollama' | 'openai';
+  /** Base URL */
   baseUrl: string;
+  /** API key */
   apiKey?: string;
+  /** Default model */
   defaultModel: string;
+  /** Default flag */
   isDefault?: boolean;
+  /** Temperature setting */
   temperature?: number;
+  /** Max tokens setting */
   maxTokens?: number;
 }
 
 export interface ProviderResponse {
+  /** Response status */
   status: string;
+  /** Provider details */
   provider: ProviderWithId;
 }
 
 export interface ProviderRemoveResponse {
+  /** Response status */
   status: string;
+  /** Removed provider name */
   provider: string;
 }
 
 export interface ProviderDefaultResponse {
+  /** Response status */
   status: string;
+  /** Default provider name */
   provider: string;
 }
 
 export interface Model {
+  /** Model ID */
   id: string;
+  /** Model name */
   name?: string;
 }
 
 export interface ModelsListResponse {
+  /** Provider name */
   provider: string;
+  /** Available models */
   models: Model[];
 }
 
@@ -275,40 +412,60 @@ export interface ModelsListResponse {
 // ============================================================================
 
 export interface RegisteredTool extends ToolDefinition {
+  /** Enabled flag */
   enabled: boolean;
+  /** Tool category */
   category?: string;
 }
 
 export interface ToolSummary {
+  /** Tool name */
   name: string;
+  /** Tool description */
   description: string;
+  /** Enabled flag */
   enabled: boolean;
+  /** Tool category */
   category?: string;
+  /** Has input schema flag */
   hasInputSchema: boolean;
 }
 
 export interface ToolsResponse {
+  /** Total tools count */
   total: number;
+  /** Enabled tools count */
   enabled: number;
+  /** Tools by category */
   categories: Record<string, string[]>;
+  /** Tool summaries */
   tools: ToolSummary[];
 }
 
 export interface ToolDetailResponse {
+  /** Tool name */
   name: string;
+  /** Tool description */
   description: string;
+  /** Enabled flag */
   enabled: boolean;
+  /** Tool category */
   category?: string;
+  /** Input schema */
   inputSchema?: ToolDefinition['inputSchema'];
 }
 
 export interface UpdateToolRequest {
+  /** Enabled flag */
   enabled: boolean;
 }
 
 export interface UpdateToolResponse {
+  /** Response status */
   status: string;
+  /** Tool name */
   tool: string;
+  /** Enabled flag */
   enabled: boolean;
 }
 
@@ -319,21 +476,30 @@ export interface UpdateToolResponse {
 export type SSEEventType = 'tool_call' | 'result' | 'done' | 'error';
 
 export interface ToolCallEvent {
+  /** Iteration number */
   iteration: number;
+  /** Tool calls made */
   tools: Array<{
+    /** Tool name */
     name: string;
+    /** Success flag */
     success: boolean;
   }>;
 }
 
 export interface ResultEvent {
+  /** Result content */
   content: string;
+  /** Number of iterations */
   iterations: number;
+  /** Number of tool calls */
   toolCalls: number;
+  /** Token usage */
   tokens: TokenUsage;
 }
 
 export interface ErrorEvent {
+  /** Error message */
   error: string;
 }
 
@@ -348,12 +514,16 @@ export type SSEEvent =
 // ============================================================================
 
 export interface ApiConfig {
+  /** Base API URL */
   baseUrl: string;
+  /** Request timeout in ms */
   timeout?: number;
 }
 
 export const DEFAULT_API_CONFIG: ApiConfig = {
+  /** Default base URL */
   baseUrl: 'http://localhost:3100',
+  /** Default timeout */
   timeout: 30000,
 };
 
@@ -362,126 +532,212 @@ export const DEFAULT_API_CONFIG: ApiConfig = {
 // ============================
 
 export interface RequestMetric {
+  /** API endpoint */
   endpoint: string;
+  /** HTTP method */
   method: string;
+  /** Duration in ms */
   durationMs: number;
+  /** HTTP status code */
   statusCode: number;
+  /** Request size in bytes */
   requestSize?: number;
+  /** Response size in bytes */
   responseSize?: number;
+  /** ISO timestamp */
   timestamp: string;
 }
 
 export interface ToolMetric {
+  /** Tool name */
   toolName: string;
+  /** Duration in ms */
   durationMs: number;
+  /** Success flag */
   success: boolean;
+  /** Error message */
   error?: string;
+  /** Input parameter keys */
   inputKeys?: string[];
+  /** ISO timestamp */
   timestamp: string;
 }
 
 export interface TokenMetric {
+  /** Provider name */
   provider: string;
+  /** Model name */
   model: string;
+  /** Input token count */
   inputTokens: number;
+  /** Output token count */
   outputTokens: number;
+  /** Total token count */
   totalTokens: number;
+  /** Cost estimate */
   costEstimate?: number;
+  /** ISO timestamp */
   timestamp: string;
 }
 
 export interface ProviderMetric {
+  /** Provider name */
   provider: string;
+  /** Model name */
   model: string;
+  /** Latency in ms */
   latencyMs: number;
+  /** Provider status */
   status: 'ok' | 'degraded' | 'error';
+  /** ISO timestamp */
   timestamp: string;
 }
 
 export interface ErrorMetric {
+  /** Error type */
   type: string;
+  /** Error message */
   message: string;
+  /** ISO timestamp */
   timestamp: string;
+  /** Error context */
   context?: Record<string, unknown>;
 }
 
 export interface SystemMetric {
+  /** Memory used in MB */
   memoryUsedMb: number;
+  /** Total memory in MB */
   memoryTotalMb: number;
+  /** CPU usage percentage */
   cpuUsage?: number;
+  /** Event loop lag in ms */
   eventLoopLagMs: number;
+  /** Active handles count */
   activeHandles?: number;
+  /** ISO timestamp */
   timestamp: string;
 }
 
 export interface MetricsSummary {
+  /** Time period */
   period: {
+    /** Start timestamp */
     start: string;
+    /** End timestamp */
     end: string;
   };
+  /** Request metrics */
   requests: {
+    /** Total requests */
     total: number;
+    /** Average latency */
     avgLatencyMs: number;
+    /** P50 latency */
     p50LatencyMs: number;
+    /** P95 latency */
     p95LatencyMs: number;
+    /** P99 latency */
     p99LatencyMs: number;
+    /** By endpoint */
     byEndpoint: Record<string, number>;
+    /** By status code */
     byStatusCode: Record<string, number>;
   };
+  /** Tool metrics */
   tools: {
+    /** Total calls */
     totalCalls: number;
+    /** Success rate */
     successRate: number;
+    /** Average duration */
     avgDurationMs: number;
+    /** By tool */
     byTool: Record<string, {
+      /** Call count */
       calls: number;
+      /** Average duration */
       avgDurationMs: number;
+      /** Success rate */
       successRate: number;
     }>;
   };
+  /** Token metrics */
   tokens: {
+    /** Total input tokens */
     totalInput: number;
+    /** Total output tokens */
     totalOutput: number;
+    /** Total cost estimate */
     totalCostEstimate: number;
+    /** By provider */
     byProvider: Record<string, {
+      /** Input tokens */
       inputTokens: number;
+      /** Output tokens */
       outputTokens: number;
+      /** Total tokens */
       totalTokens: number;
+      /** Request count */
       requests: number;
     }>;
   };
+  /** Error metrics */
   errors: {
+    /** Total errors */
     total: number;
+    /** By type */
     byType: Record<string, number>;
+    /** Recent errors */
     recent: ErrorMetric[];
   };
+  /** Provider metrics */
   providers: {
+    /** By provider */
     byProvider: Record<string, {
+      /** Average latency */
       avgLatencyMs: number;
+      /** Request count */
       requestCount: number;
+      /** Success rate */
       successRate: number;
+      /** Last status */
       lastStatus: 'ok' | 'degraded' | 'error';
     }>;
   };
 }
 
 export interface MetricsResponse {
+  /** Time period */
   period: {
+    /** Duration in hours */
     hours: number;
+    /** Start timestamp */
     start: string;
+    /** End timestamp */
     end: string;
   };
+  /** Metrics summary */
   summary: MetricsSummary;
 }
 
 export interface SystemMetricsResponse {
+  /** System metrics */
   system: SystemMetric;
+  /** Platform info */
   platform: {
+    /** Node version */
     nodeVersion: string;
+    /** OS platform */
     platform: string;
+    /** OS architecture */
     arch: string;
+    /** Process ID */
     pid: number;
+    /** Uptime in seconds */
     uptime: number;
   };
+  /** Recent history */
   recentHistory: SystemMetric[];
 }
 
@@ -490,104 +746,386 @@ export interface SystemMetricsResponse {
 // ============================
 
 export interface MockResponse {
+  /** Mock content */
   content: Array<{ type: 'text'; text: string }>;
+  /** Error flag */
   isError?: boolean;
+  /** Delay in ms */
   delayMs?: number;
+  /** Failure rate */
   failureRate?: number;
 }
 
 export interface ScenarioStep {
+  /** Step name */
   name: string;
+  /** Tool to call */
   tool: string;
+  /** Tool arguments */
   args?: Record<string, unknown>;
+  /** Expected results */
   expects?: {
+    /** Contains string */
     contains?: string;
+    /** Does not contain string */
     notContains?: string;
+    /** Has error flag */
     hasError?: boolean;
+    /** Max duration */
     maxDurationMs?: number;
   };
+  /** Step description */
   description?: string;
 }
 
 export interface Scenario {
+  /** Scenario name */
   name: string;
+  /** Scenario description */
   description: string;
+  /** Scenario steps */
   steps: ScenarioStep[];
+  /** Mock setup */
   setupMocks?: Record<string, MockResponse>;
+  /** Cleanup mocks flag */
   cleanupMocks?: boolean;
 }
 
 export interface StepResult {
+  /** Step name */
   name: string;
+  /** Passed flag */
   passed: boolean;
+  /** Duration in ms */
   durationMs: number;
+  /** Response data */
   response?: CallToolResult;
+  /** Error message */
   error?: string;
 }
 
 export interface ScenarioResult {
+  /** Scenario name */
   name: string;
+  /** Passed flag */
   passed: boolean;
+  /** Duration in ms */
   durationMs: number;
+  /** Step results */
   steps: StepResult[];
+  /** Error messages */
   errors: string[];
+  /** ISO timestamp */
   timestamp: string;
 }
 
 export interface LoadConfig {
+  /** Tools to test */
   tools: string[];
+  /** Argument templates */
   argsTemplates?: Record<string, Record<string, unknown>[]>;
+  /** Concurrent users */
   concurrentUsers: number;
+  /** Test duration in ms */
   durationMs: number;
+  /** Requests per second */
   requestsPerSecond?: number;
+  /** Record metrics flag */
   recordMetrics?: boolean;
+  /** Use mocks flag */
   useMocks?: boolean;
 }
 
 export interface LoadResults {
+  /** Total requests */
   totalRequests: number;
+  /** Successful requests */
   successfulRequests: number;
+  /** Failed requests */
   failedRequests: number;
+  /** Average latency */
   avgLatencyMs: number;
+  /** Minimum latency */
   minLatencyMs: number;
+  /** Maximum latency */
   maxLatencyMs: number;
+  /** P50 latency */
   p50LatencyMs: number;
+  /** P95 latency */
   p95LatencyMs: number;
+  /** P99 latency */
   p99LatencyMs: number;
+  /** Requests per second */
   rps: number;
+  /** Results by tool */
   byTool: Record<string, {
+    /** Request count */
     count: number;
+    /** Average latency */
     avgLatencyMs: number;
+    /** Error count */
     errors: number;
   }>;
+  /** Start timestamp */
   startTime: string;
+  /** End timestamp */
   endTime: string;
 }
 
 export interface SimulationStatus {
+  /** Mock mode enabled */
   mockModeEnabled: boolean;
+  /** Mocks count */
   mocksCount: number;
+  /** Scenarios count */
   scenariosCount: number;
+  /** Available tools */
   availableTools: string[];
+  /** Mock mode description */
   mockModeDescription: string;
 }
 
 export interface MocksListResponse {
+  /** Total mocks */
   total: number;
+  /** Mock mode enabled */
   mockModeEnabled: boolean;
+  /** Mock definitions */
   mocks: Record<string, {
+    /** Error flag */
     isError?: boolean;
+    /** Delay in ms */
     delayMs?: number;
+    /** Failure rate */
     failureRate?: number;
   }>;
 }
 
 export interface ScenariosListResponse {
+  /** Total scenarios */
   total: number;
+  /** Scenario list */
   scenarios: Array<{
+    /** Scenario name */
     name: string;
+    /** Scenario description */
     description: string;
+    /** Step count */
     steps: number;
+    /** Has mocks flag */
     hasMocks: boolean;
   }>;
+}
+
+// =============================
+// Custom Tools API Types
+// =============================
+
+export interface CustomToolInputSchema {
+  /** Schema type */
+  type: string;
+  /** Schema properties */
+  properties?: Record<string, {
+    /** Property type */
+    type: string;
+    /** Property description */
+    description?: string;
+    /** Enum values */
+    enum?: string[];
+    /** Default value */
+    default?: unknown;
+  }>;
+  /** Required properties */
+  required?: string[];
+}
+
+export interface CustomTool {
+  /** Tool ID */
+  id: number;
+  /** Tool name */
+  name: string;
+  /** Display name */
+  displayName: string;
+  /** Tool description */
+  description: string;
+  /** Input schema JSON */
+  inputSchema: string;
+  /** Handler code */
+  handlerCode: string;
+  /** Enabled flag */
+  enabled: boolean;
+  /** Tool category */
+  category?: string;
+  /** Tool icon */
+  icon?: string;
+  /** Settings JSON */
+  settings?: string | null;
+  /** Last test args JSON */
+  lastTestArgs?: string | null;
+  /** Last test result JSON */
+  lastTestResult?: string | null;
+  /** Creation timestamp */
+  createdAt: string;
+  /** Update timestamp */
+  updatedAt: string;
+}
+
+export interface CustomToolSummary {
+  /** Tool ID */
+  id: number;
+  /** Tool name */
+  name: string;
+  /** Display name */
+  displayName: string;
+  /** Tool description */
+  description: string;
+  /** Enabled flag */
+  enabled: boolean;
+  /** Tool category */
+  category?: string;
+  /** Tool icon */
+  icon?: string;
+  /** Creation timestamp */
+  createdAt: string;
+  /** Update timestamp */
+  updatedAt: string;
+  /** Has test result flag */
+  hasTestResult?: boolean;
+}
+
+export interface CustomToolsListResponse {
+  /** Total tools */
+  total: number;
+  /** Tool list */
+  tools: CustomToolSummary[];
+}
+
+export interface CustomToolDetailResponse extends CustomTool {
+  /** Parsed schema */
+  parsedSchema?: CustomToolInputSchema;
+  /** Parsed settings */
+  parsedSettings?: Record<string, unknown>;
+  /** Parsed test args */
+  lastTestArgsParsed?: Record<string, unknown>;
+  /** Parsed test result */
+  lastTestResultParsed?: CallToolResult;
+}
+
+export interface CreateCustomToolRequest {
+  /** Tool name */
+  name: string;
+  /** Display name */
+  displayName: string;
+  /** Tool description */
+  description: string;
+  /** Input schema JSON */
+  inputSchema: string;
+  /** Handler code */
+  handlerCode: string;
+  /** Tool category */
+  category?: string;
+  /** Tool icon */
+  icon?: string;
+  /** Settings JSON */
+  settings?: string;
+}
+
+export interface CreateCustomToolResponse {
+  /** Response status */
+  status: string;
+  /** Tool summary */
+  tool: CustomToolSummary;
+}
+
+export interface UpdateCustomToolRequest {
+  /** Display name */
+  displayName?: string;
+  /** Tool description */
+  description?: string;
+  /** Input schema JSON */
+  inputSchema?: string;
+  /** Handler code */
+  handlerCode?: string;
+  /** Tool category */
+  category?: string;
+  /** Tool icon */
+  icon?: string;
+  /** Settings JSON */
+  settings?: string;
+}
+
+export interface UpdateCustomToolResponse {
+  /** Response status */
+  status: string;
+  /** Tool summary */
+  tool: CustomToolSummary;
+}
+
+export interface DeleteCustomToolResponse {
+  /** Response status */
+  status: string;
+  /** Deleted tool name */
+  tool: string;
+}
+
+export interface TestCustomToolRequest {
+  /** Test arguments */
+  [key: string]: unknown;
+}
+
+export interface TestCustomToolResponse {
+  /** Success flag */
+  success: boolean;
+  /** Test result */
+  result: CallToolResult;
+  /** Elapsed time */
+  elapsedTime?: number;
+}
+
+export interface ToggleCustomToolRequest {
+  /** Enabled flag */
+  enabled: boolean;
+}
+
+export interface ToggleCustomToolResponse {
+  /** Response status */
+  status: string;
+  /** Tool info */
+  tool: {
+    /** Tool ID */
+    id: number;
+    /** Tool name */
+    name: string;
+    /** Enabled flag */
+    enabled: boolean;
+  };
+}
+
+export interface CustomToolTemplate {
+  /** Template name */
+  name: string;
+  /** Template description */
+  description: string;
+  /** Template code */
+  code: {
+    /** Tool name */
+    name: string;
+    /** Display name */
+    displayName: string;
+    /** Tool description */
+    description: string;
+    /** Input schema JSON */
+    inputSchema: string;
+    /** Handler code */
+    handlerCode: string;
+    /** Tool category */
+    category: string;
+    /** Tool icon */
+    icon: string;
+  };
+}
+
+export interface CustomToolTemplatesResponse {
+  /** Template list */
+  templates: CustomToolTemplate[];
 }
