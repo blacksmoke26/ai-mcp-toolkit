@@ -1,3 +1,9 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
 import {useEffect, useState} from 'react';
 import {AlertCircle, CheckCircle2, Code, Database, Key, Plus, RefreshCw, Server, Sparkles, Trash2} from 'lucide-react';
@@ -16,7 +22,26 @@ import {
   removeProvider,
 } from '@/lib/api';
 
-export function AdminProviders() {
+/**
+ * AdminProviders Component
+ *
+ * A React functional component that manages LLM provider configurations.
+ * It allows users to add, remove, and view details for providers like Ollama and OpenAI.
+ *
+ * @example
+ * ```tsx
+ * import AdminProviders from './AdminProviders';
+ *
+ * function App() {
+ *   return (
+ *     <div className="admin-dashboard">
+ *       <AdminProviders />
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+const AdminProviders: React.FC = () => {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [configuredProviders, setConfiguredProviders] = useState<Provider[]>([]);
   const [defaultProvider, setDefaultProvider] = useState<string>('');
@@ -44,7 +69,7 @@ export function AdminProviders() {
       setError(null);
       const response = await listProviders();
       setProviders(response.active || []);
-      setConfiguredProviders(response.configured || []);
+      setConfiguredProviders((response?.configured ?? []) as unknown as Provider[]);
       setDefaultProvider(response.default || '');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch providers');
@@ -244,6 +269,7 @@ export function AdminProviders() {
               <div className="space-y-2 sm:col-span-2">
                 <label className="text-sm font-medium">Base URL *</label>
                 <Input
+                  type="text"
                   value={formBaseUrl}
                   onChange={(e) => setFormBaseUrl(e.target.value)}
                   placeholder={`e.g., http://localhost:11434 (Ollama) or https://api.openai.com (OpenAI)`}
@@ -255,7 +281,7 @@ export function AdminProviders() {
                   API Key <span className="text-muted-foreground">(optional, required for OpenAI)</span>
                 </label>
                 <Input
-                  type="password"
+                  type="text"
                   value={formApiKey}
                   onChange={(e) => setFormApiKey(e.target.value)}
                   placeholder="sk-..."
@@ -634,6 +660,6 @@ export function AdminProviders() {
       </div>
     </div>
   );
-}
+};
 
 export default AdminProviders;

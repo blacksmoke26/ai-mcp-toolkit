@@ -1,3 +1,9 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from "react";
 import { useEffect, useState, useRef } from "react";
 import {
@@ -21,22 +27,52 @@ import { Textarea } from "@/components/ui/Textarea";
 import { listProviders, type Provider } from "@/lib/api";
 
 interface StreamMessage {
+  /** The role of the message sender. */
   role: "user" | "assistant" | "tool" | "system";
+  /** The text content of the message. */
   content: string;
+  /** The name of the tool used, if applicable. */
   toolName?: string;
+  /** Indicates if the message content is currently being streamed. */
   isStreaming?: boolean;
+  /** The time the message was created or received. */
   timestamp: Date;
 }
 
 interface StreamState {
+  /** Indicates whether a stream is currently active. */
   isStreaming: boolean;
+  /** The name of the LLM provider selected. */
   provider: string;
+  /** The specific model name being used. */
   model: string;
+  /** The temperature setting for generation randomness. */
   temperature: number;
+  /** The maximum number of tokens to generate. */
   maxTokens: number;
 }
 
-export function ChatStream() {
+/**
+ * ChatStream Component
+ *
+ * A React component that provides a real-time chat interface using Server-Sent Events (SSE).
+ * It manages the streaming of messages from an LLM, handles tool calls, and displays
+ * connection statistics.
+ *
+ * @example
+ * ```tsx
+ * import { ChatStream } from './ChatStream';
+ *
+ * function App() {
+ *   return (
+ *     <div className="h-screen">
+ *       <ChatStream />
+ *     </div>
+ *   );
+ * }
+ * ```
+ */
+const ChatStream = () => {
   const [messages, setMessages] = useState<StreamMessage[]>([]);
   const [inputMessage, setInputMessage] = useState("");
   const [streamState, setStreamState] = useState<StreamState>({
@@ -70,13 +106,13 @@ export function ChatStream() {
   const fetchProviders = async () => {
     try {
       const response = await listProviders();
-      setProviders(response.providers || []);
-      if (response.providers?.length > 0) {
-        const defaultProvider = response.providers.find((p) => p.isDefault) || response.providers[0];
+      setProviders(response.active || []);
+      if (response.active?.length > 0) {
+        const defaultProvider = response.active.find((p) => p.name === response.default) || response.active[0];
         setStreamState((prev) => ({
           ...prev,
           provider: defaultProvider?.name || "",
-          model: defaultProvider?.config?.defaultModel || "",
+          model: defaultProvider?.defaultModel || "",
         }));
       }
     } catch (err) {
@@ -601,6 +637,6 @@ export function ChatStream() {
       </Card>
     </div>
   );
-}
+};
 
 export default ChatStream;

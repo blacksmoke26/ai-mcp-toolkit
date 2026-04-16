@@ -1,3 +1,9 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
 import {useEffect, useRef, useState} from 'react';
 import {
@@ -19,6 +25,7 @@ import {Button} from '@/components/ui/Button';
 import {Input} from '@/components/ui/Input';
 import {Textarea} from '@/components/ui/Textarea';
 import {Badge} from '@/components/ui/Badge';
+import {Label} from '@/components/ui/Label';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {
   type ChatMessage,
@@ -32,7 +39,105 @@ import {
   sendChat,
 } from '@/lib/api';
 
-export function Chat() {
+interface MessageBubbleProps {
+  /** The message content to display, which can be a string or a React node */
+  message: ChatMessage & { content: string | React.ReactNode };
+  /** Optional flag to indicate if the message is currently loading */
+  isLoading?: boolean;
+}
+
+/**
+ * MessageBubble component displays a single chat message with appropriate styling
+ * based on the role (user, assistant, or tool) and loading state.
+ *
+ * @param message - The message object containing role and content
+ * @param isLoading - Optional flag to indicate if the message is currently loading
+ */
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLoading = false }) => {
+  const isUser = message.role === 'user';
+  const isTool = message.role === 'tool';
+
+  if (isTool) {
+    return (
+      <div className="flex items-start gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary">
+          <Wrench className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <Card className="flex-1">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant="secondary" className="text-xs">
+                Tool Response
+              </Badge>
+              <span className="text-xs text-muted-foreground">{formatTime()}</span>
+            </div>
+            <pre className="text-sm font-mono whitespace-pre-wrap">{message.content}</pre>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
+      <div
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+          isUser ? 'bg-primary' : 'bg-secondary'
+        }`}
+      >
+        {isUser ? (
+          <User className="h-4 w-4 text-primary-foreground" />
+        ) : (
+          <Bot className="h-4 w-4 text-muted-foreground" />
+        )}
+      </div>
+      <div className={`flex-1 ${isUser ? 'text-right' : ''}`}>
+        {isUser ? (
+          <div className="inline-block rounded-lg bg-primary px-4 py-2 text-primary-foreground">
+            {message.content}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="text-sm">
+              {isLoading ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Generating response...</span>
+                </div>
+              ) : (
+                <p className="whitespace-pre-wrap">{message.content}</p>
+              )}
+            </div>
+            {!isLoading && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                <span>{formatTime()}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Formats a timestamp into a localized time string (HH:MM).
+ *
+ * @param timestamp - Optional timestamp in milliseconds. If not provided, returns an empty string.
+ * @returns The formatted time string.
+ */
+function formatTime(timestamp?: number) {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Chat component manages the main chat interface, including message history,
+ * provider selection, and conversation management.
+ */
+const Chat = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -102,7 +207,7 @@ export function Chat() {
     setError(null);
 
     const request: ChatRequest = {
-      message: userMessage.content,
+      message: userMessage.content as string,
       conversationId: conversationId || undefined,
       provider: selectedProvider || undefined,
       model: selectedModel || undefined,
@@ -292,7 +397,7 @@ export function Chat() {
 
         {/* Error Alert */}
         {error && (
-          <Alert variant="destructive" className="shrink-0">
+          <Alert variant="destructive" className="shrink-0 mt-2 mb-2">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Error</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
@@ -321,7 +426,8 @@ export function Chat() {
             <MessageBubble
               message={{
                 role: 'assistant',
-                content: <Loader2 className="h-5 w-5 animate-spin" />,
+                //content: <Loader2 className="h-5 w-5 animate-spin" />,
+                content: 'Loading...',
               }}
               isLoading
             />
@@ -418,100 +524,6 @@ export function Chat() {
       )}
     </div>
   );
-}
-
-// Helper Components
-
-interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {}
-
-function Label({ className, children, ...props }: LabelProps) {
-  return (
-    <label
-      className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className || ''}`}
-      {...props}
-    >
-      {children}
-    </label>
-  );
-}
-
-interface MessageBubbleProps {
-  message: ChatMessage & { content: string | React.ReactNode };
-  isLoading?: boolean;
-}
-
-function MessageBubble({ message, isLoading = false }: MessageBubbleProps) {
-  const isUser = message.role === 'user';
-  const isTool = message.role === 'tool';
-
-  if (isTool) {
-    return (
-      <div className="flex items-start gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary">
-          <Wrench className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <Card className="flex-1">
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="secondary" className="text-xs">
-                Tool Response
-              </Badge>
-              <span className="text-xs text-muted-foreground">{formatTime()}</span>
-            </div>
-            <pre className="text-sm font-mono whitespace-pre-wrap">{message.content}</pre>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-      <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-          isUser ? 'bg-primary' : 'bg-secondary'
-        }`}
-      >
-        {isUser ? (
-          <User className="h-4 w-4 text-primary-foreground" />
-        ) : (
-          <Bot className="h-4 w-4 text-muted-foreground" />
-        )}
-      </div>
-      <div className={`flex-1 ${isUser ? 'text-right' : ''}`}>
-        {isUser ? (
-          <div className="inline-block rounded-lg bg-primary px-4 py-2 text-primary-foreground">
-            {message.content}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="text-sm">
-              {isLoading ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Generating response...</span>
-                </div>
-              ) : (
-                <p className="whitespace-pre-wrap">{message.content}</p>
-              )}
-            </div>
-            {!isLoading && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                <span>{formatTime()}</span>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function formatTime(timestamp?: number) {
-  if (!timestamp) return '';
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
+};
 
 export default Chat;
