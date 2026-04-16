@@ -1,4 +1,10 @@
 /**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
+/**
  * @module server/fastify
  * @description Fastify server initialization and configuration.
  *
@@ -22,14 +28,15 @@
 
 import Fastify, {type FastifyError} from 'fastify';
 import cors from '@fastify/cors';
-import {config} from '@/config/index.js';
-import {healthRoutes} from './routes/health.js';
-import {mcpRoutes} from './routes/mcp.js';
-import {chatRoutes} from './routes/chat.js';
-import {adminRoutes} from './routes/admin.js';
-import {metricsRoutes} from './routes/metrics.js';
-import {simulationRoutes} from './routes/simulation.js';
-import {logger} from '@/utils/logger.js';
+import {config} from '@/config';
+import {healthRoutes} from './routes/health';
+import {mcpRoutes} from './routes/mcp';
+import {chatRoutes} from './routes/chat';
+import {adminRoutes} from './routes/admin';
+import {metricsRoutes} from './routes/metrics';
+import {simulationRoutes} from './routes/simulation';
+import customToolsRoutes from './routes/custom-tools';
+import logger from '@/utils/logger';
 
 /**
  * Create and configure the Fastify server instance.
@@ -74,6 +81,7 @@ export async function createServer() {
   await server.register(adminRoutes);
   await server.register(metricsRoutes);
   await server.register(simulationRoutes);
+  await server.register(customToolsRoutes);
 
   // ─── Request Logging Hook ─────────────────────────────────────────────────
 
