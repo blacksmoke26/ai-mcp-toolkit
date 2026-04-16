@@ -1,4 +1,10 @@
 /**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
+/**
  * @module index
  * @description Main entry point for the MCP Server.
  *
@@ -52,26 +58,24 @@
  * ```
  */
 
-import { config, printConfig } from '@/config/index.js';
-import { initDatabase, Provider } from '@/db/index.js';
-import { createServer } from '@/server/fastify.js';
-import { toolRegistry } from '@/mcp/tools/registry.js';
-import { registerBuiltinTools } from '@/mcp/tools/builtin.js';
-import { resourceRegistry } from '@/mcp/resources/registry.js';
-import { promptRegistry } from '@/mcp/prompts/registry.js';
-import { llmRegistry } from '@/llm/registry.js';
-import { buildToolDefinitions } from '@/llm/agent.js';
-import { logger } from '@/utils/logger.js';
-import { simulator } from '@/simulation/simulator.js';
-import { metricsCollector } from '@/metrics/collector.js';
+import {config, printConfig} from '@/config';
+import {initDatabase, Provider} from '@/db';
+import {createServer} from '@/server/fastify';
+import {toolRegistry} from '@/mcp/tools/registry';
+import {registerBuiltinTools} from '@/mcp/tools/builtin';
+import {resourceRegistry} from '@/mcp/resources/registry';
+import {promptRegistry} from '@/mcp/prompts/registry';
+import {llmRegistry} from '@/llm/registry';
+import {buildToolDefinitions} from '@/llm/agent';
+import logger from '@/utils/logger';
+import {simulator} from '@/simulation/simulator';
+import {customToolExecutor} from '@/tools/custom-tool-executor';
 
 // ─── Custom Tools ─────────────────────────────────────────────────────────────
-
-import { weatherTool } from '@/tools/weather.js';
-import { wordCountTool, textTransformTool } from '@/tools/text-analysis.js';
+import predefinedTools from '@/tools/index';
+import promptTemplates from '@/constants/prompt-templates';
 
 // ─── Startup ─────────────────────────────────────────────────────────────────
-
 async function bootstrap() {
   console.log('');
   console.log('🚀 MCP Server — Model Context Protocol');
@@ -92,16 +96,18 @@ async function bootstrap() {
   // Built-in tools (echo, get_current_time, calculator, json_query)
   registerBuiltinTools();
 
-  // Custom tools
-  toolRegistry.register(weatherTool);
-  toolRegistry.register(wordCountTool);
-  toolRegistry.register(textTransformTool);
+  // Custom tools from source code
+  predefinedTools.forEach(x => toolRegistry.register(x));
+
+  // Load custom tools from database
+  console.log('\n🔌 Loading custom tools from database...');
+  await customToolExecutor.loadAllFromDatabase();
 
   const categories = toolRegistry.getByCategory();
   for (const [category, names] of Object.entries(categories)) {
     console.log(`   ✓ ${category}: ${names.join(', ')}`);
   }
-  console.log(`   Total: ${toolRegistry.size} tools`);
+  console.log(`   Total: ${toolRegistry.size} tools (${customToolExecutor.size} custom)`);
 
   // 3.5 Register simulation scenarios
   console.log('\n🧪 Registering simulation scenarios...');
@@ -179,70 +185,7 @@ async function bootstrap() {
   // 6. Register example prompts
   console.log('\n💬 Registering MCP prompts...');
 
-  promptRegistry.register({
-    name: 'code_review',
-    description: 'Generate a code review prompt with context about the code to review',
-    arguments: [
-      { name: 'language', description: 'Programming language', required: true },
-      { name: 'code', description: 'The code to review', required: true },
-      { name: 'focus', description: 'Areas to focus on (e.g., "security", "performance", "readability")' },
-    ],
-    handler: async (args) => ({
-      description: 'Code review assistant prompt',
-      messages: [{
-        role: 'user' as const,
-        content: {
-          type: 'text' as const,
-          text: [
-            `You are an expert code reviewer specializing in ${args.language}.`,
-            '',
-            `Please review the following ${args.language} code${args.focus ? `, focusing on ${args.focus}` : ''}:`,
-            '',
-            '```' + args.language,
-            args.code,
-            '```',
-            '',
-            'Provide a structured review with:',
-            '1. Summary of what the code does',
-            '2. Issues found (with severity levels)',
-            '3. Suggestions for improvement',
-            '4. Security concerns (if any)',
-          ].join('\n'),
-        },
-      }],
-    }),
-  });
-
-  promptRegistry.register({
-    name: 'explain_concept',
-    description: 'Generate a prompt for explaining a technical concept',
-    arguments: [
-      { name: 'concept', description: 'The concept to explain', required: true },
-      { name: 'audience', description: 'Target audience level (beginner, intermediate, expert)' },
-      { name: 'context', description: 'Additional context or domain' },
-    ],
-    handler: async (args) => ({
-      description: 'Concept explanation prompt',
-      messages: [{
-        role: 'user' as const,
-        content: {
-          type: 'text' as const,
-          text: [
-            `Please explain the concept of "${args.concept}"`,
-            args.audience ? `for a ${args.audience} audience` : 'in a clear and comprehensive way',
-            args.context ? `in the context of ${args.context}` : '',
-            '.',
-            '',
-            'Include:',
-            '1. A simple definition',
-            '2. How it works (with analogies if helpful)',
-            '3. Practical examples',
-            '4. Common misconceptions',
-          ].join(' '),
-        },
-      }],
-    }),
-  });
+  promptTemplates.forEach(x => promptRegistry.register(x));
 
   console.log(`   ✓ ${promptRegistry.size} prompts registered`);
 
@@ -252,7 +195,7 @@ async function bootstrap() {
   const server = await createServer();
 
   try {
-    const address = await server.listen({ port: config.port, host: config.host });
+    const address = await server.listen({port: config.port, host: config.host});
     console.log('');
     console.log('─'.repeat(52));
     console.log('✅ MCP Server is running!');
@@ -266,7 +209,17 @@ async function bootstrap() {
     console.log(`   POST ${address}/chat           → Agent Chat`);
     console.log(`   POST ${address}/chat/stream    → Agent Chat (SSE)`);
     console.log(`   GET  ${address}/chat/conversations → List Chats`);
-    console.log('   ──────────────────────────────────────────────');
+    console.log('   ────────┬───────┬───────────┬─────────');
+    console.log('   Custom Tools API:');
+    console.log(`   GET  ${address}/api/custom-tools      → List all custom tools`);
+    console.log(`   POST ${address}/api/custom-tools      → Create custom tool`);
+    console.log(`   GET  ${address}/api/custom-tools/:id  → Get tool details`);
+    console.log(`   PUT  ${address}/api/custom-tools/:id  → Update tool`);
+    console.log(`   DELETE ${address}/api/custom-tools/:id → Delete tool`);
+    console.log(`   POST ${address}/api/custom-tools/:id/test → Test tool`);
+    console.log(`   POST ${address}/api/custom-tools/:id/toggle → Enable/Disable tool`);
+    console.log(`   GET  ${address}/api/custom-tools/templates → Get example templates`);
+    console.log('   ────────┬───────┬───────────┬─────────');
     console.log('   Health & Monitoring:');
     console.log(`   GET  ${address}/health         → Health Check`);
     console.log(`   GET  ${address}/health/ready   → Readiness Check`);
@@ -286,9 +239,9 @@ async function bootstrap() {
     console.log(`   POST ${address}/simulate/tool        → Test Single Tool`);
     console.log('─'.repeat(52));
     console.log('');
-    logger.info({ address }, 'MCP Server started');
+    logger.info({address}, 'MCP Server started');
   } catch (err) {
-    logger.error({ err }, 'Failed to start server');
+    logger.error({err}, 'Failed to start server');
     console.error(`\n❌ Failed to start server: ${err instanceof Error ? err.message : err}`);
     process.exit(1);
   }
