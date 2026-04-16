@@ -1,5 +1,11 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import {Link, useLocation} from 'react-router-dom';
 import {
   Activity,
   MessageSquare,
@@ -15,19 +21,38 @@ import {
   Zap,
   Info,
   LayoutList,
-  Blocks,
+  Blocks, PocketKnife,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from './ui/Button';
-import { Badge } from './ui/Badge';
-import { useTheme } from '../context/ThemeContext';
-
+import {cn} from '@/lib/utils';
+import {Button} from './ui/Button';
+import {Badge} from './ui/Badge';
+import {useTheme} from '@/context/ThemeContext';
 
 interface NavItem {
+  /**
+   * The display text for the navigation item.
+   * @example "Dashboard"
+   */
   label: string;
+  /**
+   * The URL path the navigation item links to.
+   * @example "/"
+   */
   href: string;
+  /**
+   * The Lucide React icon component to render.
+   * @example LayoutDashboard
+   */
   icon: React.ElementType;
+  /**
+   * Optional short description explaining the item's purpose.
+   * @example "Server status and quick stats"
+   */
   description?: string;
+  /**
+   * Optional badge text to display next to the item.
+   * @example "JSON-RPC"
+   */
   badge?: string;
 }
 
@@ -98,7 +123,6 @@ const navSections: {
         href: '/mcp/info',
         icon: Info,
         description: 'Server-Sent Events endpoint',
-        badge: 'INFO',
       },
     ],
   },
@@ -148,6 +172,12 @@ const navSections: {
         icon: Wrench,
         description: 'Enable/disable MCP tools',
       },
+      {
+        label: 'Custom Tools',
+        href: '/admin/custom-tools',
+        icon: PocketKnife,
+        description: 'Custom tools management',
+      },
     ],
   },
   {
@@ -165,13 +195,17 @@ const navSections: {
 ];
 
 interface LayoutProps {
+  /**
+   * The content to be rendered within the layout component.
+   * @example <div>Page Content</div>
+   */
   children: React.ReactNode;
 }
 
-export function Layout({ children }: LayoutProps) {
+const Layout: React.FC<LayoutProps> = ({children}) => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
-  const { theme, toggleTheme } = useTheme();
+  const {theme, toggleTheme} = useTheme();
 
   return (
     <div className="min-h-screen bg-background">
@@ -184,12 +218,12 @@ export function Layout({ children }: LayoutProps) {
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             className="md:hidden mr-2"
           >
-            <LayoutDashboard className="h-5 w-5" />
+            <LayoutDashboard className="h-5 w-5"/>
           </Button>
 
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Bot className="h-5 w-5 text-primary-foreground" />
+              <Bot className="h-5 w-5 text-primary-foreground"/>
             </div>
             <div>
               <h1 className="text-lg font-semibold text-foreground">MCP Server</h1>
@@ -209,9 +243,9 @@ export function Layout({ children }: LayoutProps) {
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             >
               {theme === 'dark' ? (
-                <Sun className="h-5 w-5" />
+                <Sun className="h-5 w-5"/>
               ) : (
-                <Moon className="h-5 w-5" />
+                <Moon className="h-5 w-5"/>
               )}
             </Button>
             <a
@@ -222,7 +256,7 @@ export function Layout({ children }: LayoutProps) {
               <Button variant="outline" size="sm" asChild>
                 <Link to="http://localhost:3100" target="_blank" rel="noopener noreferrer">
                   Backend: localhost:3100
-                  <ExternalLink className="ml-2 h-3 w-3" />
+                  <ExternalLink className="ml-2 h-3 w-3"/>
                 </Link>
               </Button>
             </a>
@@ -233,13 +267,13 @@ export function Layout({ children }: LayoutProps) {
       <div className="flex">
         {/* Sidebar Navigation */}
         <aside
-            className={cn(
-              'fixed inset-y-0 left-0 z-40 w-96 transform border-r border-border bg-card transition-transform',
-              isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
-              'md:relative md:translate-x-0',
-            )}
-          >
-          <nav className="space-y-6 overflow-y-auto p-4 pt-7" style={{ maxHeight: 'calc(100vh - 4rem)' }}>
+          className={cn(
+            'fixed inset-y-0 left-0 z-40 w-96 transform border-r border-border bg-card transition-transform',
+            isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
+            'md:relative md:translate-x-0',
+          )}
+        >
+          <nav className="space-y-6 overflow-y-auto p-4 pt-7" style={{maxHeight: 'calc(100vh - 4rem)'}}>
             {navSections.map((section) => (
               <div key={section.title}>
                 <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -259,7 +293,7 @@ export function Layout({ children }: LayoutProps) {
                             isActive && 'font-semibold',
                           )}
                         >
-                          <Icon className="h-4 w-4" />
+                          <Icon className="h-4 w-4"/>
                           <div className="flex flex-col items-start">
                             <span className="text-sm">{item.label}</span>
                             {item.description && (
@@ -292,6 +326,6 @@ export function Layout({ children }: LayoutProps) {
       </div>
     </div>
   );
-}
+};
 
 export default Layout;
