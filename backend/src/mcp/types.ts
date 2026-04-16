@@ -1,26 +1,26 @@
 /**
  * @module mcp/types
  * @description Complete type definitions for the Model Context Protocol (MCP).
- * 
+ *
  * MCP is a standardized protocol for connecting AI models to external tools,
  * resources, and prompt templates. It uses JSON-RPC 2.0 as its transport layer.
- * 
+ *
  * ## Protocol Overview
- * 
+ *
  * The MCP protocol defines three core primitives:
- * 
+ *
  * 1. **Tools** — Functions the model can invoke (e.g., "search database", "read file")
  * 2. **Resources** — Read-only data sources the model can access (e.g., "file://path", "db://table")
  * 3. **Prompts** — Reusable prompt templates with variable substitution
- * 
+ *
  * ## Transport
- * 
+ *
  * MCP supports two transport modes:
  * - **stdio** — Bidirectional pipe (for CLI tools and local processes)
  * - **HTTP+SSE** — Server-Sent Events for server-to-client streaming
- * 
+ *
  * ## References
- * 
+ *
  * - [MCP Specification](https://modelcontextprotocol.io/specification)
  * - [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
  */
@@ -406,6 +406,7 @@ export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
 
 /** Single chat message */
 export interface ChatMessage {
+  /** The user role */
   role: ChatRole;
   content: string;
   /** Tool calls requested by the assistant (only for role='assistant') */
@@ -447,4 +448,61 @@ export interface LLMCompletionResponse {
   model: string;
   /** Whether the generation was truncated */
   finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | string;
+}
+
+export interface MCPTool {
+  /**
+   * The unique name of the tool.
+   *
+   * @example
+   * "search_database"
+   */
+  name: string;
+  /**
+   * A human-readable description of what the tool does.
+   * This is typically shown to the LLM to help it decide when to use the tool.
+   *
+   * @example
+   * "Searches the PostgreSQL database for records matching the query."
+   */
+  description: string;
+  /**
+   * The category the tool belongs to (e.g., "database", "file_system", "api").
+   *
+   * @example
+   * "database"
+   */
+  category: string;
+  /**
+   * JSON Schema definition for the input arguments the tool accepts.
+   *
+   * @example
+   * ```json
+   * {
+   *   "type": "object",
+   *   "properties": {
+   *     "query": { "type": "string", "description": "The SQL query." }
+   *   },
+   *   "required": ["query"]
+   * }
+   * ```
+   */
+  inputSchema: JsonSchema;
+  /**
+   * The async function that executes the tool logic.
+   *
+   * @param args - The arguments passed to the tool, matching the `inputSchema`.
+   * @returns A promise resolving to the tool's execution result.
+   *
+   * @example
+   * ```typescript
+   * async handler(args) {
+   *   const result = await db.query(args.query);
+   *   return {
+   *     content: [{ type: 'text', text: JSON.stringify(result) }]
+   *   };
+   * }
+   * ```
+   */
+  handler(args: Record<string, unknown>): Promise<CallToolResult>;
 }
