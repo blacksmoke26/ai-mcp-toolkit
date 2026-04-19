@@ -3,7 +3,7 @@
  * @copyright 2026 Junaid Atari
  * @see https://github.com/blacksmoke26
  */
- 
+
  /**
  * @module llm/ollama
  * @description Ollama LLM provider implementation.
@@ -52,6 +52,7 @@ import type {
   StreamChunk,
 } from './types.js';
 import type { ChatMessage, LLMCompletionResponse } from '@/mcp/types.js';
+import { createHttpClient, type HttpClientConfig, HttpError } from '@/utils/httpClient.js';
 
 /**
  * Ollama LLM provider implementation.
@@ -81,6 +82,9 @@ export class OllamaProvider implements LLMProvider {
   /** Configuration options for the provider, including base URL and default model. */
   config: LLMProviderConfig;
 
+  /** HTTP client instance for making API requests. */
+  private httpClient: ReturnType<typeof createHttpClient>;
+
   /**
    * Creates a new OllamaProvider instance.
    *
@@ -88,6 +92,26 @@ export class OllamaProvider implements LLMProvider {
    */
   constructor(config: LLMProviderConfig) {
     this.config = config;
+    this.httpClient = createHttpClient(this.buildHttpClientConfig());
+  }
+
+  /**
+   * Builds the HTTP client configuration from provider config.
+   *
+   * @returns HttpClientConfig object with base URL and headers.
+   */
+  private buildHttpClientConfig(): HttpClientConfig {
+    return {
+      baseUrl: this.config.baseUrl,
+      timeout: 60000, // 60 seconds timeout for LLM requests
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      maxRetries: 3,
+      retryDelay: 1000,
+      retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+    };
   }
 
   // ─── Chat Completion ───────────────────────────────────────────────────
@@ -109,22 +133,25 @@ export class OllamaProvider implements LLMProvider {
     options?: Partial<LLMGenerationParams>,
   ): Promise<LLMCompletionResponse> {
     const params = this.buildParams(messages, options);
-    const url = `${this.config.baseUrl}/api/chat`;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
+    try {
+      const response = await this.httpClient.post<OllamaChatResponse>('/api/chat', params);
 
-    console.log('response', response, params);
+      if (response.status < 200 || response.status >= 300) {
+        throw new HttpError(
+          `Ollama API error: ${response.status} ${response.statusText}`,
+          response.status,
+          { data: response.data, status: response.status, statusText: response.statusText },
+        );
+      }
 
-    if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
+      return this.parseResponse(response.data);
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+      throw new HttpError(`Ollama chat request failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    const data = await response.json() as OllamaChatResponse;
-    return this.parseResponse(data);
   }
 
   // ─── Streaming Chat ────────────────────────────────────────────────────
@@ -149,55 +176,54 @@ export class OllamaProvider implements LLMProvider {
   ): AsyncGenerator<StreamChunk> {
     const params = this.buildParams(messages, options);
     params.stream = true;
-    const url = `${this.config.baseUrl}/api/chat`;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
+    try {
+      const stream = await this.httpClient.stream('/api/chat', {
+        method: 'POST',
+        data: params,
+      });
 
-    if (!response.ok) {
-      throw new Error(`Ollama streaming error: ${response.status} ${response.statusText}`);
-    }
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error('No response body for streaming');
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-    const decoder = new TextDecoder();
-    let buffer = '';
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const chunk = JSON.parse(line) as OllamaStreamChunk;
-          if (chunk.message?.content) {
-            yield { type: 'content', delta: chunk.message.content, finish_reason: chunk.done ? 'stop' : undefined };
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const chunk = JSON.parse(line) as OllamaStreamChunk;
+            if (chunk.message?.content) {
+              yield { type: 'content', delta: chunk.message.content, finish_reason: chunk.done ? 'stop' : undefined };
+            }
+            if (chunk.done) {
+              yield {
+                type: 'done',
+                usage: chunk.prompt_eval_count || chunk.eval_count
+                  ? {
+                      prompt_tokens: chunk.prompt_eval_count || 0,
+                      completion_tokens: chunk.eval_count || 0,
+                      total_tokens: (chunk.prompt_eval_count || 0) + (chunk.eval_count || 0),
+                    }
+                  : undefined,
+              };
+            }
+          } catch {
+            // Skip malformed JSON lines
           }
-          if (chunk.done) {
-            yield {
-              type: 'done',
-              usage: chunk.prompt_eval_count || chunk.eval_count
-                ? {
-                    prompt_tokens: chunk.prompt_eval_count || 0,
-                    completion_tokens: chunk.eval_count || 0,
-                    total_tokens: (chunk.prompt_eval_count || 0) + (chunk.eval_count || 0),
-                  }
-                : undefined,
-            };
-          }
-        } catch {
-          // Skip malformed JSON lines
         }
       }
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+      throw new HttpError(`Ollama streaming request failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -214,21 +240,41 @@ export class OllamaProvider implements LLMProvider {
    * directly, so it is set to `undefined` in the returned info.
    */
   async listModels(): Promise<LLMModelInfo[]> {
-    const url = `${this.config.baseUrl}/api/tags`;
-    const response = await fetch(url);
+    try {
+      const response = await this.httpClient.get<{
+        models: Array<{
+          name: string;
+          size?: number;
+          modified_at?: string;
+          details?: {
+            parent_model?: string;
+            format?: string;
+            family?: string;
+            parameter_size?: string;
+          };
+        }>;
+      }>('/api/tags');
 
-    if (!response.ok) {
-      throw new Error(`Ollama list models error: ${response.status}`);
+      if (response.status < 200 || response.status >= 300) {
+        throw new HttpError(
+          `Ollama list models error: ${response.status}`,
+          response.status,
+          { data: response.data, status: response.status, statusText: response.statusText },
+        );
+      }
+
+      return (response.data.models || []).map((m) => ({
+        id: m.name,
+        name: m.name,
+        owned_by: m.details?.family || 'local',
+        context_length: undefined, // Ollama doesn't expose this directly
+      }));
+    } catch (error) {
+      if (error instanceof HttpError) {
+        throw error;
+      }
+      throw new HttpError(`Ollama list models request failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    const data = await response.json() as { models: Array<{ name: string; size?: number; modified_at?: string; details?: { parent_model?: string; format?: string; family?: string; parameter_size?: string } }> };
-
-    return (data.models || []).map((m) => ({
-      id: m.name,
-      name: m.name,
-      owned_by: m.details?.family || 'local',
-      context_length: undefined, // Ollama doesn't expose this directly
-    }));
   }
 
   /**
@@ -242,8 +288,22 @@ export class OllamaProvider implements LLMProvider {
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.config.baseUrl}/api/tags`, { signal: AbortSignal.timeout(5000) });
-      return response.ok;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+      try {
+        const response = await this.httpClient.get('/api/tags', {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        return response.status >= 200 && response.status < 300;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof HttpError && error.isCancelled) {
+          return false;
+        }
+        throw error;
+      }
     } catch {
       return false;
     }
