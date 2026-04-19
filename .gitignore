@@ -1,2 +1,7 @@
 *.rar
 .trash
+node_modules
+.idea
+.zed
+.vscode
+yarn.lock
