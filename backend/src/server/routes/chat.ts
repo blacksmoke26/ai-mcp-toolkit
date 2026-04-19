@@ -1,4 +1,10 @@
 /**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
+ /**
  * @module server/routes/chat
  * @description Chat endpoint for interacting with the MCP agent.
  *
@@ -16,14 +22,15 @@
  * | GET | `/chat/conversations/:id` | Get a conversation with all messages |
  * | DELETE | `/chat/conversations/:id` | Delete a conversation |
  */
-import { nanoid } from 'nanoid';
-import { logger } from '@/utils/logger.js';
-import { runAgentLoop } from '@/llm/agent.js';
-import { llmRegistry } from '@/llm/registry.js';
-import { Conversation, Message, Provider } from '@/db/index.js';
+import {nanoid} from 'nanoid';
+import {logger} from '@/utils/logger';
+import {runAgentLoop} from '@/llm/agent';
+import {llmRegistry} from '@/llm/registry';
+import {Conversation, Message, Provider} from '@/db';
 
 // types
-import type { FastifyPluginAsync } from 'fastify';
+import type {FastifyPluginAsync} from 'fastify';
+import type {LLMProvider} from '@/llm/types';
 
 export const chatRoutes: FastifyPluginAsync = async (fastify) => {
   /**
@@ -45,24 +52,27 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
    * }
    * ```
    */
-  fastify.post('/chat', async (request, reply) => {
-    const body = request.body as {
+  fastify.post<{
+    Body: {
       messages?: Array<{ role: string; content: string }>;
       message?: string;
       conversationId?: string;
-      provider?: string;
-      model?: string;
+      provider: string;
+      model: string;
       temperature?: number;
       maxTokens?: number;
       maxIterations?: number;
-    };
+    }
+  }>('/chat', async (request, reply) => {
+    const body = request.body;
 
     // Get or create provider
-    let provider;
+    let provider: LLMProvider;
+
     if (body.provider) {
-      provider = llmRegistry.get(body.provider);
+      provider = llmRegistry.get(body.provider)!;
       if (!provider) {
-        return reply.code(404).send({ error: `Provider "${body.provider}" not found` });
+        return reply.code(404).send({error: `Provider "${body.provider}" not found`});
       }
     } else {
       provider = llmRegistry.getDefault();
@@ -71,11 +81,11 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
     // Build message history
     let messages = body.messages || [];
     if (body.message) {
-      messages = [{ role: 'user', content: body.message }];
+      messages = [{role: 'user', content: body.message}];
     }
 
     if (messages.length === 0) {
-      return reply.code(400).send({ error: 'No messages provided. Send "messages" array or "message" string.' });
+      return reply.code(400).send({error: 'No messages provided. Send "messages" array or "message" string.'});
     }
 
     // Get or create conversation
@@ -83,12 +93,12 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
     let conversation: Conversation | null = null;
 
     if (conversationId) {
-      conversation = await Conversation.findOne({ where: { conversationId } });
+      conversation = await Conversation.findOne({where: {conversationId}});
     }
 
     if (!conversation) {
       conversationId = nanoid(16);
-      const dbProvider = await Provider.findOne({ where: { isDefault: true } });
+      const dbProvider = await Provider.findOne({where: {isDefault: true}});
       conversation = await Conversation.create({
         conversationId,
         providerId: dbProvider?.id ?? 1,
@@ -100,13 +110,13 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
 
     // Load existing messages if continuing a conversation
     const existingMessages = await Message.findAll({
-      where: { conversationId: conversation.id },
+      where: {conversationId: conversation.id},
       order: [['createdAt', 'ASC']],
     });
 
     const chatHistory = [
-      ...existingMessages.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant' | 'tool', content: m.content })),
-      ...messages.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant' | 'tool', content: m.content })),
+      ...existingMessages.map((m) => ({role: m.role as 'system' | 'user' | 'assistant' | 'tool', content: m.content})),
+      ...messages.map((m) => ({role: m.role as 'system' | 'user' | 'assistant' | 'tool', content: m.content})),
     ];
 
     // Run the agent loop
@@ -119,6 +129,7 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
         generationParams: {
           temperature: body.temperature,
           maxTokens: body.maxTokens,
+          model: body.model,
         },
       });
 
@@ -166,7 +177,7 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
         elapsedMs: elapsed,
       });
     } catch (err) {
-      logger.error({ err, conversationId }, 'Agent loop failed');
+      logger.error({err, conversationId}, 'Agent loop failed');
       return reply.code(500).send({
         error: 'Agent loop failed',
         message: err instanceof Error ? err.message : String(err),
@@ -181,37 +192,40 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
    * Works identically to POST /chat, but streams partial content
    * as it's generated.
    */
-  fastify.post('/chat/stream', async (request, reply) => {
-    const body = request.body as {
+  fastify.post<{
+    Body: {
       messages?: Array<{ role: string; content: string }>;
       message?: string;
-      provider?: string;
-      model?: string;
+      provider: string;
+      model: string;
       temperature?: number;
       maxTokens?: number;
-    };
+    }
+  }>('/chat/stream', async (request, reply) => {
+    const body = request.body;
 
-    let provider;
+    let provider: LLMProvider;
 
     if (body.provider) {
-      provider = llmRegistry.get(body.provider);
+      provider = llmRegistry.get(body.provider)!;
     } else {
       provider = llmRegistry.getDefault();
     }
 
     if (!provider) {
-      return reply.code(500).send({ error: 'No LLM provider available' });
+      return reply.code(500).send({error: 'No LLM provider available'});
     }
 
     let messages = body.messages || [];
     if (body.message) {
-      messages = [{ role: 'user', content: body.message }];
+      messages = [{role: 'user', content: body.message}];
     }
 
     // Set up SSE
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
+      'Access-Control-Allow-Origin': '*',
       Connection: 'keep-alive',
     });
 
@@ -227,6 +241,7 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
         generationParams: {
           temperature: body.temperature,
           maxTokens: body.maxTokens,
+          model: body.model,
         },
         onIteration: (iteration) => {
           // Stream intermediate results for tool calls
@@ -238,7 +253,7 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
                   name: t.name,
                   success: t.success,
                 })),
-              })}\n\n`
+              })}\n\n`,
             );
           }
         },
@@ -251,7 +266,7 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
           iterations: result.iterations,
           toolCalls: result.toolCallsMade.length,
           tokens: result.totalTokens,
-        })}\n\n`
+        })}\n\n`,
       );
 
       reply.raw.write('event: done\ndata: {}\n\n');
@@ -259,7 +274,7 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
       reply.raw.write(
         `event: error\ndata: ${JSON.stringify({
           error: err instanceof Error ? err.message : String(err),
-        })}\n\n`
+        })}\n\n`,
       );
     }
 
@@ -272,9 +287,9 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
    */
   fastify.get('/chat/conversations', async (request, reply) => {
     const conversations = await Conversation.findAll({
-      where: { status: 'active' },
+      where: {status: 'active'},
       order: [['updatedAt', 'DESC']],
-      include: [{ model: Message, as: 'messages', limit: 1, order: [['createdAt', 'DESC']] }],
+      include: [{model: Message, as: 'messages', limit: 1, order: [['createdAt', 'DESC']]}],
     });
 
     return reply.send({
@@ -293,14 +308,14 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
    * Get a full conversation with all messages.
    */
   fastify.get('/chat/conversations/:id', async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const {id} = request.params as { id: string };
     const conversation = await Conversation.findOne({
-      where: { conversationId: id },
-      include: [{ model: Message, as: 'messages', order: [['createdAt', 'ASC']] }],
+      where: {conversationId: id},
+      include: [{model: Message, as: 'messages', order: [['createdAt', 'ASC']]}],
     });
 
     if (!conversation) {
-      return reply.code(404).send({ error: 'Conversation not found' });
+      return reply.code(404).send({error: 'Conversation not found'});
     }
 
     return reply.send({
@@ -321,14 +336,14 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
    * Soft-delete a conversation.
    */
   fastify.delete('/chat/conversations/:id', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const conversation = await Conversation.findOne({ where: { conversationId: id } });
+    const {id} = request.params as { id: string };
+    const conversation = await Conversation.findOne({where: {conversationId: id}});
 
     if (!conversation) {
-      return reply.code(404).send({ error: 'Conversation not found' });
+      return reply.code(404).send({error: 'Conversation not found'});
     }
 
-    await conversation.update({ status: 'deleted' });
-    return reply.send({ status: 'deleted', id });
+    await conversation.update({status: 'deleted'});
+    return reply.send({status: 'deleted', id});
   });
 };
