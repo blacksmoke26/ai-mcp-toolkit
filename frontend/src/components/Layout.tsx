@@ -226,7 +226,7 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
               <Bot className="h-5 w-5 text-primary-foreground"/>
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-foreground">MCP Server</h1>
+              <h1 className="text-lg font-semibold text-foreground">MCP Toolkit</h1>
               <p className="text-xs text-muted-foreground">
                 Model Context Protocol Testing Interface
               </p>
