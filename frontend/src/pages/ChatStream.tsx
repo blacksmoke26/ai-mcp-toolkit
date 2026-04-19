@@ -5,35 +5,29 @@
  */
 
 import * as React from 'react';
-import {useEffect, useState, useRef} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {
+  Activity,
+  AlertCircle,
+  Bot,
+  Brain,
+  Clock,
+  Loader2,
   MessageSquare,
   Send,
-  StopCircle,
-  Bot,
-  User,
-  Loader2,
   Settings,
-  AlertCircle,
-  Activity,
-  Clock,
+  StopCircle,
+  User,
   Wrench,
-  Brain,
   X,
 } from 'lucide-react';
-import {Card, CardContent, CardHeader, CardTitle, CardDescription} from '@/components/ui/Card';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Button} from '@/components/ui/Button';
 import {Badge} from '@/components/ui/Badge';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {Textarea} from '@/components/ui/Textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select';
-import {listProviders, listProviderModels, type Provider, type Model} from '@/lib/api';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
+import {config, listProviderModels, listProviders, type Model, type Provider} from '@/lib/api';
 
 interface StreamMessage {
   /** The role of the message sender. */
@@ -247,7 +241,7 @@ const ChatStream = () => {
 
     try {
       // Send message to stream endpoint
-      const response = await fetch('/chat/stream', {
+      const response = await fetch(`${config.baseUrl}/chat/stream`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -260,6 +254,7 @@ const ChatStream = () => {
       });
 
       if (!response.ok || !response.body) {
+        // noinspection ExceptionCaughtLocallyJS
         throw new Error(`Stream failed: ${response.statusText}`);
       }
 
@@ -778,7 +773,7 @@ const ChatStream = () => {
                 ref={textareaRef}
                 value={inputMessage}
                 onChange={handleTextareaChange}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder="Type your message here... (Shift+Enter for new line)"
                 disabled={streamState.isStreaming}
                 className="flex-1 min-h-[44px] max-h-[150px] resize-none pr-12 rounded-xl border-0 ring-1 ring-input focus:ring-2 focus:ring-ring"
