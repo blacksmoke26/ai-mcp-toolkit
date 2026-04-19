@@ -40,7 +40,7 @@
  * ```
  */
 
-import type { ChatMessage, ToolCall, LLMCompletionResponse } from '@/mcp/types.js';
+import type { ChatMessage, LLMCompletionResponse } from '@/mcp/types.js';
 import type { LLMProvider, LLMGenerationParams, LLMToolDefinition } from './types.js';
 import { toolRegistry } from '@/mcp/tools/registry.js';
 
@@ -80,19 +80,6 @@ export interface AgentIteration {
   response: LLMCompletionResponse;
   /** Tool calls made in this iteration */
   toolResults: Array<{ name: string; success: boolean; result: string }>;
-}
-
-/**
- * Extract content from LLM response, handling thinking mode.
- * 
- * Some models (like Qwen with thinking enabled) return content in a "thinking" field
- * when regular content is empty. This function handles both cases.
- * 
- * @param response - The LLM completion response
- * @returns The content to use, preferring content field but falling back to thinking
- */
-export function extractContentFromResponse(response: LLMCompletionResponse): string {
-  return response.content || '';
 }
 
 /**
@@ -173,7 +160,10 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentResu
       let success = true;
 
       try {
-        const args = JSON.parse(toolCall.function.arguments || '{}');
+        const args = typeof toolCall.function.arguments === 'object'
+          ? toolCall.function.arguments
+          : JSON.parse(toolCall.function.arguments || '{}');
+
         const tool = toolRegistry.get(toolCall.function.name);
 
         if (!tool) {
@@ -200,7 +190,17 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentResu
 
       toolCallsMade.push({
         name: toolCall.function.name,
-        arguments: JSON.parse(toolCall.function.arguments || '{}'),
+        arguments: (() => {
+          if (typeof toolCall.function.arguments === 'object')
+            return toolCall.function.arguments;
+
+          try {
+            return JSON.parse(toolCall.function.arguments || '{}');
+          } catch (err) {
+            console.error(err);
+            return { error: `Failed to parse arguments: ${err instanceof Error ? err.message : String(err)}` };
+          }
+        })(),
         result,
       });
 
