@@ -4,7 +4,7 @@
  * @see https://github.com/blacksmoke26
  */
 
- /**
+/**
  * @module llm/ollama
  * @description Ollama LLM provider implementation.
  *
@@ -51,8 +51,8 @@ import type {
   LLMModelInfo,
   StreamChunk,
 } from './types.js';
-import type { ChatMessage, LLMCompletionResponse } from '@/mcp/types.js';
-import { createHttpClient, type HttpClientConfig, HttpError } from '@/utils/httpClient.js';
+import type {ChatMessage, LLMCompletionResponse} from '@/mcp/types.js';
+import {createHttpClient, type HttpClientConfig, HttpError} from '@/utils/httpClient.js';
 
 /**
  * Ollama LLM provider implementation.
@@ -138,10 +138,11 @@ export class OllamaProvider implements LLMProvider {
       const response = await this.httpClient.post<OllamaChatResponse>('/api/chat', params);
 
       if (response.status < 200 || response.status >= 300) {
+        // noinspection ExceptionCaughtLocallyJS
         throw new HttpError(
           `Ollama API error: ${response.status} ${response.statusText}`,
           response.status,
-          { data: response.data, status: response.status, statusText: response.statusText },
+          {data: response.data, status: response.status, statusText: response.statusText},
         );
       }
 
@@ -170,7 +171,7 @@ export class OllamaProvider implements LLMProvider {
    * incoming data to handle split JSON lines (NDJSON). It parses each line
    * individually to yield content deltas and final usage statistics.
    */
-  async *streamChat(
+  async* streamChat(
     messages: ChatMessage[],
     options?: Partial<LLMGenerationParams>,
   ): AsyncGenerator<StreamChunk> {
@@ -188,10 +189,10 @@ export class OllamaProvider implements LLMProvider {
       let buffer = '';
 
       while (true) {
-        const { done, value } = await reader.read();
+        const {done, value} = await reader.read();
         if (done) break;
 
-        buffer += decoder.decode(value, { stream: true });
+        buffer += decoder.decode(value, {stream: true});
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
 
@@ -200,17 +201,17 @@ export class OllamaProvider implements LLMProvider {
           try {
             const chunk = JSON.parse(line) as OllamaStreamChunk;
             if (chunk.message?.content) {
-              yield { type: 'content', delta: chunk.message.content, finish_reason: chunk.done ? 'stop' : undefined };
+              yield {type: 'content', delta: chunk.message.content, finish_reason: chunk.done ? 'stop' : undefined};
             }
             if (chunk.done) {
               yield {
                 type: 'done',
                 usage: chunk.prompt_eval_count || chunk.eval_count
                   ? {
-                      prompt_tokens: chunk.prompt_eval_count || 0,
-                      completion_tokens: chunk.eval_count || 0,
-                      total_tokens: (chunk.prompt_eval_count || 0) + (chunk.eval_count || 0),
-                    }
+                    prompt_tokens: chunk.prompt_eval_count || 0,
+                    completion_tokens: chunk.eval_count || 0,
+                    total_tokens: (chunk.prompt_eval_count || 0) + (chunk.eval_count || 0),
+                  }
                   : undefined,
               };
             }
@@ -256,10 +257,11 @@ export class OllamaProvider implements LLMProvider {
       }>('/api/tags');
 
       if (response.status < 200 || response.status >= 300) {
+        // noinspection ExceptionCaughtLocallyJS
         throw new HttpError(
           `Ollama list models error: ${response.status}`,
           response.status,
-          { data: response.data, status: response.status, statusText: response.statusText },
+          {data: response.data, status: response.status, statusText: response.statusText},
         );
       }
 
@@ -302,6 +304,7 @@ export class OllamaProvider implements LLMProvider {
         if (error instanceof HttpError && error.isCancelled) {
           return false;
         }
+        // noinspection ExceptionCaughtLocallyJS
         throw error;
       }
     } catch {
@@ -331,23 +334,24 @@ export class OllamaProvider implements LLMProvider {
     };
 
     return {
-      model: options?.model ?? (options?.system ? this.config.defaultModel : this.config.defaultModel),
+      model: options?.model ?? this.config.defaultModel,
       messages: messages.map((m) => ({
         role: m.role,
         content: m.content,
-        ...(m.tool_calls ? { tool_calls: m.tool_calls } : {}),
-        ...(m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
+        ...(m.tool_calls ? {tool_calls: m.tool_calls} : {}),
+        ...(m.tool_call_id ? {tool_call_id: m.tool_call_id} : {}),
       })),
       stream: false,
       options: {
-        temperature: merged.temperature,
-        num_predict: merged.maxTokens,
-        top_p: merged.topP,
-        frequency_penalty: merged.frequencyPenalty,
-        presence_penalty: merged.presencePenalty,
+        temperature: Math.max(0, Math.min(1, parseInt('' + merged.temperature) || 0.7)),
+        num_predict: merged?.maxTokens || 2000,
+        top_p: merged?.topP || 1.0,
+        //top_k: merged?.topK || 100,
+        frequency_penalty: merged.frequencyPenalty || 0.0,
+        presence_penalty: merged.presencePenalty || 0.0,
         stop: merged.stop,
       },
-      ...(options?.tools ? { tools: options.tools } : {}),
+      ...(options?.tools ? {tools: options.tools} : {}),
     };
   }
 
@@ -359,19 +363,37 @@ export class OllamaProvider implements LLMProvider {
    *
    * @dev
    * Extracts content, model info, and usage statistics. Handles cases where
-   * usage data might be missing.
+   * usage data might be missing. When content is empty but thinking is present,
+   * uses thinking as the content (for models with thinking mode).
    */
   private parseResponse(data: OllamaChatResponse): LLMCompletionResponse {
+    // Use thinking content when regular content is empty (thinking mode models)
+    const content = data.message?.content || data.message?.thinking || '';
+
+    // Extract tool calls from the response
+    const toolCalls = data.message?.tool_calls?.map((tc) => {
+      const toolCall = tc as { id?: string; type?: string; function?: { name?: string; arguments?: string } };
+      return {
+        id: toolCall.id || '',
+        type: 'function' as const,
+        function: {
+          name: toolCall.function?.name || '',
+          arguments: toolCall.function?.arguments || '{}',
+        },
+      };
+    }) || [];
+
     return {
-      content: data.message?.content || '',
+      content,
+      tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
       model: data.model || this.config.defaultModel,
       finish_reason: data.done ? 'stop' : 'length',
       usage: data.prompt_eval_count || data.eval_count
         ? {
-            prompt_tokens: data.prompt_eval_count || 0,
-            completion_tokens: data.eval_count || 0,
-            total_tokens: (data.prompt_eval_count || 0) + (data.eval_count || 0),
-          }
+          prompt_tokens: data.prompt_eval_count || 0,
+          completion_tokens: data.eval_count || 0,
+          total_tokens: (data.prompt_eval_count || 0) + (data.eval_count || 0),
+        }
         : undefined,
     };
   }
@@ -385,6 +407,7 @@ export class OllamaProvider implements LLMProvider {
 interface OllamaMessage {
   role: string;
   content: string;
+  thinking?: string;
   tool_calls?: unknown[];
   tool_call_id?: string;
 }

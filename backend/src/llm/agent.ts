@@ -83,6 +83,19 @@ export interface AgentIteration {
 }
 
 /**
+ * Extract content from LLM response, handling thinking mode.
+ * 
+ * Some models (like Qwen with thinking enabled) return content in a "thinking" field
+ * when regular content is empty. This function handles both cases.
+ * 
+ * @param response - The LLM completion response
+ * @returns The content to use, preferring content field but falling back to thinking
+ */
+export function extractContentFromResponse(response: LLMCompletionResponse): string {
+  return response.content || '';
+}
+
+/**
  * Build MCP tool definitions for the LLM provider format.
  */
 export function buildToolDefinitions(): LLMToolDefinition[] {
@@ -140,11 +153,12 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentResu
     // If no tool calls, we're done
     if (!response.tool_calls || response.tool_calls.length === 0) {
       // Add the final assistant message
-      messages.push({ role: 'assistant', content: response.content });
+      messages.push({ role: 'assistant', content: response.content || '' });
       break;
     }
 
     // Add assistant message with tool calls
+    // Note: When thinking mode is used, content may be empty but tool_calls will be populated
     messages.push({
       role: 'assistant',
       content: response.content || '',
@@ -204,8 +218,10 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentResu
   }
 
   // Extract final content
+  // Prefer messages without tool calls (final response), but fall back to any assistant message
+  const finalAssistant = [...messages].reverse().find((m) => m.role === 'assistant' && (!m.tool_calls || m.tool_calls.length === 0));
   const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
-  const content = lastAssistant?.content || 'No response generated.';
+  const content = finalAssistant?.content || lastAssistant?.content || 'No response generated.';
 
   return {
     content,
