@@ -273,7 +273,7 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
             'md:relative md:translate-x-0',
           )}
         >
-          <nav className="space-y-6 overflow-y-auto p-4 pt-7" style={{maxHeight: 'calc(100vh - 4rem)'}}>
+          <nav className="space-y-6 overflow-y-auto p-4 pt-7">
             {navSections.map((section) => (
               <div key={section.title}>
                 <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
