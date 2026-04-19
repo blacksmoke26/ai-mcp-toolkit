@@ -1,7 +1,6 @@
 {
-  "name": "synapse",
-  "version": "1.3.0",
-  "description": "Synapse is a powerful dual-platform application that helps users improve their AI prompts through intelligent enhancement techniques, providing better results from AI models with minimal effort.",
+  "name": "mcp-toolkit",
+  "version": "0.0.0",
   "scripts": {
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
@@ -10,7 +9,16 @@
     "start": "cd backend && npm start",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
-  "keywords": ["ai", "prompt", "enhancement", "ollama", "typescript", "react", "fastify"],
+  "keywords": [
+    "ai",
+    "prompt",
+    "enhancement",
+    "ollama",
+    "typescript",
+    "react",
+    "fastify",
+    "mcp"
+  ],
   "author": "Junaid Atari",
   "license": "ISC",
   "devDependencies": {
