@@ -96,7 +96,7 @@ import {DEFAULT_API_CONFIG} from '../types/api.js';
 
 // ====== Configuration ======
 
-const config: ApiConfig = {
+export const config: ApiConfig = {
   baseUrl: (import.meta.env as any)?.VITE_API_BASE_URL || DEFAULT_API_CONFIG.baseUrl,
   timeout: DEFAULT_API_CONFIG.timeout,
 };
