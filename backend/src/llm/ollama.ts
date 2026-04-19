@@ -1,36 +1,42 @@
 /**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+ 
+ /**
  * @module llm/ollama
  * @description Ollama LLM provider implementation.
- * 
+ *
  * Connects to a local or remote Ollama instance to generate text completions.
  * Ollama provides a convenient way to run open-source LLMs locally.
- * 
+ *
  * ## Features
- * 
+ *
  * - Full chat completion support (with tool calling on supported models)
  * - Streaming responses via SSE
  * - Model listing and management
  * - Automatic retry on transient errors
- * 
+ *
  * ## Setup
- * 
+ *
  * 1. Install Ollama: https://ollama.ai
  * 2. Start the server: `ollama serve`
  * 3. Pull a model: `ollama pull llama3.1`
- * 
+ *
  * The default Ollama API runs on `http://localhost:11434`.
- * 
+ *
  * ## Example
- * 
+ *
  * ```typescript
  * import { OllamaProvider } from '@/llm/ollama';
- * 
+ *
  * const provider = new OllamaProvider({
  *   type: 'ollama',
  *   baseUrl: 'http://localhost:11434',
  *   defaultModel: 'llama3.1',
  * });
- * 
+ *
  * const response = await provider.chat([
  *   { role: 'user', content: 'Hello!' },
  * ]);
@@ -47,16 +53,57 @@ import type {
 } from './types.js';
 import type { ChatMessage, LLMCompletionResponse } from '@/mcp/types.js';
 
+/**
+ * Ollama LLM provider implementation.
+ *
+ * Connects to a local or remote Ollama instance to generate text completions.
+ * Ollama provides a convenient way to run open-source LLMs locally.
+ *
+ * @remarks
+ * This class implements the `LLMProvider` interface, translating standard
+ * LLM requests into the specific format required by the Ollama API.
+ * It handles both non-streaming and streaming chat completions, as well as
+ * model listing and health checks.
+ *
+ * @example
+ * ```typescript
+ * const provider = new OllamaProvider({
+ *   type: 'ollama',
+ *   baseUrl: 'http://localhost:11434',
+ *   defaultModel: 'llama3.1',
+ * });
+ * ```
+ */
 export class OllamaProvider implements LLMProvider {
+  /** The unique identifier for this provider. */
   readonly name = 'ollama';
+
+  /** Configuration options for the provider, including base URL and default model. */
   config: LLMProviderConfig;
 
+  /**
+   * Creates a new OllamaProvider instance.
+   *
+   * @param config - The configuration object for the provider.
+   */
   constructor(config: LLMProviderConfig) {
     this.config = config;
   }
 
   // ─── Chat Completion ───────────────────────────────────────────────────
 
+  /**
+   * Sends a chat completion request to the Ollama API.
+   *
+   * @param messages - An array of chat messages representing the conversation history.
+   * @param options - Optional generation parameters (e.g., temperature, maxTokens).
+   * @returns A promise resolving to the complete LLM response.
+   * @throws {Error} If the API request fails or returns a non-OK status.
+   *
+   * @dev
+   * This method constructs the request payload using `buildParams`, sends it to the
+   * `/api/chat` endpoint, and parses the JSON response using `parseResponse`.
+   */
   async chat(
     messages: ChatMessage[],
     options?: Partial<LLMGenerationParams>,
@@ -70,6 +117,8 @@ export class OllamaProvider implements LLMProvider {
       body: JSON.stringify(params),
     });
 
+    console.log('response', response, params);
+
     if (!response.ok) {
       throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
     }
@@ -80,6 +129,20 @@ export class OllamaProvider implements LLMProvider {
 
   // ─── Streaming Chat ────────────────────────────────────────────────────
 
+  /**
+   * Streams a chat completion response from the Ollama API.
+   *
+   * @param messages - An array of chat messages representing the conversation history.
+   * @param options - Optional generation parameters.
+   * @returns An async generator yielding `StreamChunk` objects.
+   * @throws {Error} If the API request fails or the response body is missing.
+   *
+   * @dev
+   * This method enables streaming by setting `stream: true` in the params.
+   * It reads the response body using a `ReadableStreamDefaultReader`, buffering
+   * incoming data to handle split JSON lines (NDJSON). It parses each line
+   * individually to yield content deltas and final usage statistics.
+   */
   async *streamChat(
     messages: ChatMessage[],
     options?: Partial<LLMGenerationParams>,
@@ -140,6 +203,16 @@ export class OllamaProvider implements LLMProvider {
 
   // ─── Model Management ──────────────────────────────────────────────────
 
+  /**
+   * Lists available models from the Ollama instance.
+   *
+   * @returns A promise resolving to an array of `LLMModelInfo` objects.
+   * @throws {Error} If the API request fails.
+   *
+   * @dev
+   * Queries the `/api/tags` endpoint. Ollama does not expose `context_length`
+   * directly, so it is set to `undefined` in the returned info.
+   */
   async listModels(): Promise<LLMModelInfo[]> {
     const url = `${this.config.baseUrl}/api/tags`;
     const response = await fetch(url);
@@ -149,7 +222,7 @@ export class OllamaProvider implements LLMProvider {
     }
 
     const data = await response.json() as { models: Array<{ name: string; size?: number; modified_at?: string; details?: { parent_model?: string; format?: string; family?: string; parameter_size?: string } }> };
-    
+
     return (data.models || []).map((m) => ({
       id: m.name,
       name: m.name,
@@ -158,6 +231,15 @@ export class OllamaProvider implements LLMProvider {
     }));
   }
 
+  /**
+   * Checks if the Ollama instance is reachable and healthy.
+   *
+   * @returns A promise resolving to `true` if the health check passes, `false` otherwise.
+   *
+   * @dev
+   * Attempts to fetch the `/api/tags` endpoint with a 5-second timeout.
+   * Any error (network or timeout) results in `false`.
+   */
   async healthCheck(): Promise<boolean> {
     try {
       const response = await fetch(`${this.config.baseUrl}/api/tags`, { signal: AbortSignal.timeout(5000) });
@@ -169,6 +251,18 @@ export class OllamaProvider implements LLMProvider {
 
   // ─── Internal Helpers ──────────────────────────────────────────────────
 
+  /**
+   * Constructs the request payload for the Ollama API.
+   *
+   * @param messages - The chat messages to send.
+   * @param options - Optional generation parameters to override defaults.
+   * @returns A formatted object compatible with the Ollama API.
+   *
+   * @dev
+   * Merges default parameters from the config with the provided options.
+   * Maps standard LLM parameters (e.g., `maxTokens`) to Ollama-specific
+   * parameters (e.g., `num_predict`).
+   */
   private buildParams(messages: ChatMessage[], options?: Partial<LLMGenerationParams>): Record<string, unknown> {
     const merged: LLMGenerationParams = {
       temperature: this.config.defaultParams?.temperature ?? 0.7,
@@ -177,7 +271,7 @@ export class OllamaProvider implements LLMProvider {
     };
 
     return {
-      model: options?.system ? this.config.defaultModel : this.config.defaultModel,
+      model: options?.model ?? (options?.system ? this.config.defaultModel : this.config.defaultModel),
       messages: messages.map((m) => ({
         role: m.role,
         content: m.content,
@@ -197,6 +291,16 @@ export class OllamaProvider implements LLMProvider {
     };
   }
 
+  /**
+   * Parses the raw Ollama API response into a standard `LLMCompletionResponse`.
+   *
+   * @param data - The raw JSON response from Ollama.
+   * @returns A standardized completion response object.
+   *
+   * @dev
+   * Extracts content, model info, and usage statistics. Handles cases where
+   * usage data might be missing.
+   */
   private parseResponse(data: OllamaChatResponse): LLMCompletionResponse {
     return {
       content: data.message?.content || '',
@@ -215,6 +319,9 @@ export class OllamaProvider implements LLMProvider {
 
 // ─── Ollama API Types ─────────────────────────────────────────────────────────
 
+/**
+ * Represents a message within the Ollama API schema.
+ */
 interface OllamaMessage {
   role: string;
   content: string;
@@ -222,6 +329,9 @@ interface OllamaMessage {
   tool_call_id?: string;
 }
 
+/**
+ * Represents the full response object from a non-streaming Ollama chat request.
+ */
 interface OllamaChatResponse {
   model: string;
   message: OllamaMessage;
@@ -231,6 +341,9 @@ interface OllamaChatResponse {
   prompt_eval_count?: number;
 }
 
+/**
+ * Represents a single chunk in a streaming Ollama chat response.
+ */
 interface OllamaStreamChunk {
   model: string;
   message: OllamaMessage;

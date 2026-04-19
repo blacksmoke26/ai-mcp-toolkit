@@ -1,40 +1,46 @@
 /**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
+ /**
  * @module llm/types
  * @description Abstract LLM provider interface and related types.
- * 
+ *
  * This module defines the contract that all LLM providers must implement.
  * The MCP server uses this interface to communicate with different LLM backends
  * (Ollama, OpenAI-compatible, etc.) interchangeably.
- * 
+ *
  * ## Implementing a Custom Provider
- * 
+ *
  * To add support for a new LLM service:
- * 
+ *
  * 1. Create a new file in `src/llm/` (e.g., `my-provider.ts`)
  * 2. Implement the `LLMProvider` interface
  * 3. Register it with the `llmRegistry`
- * 
+ *
  * ```typescript
  * import type { LLMProvider, LLMProviderConfig } from './types';
- * 
+ *
  * export class MyProvider implements LLMProvider {
  *   name = 'my-provider';
  *   config: LLMProviderConfig;
- * 
+ *
  *   constructor(config: LLMProviderConfig) {
  *     this.config = config;
  *   }
- * 
+ *
  *   async chat(messages, options) {
  *     // Your implementation
  *     return { content: '...', model: '...', finish_reason: 'stop' };
  *   }
- * 
+ *
  *   async *streamChat(messages, options) {
  *     // Streaming implementation
  *     yield { type: 'content', delta: '...' };
  *   }
- * 
+ *
  *   async listModels() {
  *     return [{ id: 'model-name', ... }];
  *   }
@@ -66,6 +72,8 @@ export interface LLMProviderConfig {
 
 /** Parameters for LLM text generation */
 export interface LLMGenerationParams {
+  /** LLM model to use */
+  model?: string;
   /** Sampling temperature (0.0 = deterministic, 2.0 = very creative) */
   temperature?: number;
   /** Maximum tokens to generate */
@@ -122,7 +130,7 @@ export type StreamChunk =
 
 /**
  * Abstract LLM provider interface.
- * 
+ *
  * All LLM backends (Ollama, OpenAI, etc.) must implement this interface
  * to be usable by the MCP server's agent loop.
  */

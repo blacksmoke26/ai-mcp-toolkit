@@ -1,34 +1,40 @@
 /**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
+ /**
  * @module llm/agent
  * @description Autonomous agent loop — connects an LLM to MCP tools.
- * 
+ *
  * The agent loop is the core intelligence of the MCP server:
- * 
+ *
  * 1. Receives a user message
  * 2. Sends it (along with conversation history) to the LLM
  * 3. If the LLM requests tool calls, executes them via the tool registry
  * 4. Feeds tool results back to the LLM
  * 5. Repeats until the LLM provides a final answer (no more tool calls)
- * 
+ *
  * ## Architecture
- * 
+ *
  * ```
  * User Message → LLM → [Tool Call?] → MCP Tool → Result → LLM → ... → Final Answer
  *                                  ↓ (no tool call)
  *                              Response
  * ```
- * 
+ *
  * ## Usage
- * 
+ *
  * ```typescript
  * import { runAgentLoop } from '@/llm/agent';
- * 
+ *
  * const response = await runAgentLoop({
  *   messages: [{ role: 'user', content: 'What time is it?' }],
  *   provider: myProvider,
  *   maxIterations: 10,
  * });
- * 
+ *
  * console.log(response.content);
  * // Also includes: response.toolCalls, response.iterations, response.totalTokens
  * ```
@@ -93,7 +99,7 @@ export function buildToolDefinitions(): LLMToolDefinition[] {
 
 /**
  * Run the autonomous agent loop.
- * 
+ *
  * This function orchestrates the LLM ↔ Tool interaction cycle until
  * the model produces a final answer or the maximum iteration count is reached.
  */
