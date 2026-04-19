@@ -262,7 +262,7 @@ export async function sendChat(params: ChatRequest): Promise<ChatResponse> {
   return request<ChatResponse>('/chat', {
     method: 'POST',
     body: JSON.stringify(params),
-  });
+  }, 360 * 1000);
 }
 
 /**
@@ -802,4 +802,3 @@ export async function toggleCustomTool(
 export async function getCustomToolTemplates(): Promise<CustomToolTemplatesResponse> {
   return request<CustomToolTemplatesResponse>('/api/custom-tools/templates');
 }
-
