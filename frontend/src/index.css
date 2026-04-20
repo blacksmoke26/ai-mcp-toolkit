@@ -124,3 +124,14 @@
     scrollbar-width: thin;
     scrollbar-color: #888 #e2e8f0; /* thumb color | track color */
 }
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
