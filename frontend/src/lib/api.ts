@@ -134,6 +134,10 @@ async function request<T>(
       },
     });
 
+    if ( options?.method === 'DELETE' ) {
+      delete response.headers['Content-Type'];
+    }
+
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
       throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`);
