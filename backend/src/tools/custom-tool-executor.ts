@@ -264,8 +264,10 @@ import logger from '@/utils/logger.js';
 
      // Create the handler function with restricted context
      try {
+       const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+
        // eslint-disable-next-line no-new-func
-       const handlerFunc = new Function('args', 'safeContext', handlerCode);
+       const handlerFunc = new AsyncFunction('args', 'safeContext', handlerCode);
 
        return async (args: Record<string, unknown>): Promise<CallToolResult> => {
          const result = await handlerFunc(args, safeContext);
@@ -439,17 +441,24 @@ import logger from '@/utils/logger.js';
     *   {@link CustomToolExecutor.createSafeHandler} so that validation is consistent
     *   with actual execution compilation.
     */
-   validateCode(handlerCode: string): { valid: boolean; error?: string } {
+    validateCode(handlerCode: string): { valid: boolean; error?: string } {
+      // Check for empty or non-string input
+      if (typeof handlerCode !== 'string' || handlerCode.trim().length === 0) {
+        return {valid: false, error: 'Handler code must be a non-empty string'};
+      }
+
+     const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+
      try {
-       // Test if the code can be parsed
-       // eslint-disable-next-line no-new-func
-       new Function('args', 'safeContext', handlerCode);
-       return {valid: true};
-     } catch (error) {
-       const message = error instanceof Error ? error.message : String(error);
-       return {valid: false, error: message};
-     }
-   }
+        // Test if the code can be parsed
+        // eslint-disable-next-line no-new-func
+        new AsyncFunction('args', 'safeContext', handlerCode);
+        return {valid: true};
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {valid: false, error: message};
+      }
+    }
 
    /**
     * Validate a JSON Schema string intended for use as a tool's `inputSchema`.
