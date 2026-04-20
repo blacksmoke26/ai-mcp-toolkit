@@ -69,12 +69,9 @@ interface ProviderModels {
  * It manages the streaming of messages from an LLM, handles tool calls, and displays
  * connection statistics.
  */
-const ChatStream = () => {
-  /** State storing the history of messages in the chat. */
+const ChatStream: React.FC = () => {
   const [messages, setMessages] = useState<StreamMessage[]>([]);
-  /** State storing the current text input in the message box. */
-  const [inputMessage, setInputMessage] = useState('');
-  /** State storing the current configuration and status of the stream. */
+  const [inputMessage, setInputMessage] = useState<string>('');
   const [streamState, setStreamState] = useState<StreamState>({
     isStreaming: false,
     provider: '',
@@ -82,30 +79,32 @@ const ChatStream = () => {
     temperature: 0.7,
     maxTokens: 4096,
   });
-  /** State storing the list of available LLM providers. */
+  const {
+    isStreaming,
+    provider,
+    model,
+    temperature,
+    maxTokens,
+  } = streamState;
+
   const [providers, setProviders] = useState<Provider[]>([]);
-  /** State storing the available models for each provider, keyed by provider name. */
   const [providerModels, setProviderModels] = useState<Record<string, ProviderModels>>({});
-  /** State indicating if the component is in the initial loading state. */
-  const [loading, setLoading] = useState(true);
-  /** State storing any error message encountered during operation. */
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  /** State storing the current connection status to the stream endpoint. */
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
-  /** State storing statistics about the current or last stream session. */
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [streamStats, setStreamStats] = useState({
     iterations: 0,
     toolCalls: 0,
-    tokens: {input: 0, output: 0, total: 0},
+    tokens: {
+      input: 0,
+      output: 0,
+      total: 0,
+    },
   });
-  /** State indicating whether the chat view should auto-scroll to the bottom on new messages. */
-  const [autoScroll, setAutoScroll] = useState(true);
+  const [autoScroll, setAutoScroll] = useState<boolean>(true);
 
-  /** Ref to the bottom of the message list for auto-scrolling. */
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
-  /** Ref to the textarea element for input handling. */
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  /** Ref to the EventSource connection for managing the SSE lifecycle. */
   const eventSourceRef = useRef<EventSource | null>(null);
 
   /** Scrolls the chat view to the bottom if auto-scroll is enabled. */
@@ -150,6 +149,9 @@ const ChatStream = () => {
   /** Effect hook to fetch providers on component mount. */
   useEffect(() => {
     fetchProviders();
+    return () => {
+      closeEventSource();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -159,14 +161,18 @@ const ChatStream = () => {
       ...prev,
       [providerName]: {models: [], loading: true},
     }));
+
     try {
       const response = await listProviderModels(providerName);
       setProviderModels((prev) => ({
         ...prev,
-        [providerName]: {models: response.models || [], loading: false},
+        [providerName]: {
+          models: response.models || [],
+          loading: false,
+        },
       }));
 
-      if (response.models?.length > 0 && !streamState.model) {
+      if (response.models?.length > 0 && !model) {
         setStreamState((prev) => ({
           ...prev,
           model: response.models[0].id || response.models[0].name || '',
@@ -176,7 +182,10 @@ const ChatStream = () => {
       console.error(`Failed to fetch models for ${providerName}:`, err);
       setProviderModels((prev) => ({
         ...prev,
-        [providerName]: {models: [], loading: false},
+        [providerName]: {
+          models: [],
+          loading: false,
+        },
       }));
     }
   };
@@ -209,7 +218,7 @@ const ChatStream = () => {
 
   /** Initiates the message sending process and handles the streaming response. */
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || streamState.isStreaming) return;
+    if (!inputMessage.trim() || isStreaming) return;
 
     const userMessage: StreamMessage = {
       role: 'user',
@@ -222,10 +231,19 @@ const ChatStream = () => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
-    setStreamState((prev) => ({...prev, isStreaming: true}));
+
+    // Reset stream state
+    setStreamState((prev) => ({
+      ...prev,
+      isStreaming: true,
+    }));
     setConnectionStatus('connecting');
     setError(null);
-    setStreamStats({iterations: 0, toolCalls: 0, tokens: {input: 0, output: 0, total: 0}});
+    setStreamStats({
+      iterations: 0,
+      toolCalls: 0,
+      tokens: {input: 0, output: 0, total: 0},
+    });
 
     // Create assistant message placeholder for streaming
     const assistantMessageIndex = messages.length;
@@ -246,10 +264,10 @@ const ChatStream = () => {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
           message: userMessage.content,
-          provider: streamState.provider,
-          model: streamState.model,
-          temperature: streamState.temperature,
-          maxTokens: streamState.maxTokens,
+          provider: provider,
+          model: model,
+          temperature: temperature,
+          maxTokens: maxTokens,
         }),
       });
 
@@ -261,109 +279,140 @@ const ChatStream = () => {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let streamCompleted = false;
 
       setConnectionStatus('connected');
 
-      while (true) {
-        const {done, value} = await reader.read();
-        if (done) break;
+      const cleanup = () => {
+        if (!streamCompleted) {
+          streamCompleted = true;
+          setStreamState((prev) => ({...prev, isStreaming: false}));
+          setConnectionStatus('connected');
+          reader.releaseLock();
+        }
+      };
 
-        const chunk = decoder.decode(value, {stream: true});
-        buffer += chunk;
+      try {
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) {
+            break;
+          }
 
-        // Parse SSE events
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+          const chunk = decoder.decode(value, {stream: true});
+          buffer += chunk;
 
-        for (const line of lines) {
-          if (line.startsWith('event:')) {
-            const eventType = line.replace('event:', '').trim();
-            const dataLine = lines.find((l) => l.startsWith('data:'));
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-            if (eventType === 'tool_call' && dataLine) {
-              try {
-                const data = JSON.parse(dataLine.replace('data:', '').trim());
-                setStreamStats((prev) => ({
-                  ...prev,
-                  iterations: data.iteration || prev.iterations,
-                  toolCalls: data.tools?.length || prev.toolCalls,
-                }));
+          let currentEventType: string | null = null;
+          let currentDataLine: string | null = null;
 
-                // Update message to show tool call
-                if (data.tools && data.tools.length > 0) {
-                  setMessages((prev) => {
-                    const updated = [...prev];
-                    if (updated[assistantMessageIndex]) {
-                      if (!updated[assistantMessageIndex].content.includes('[Calling tools...]')) {
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              currentEventType = line.replace('event:', '').trim();
+            } else if (line.startsWith('data:') && currentEventType) {
+              currentDataLine = line;
+
+              if (currentEventType === 'tool_call' && currentDataLine) {
+                try {
+                  const data = JSON.parse(currentDataLine.replace('data:', '').trim());
+                  setStreamStats((prev) => ({
+                    ...prev,
+                    iterations: data.iteration || prev.iterations,
+                    toolCalls: data.tools?.length || prev.toolCalls,
+                  }));
+
+                  if (data.tools && data.tools.length > 0) {
+                    setMessages((prev) => {
+                      const updated = [...prev];
+                      const msg = updated[assistantMessageIndex];
+                      if (msg && !msg.content.includes('[Calling tools...]')) {
                         updated[assistantMessageIndex] = {
-                          ...updated[assistantMessageIndex],
-                          content: updated[assistantMessageIndex].content + `\n🔧 Calling tools...`,
+                          ...msg,
+                          content: msg.content + '\n🔧 Calling tools...',
                         };
                       }
+                      return updated;
+                    });
+                  }
+                } catch (e) {
+                  console.error('Failed to parse tool_call event:', e);
+                }
+              } else if (currentEventType === 'result' && currentDataLine) {
+                try {
+                  const data = JSON.parse(currentDataLine.replace('data:', '').trim());
+                  setMessages((prev) => {
+                    const updated = [...prev];
+                    const msg = updated[assistantMessageIndex];
+                    if (msg) {
+                      updated[assistantMessageIndex] = {
+                        ...msg,
+                        content: data.content || msg.content,
+                        isStreaming: false,
+                      };
                     }
                     return updated;
                   });
-                }
-              } catch (e) {
-                console.error('Failed to parse tool_call event:', e);
-              }
-            } else if (eventType === 'result' && dataLine) {
-              try {
-                const data = JSON.parse(dataLine.replace('data:', '').trim());
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  if (updated[assistantMessageIndex]) {
-                    updated[assistantMessageIndex] = {
-                      ...updated[assistantMessageIndex],
-                      content: data.content || updated[assistantMessageIndex].content,
-                      isStreaming: false,
-                    };
-                  }
-                  return updated;
-                });
 
-                setStreamStats((prev) => ({
-                  ...prev,
-                  iterations: data.iterations || prev.iterations,
-                  toolCalls: data.toolCalls || prev.toolCalls,
-                  tokens: data.tokens || prev.tokens,
-                }));
-              } catch (e) {
-                console.error('Failed to parse result event:', e);
+                  setStreamStats((prev) => ({
+                    ...prev,
+                    iterations: data.iterations || prev.iterations,
+                    toolCalls: data.toolCalls || prev.toolCalls,
+                    tokens: data.tokens || prev.tokens,
+                  }));
+                } catch (e) {
+                  console.error('Failed to parse result event:', e);
+                }
+              } else if (currentEventType === 'error' && currentDataLine) {
+                try {
+                  const data = JSON.parse(currentDataLine.replace('data:', '').trim());
+                  setError(data.error || 'An error occurred during streaming');
+                } catch (e) {
+                  console.error('Failed to parse error event:', e);
+                }
               }
-            } else if (eventType === 'error' && dataLine) {
-              try {
-                const data = JSON.parse(dataLine.replace('data:', '').trim());
-                setError(data.error || 'An error occurred during streaming');
-              } catch (e) {
-                console.error('Failed to parse error event:', e);
-              }
+            } else if (line === '') {
+              currentEventType = null;
+              currentDataLine = null;
             }
           }
         }
-      }
 
-      // Finalize streaming
-      setMessages((prev) => {
-        const updated = [...prev];
-        if (updated[assistantMessageIndex]) {
-          updated[assistantMessageIndex].isStreaming = false;
+        if (!streamCompleted) {
+          streamCompleted = true;
+          setMessages((prev) => {
+            const updated = [...prev];
+            const msg = updated[assistantMessageIndex];
+            if (msg && msg.isStreaming) {
+              updated[assistantMessageIndex] = {
+                ...msg,
+                isStreaming: false,
+              };
+            }
+            return updated;
+          });
+          setStreamState((prev) => ({...prev, isStreaming: false}));
+          setConnectionStatus('connected');
+          reader.releaseLock();
         }
-        return updated;
-      });
-
-      setStreamState((prev) => ({...prev, isStreaming: false}));
-      setConnectionStatus('connected');
-
-      // Close the reader
-      reader.releaseLock();
+      } catch (readError) {
+        console.error('Error reading stream:', readError);
+        cleanup();
+        // noinspection ExceptionCaughtLocallyJS
+        throw readError;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to stream response');
       setMessages((prev) => {
         const updated = [...prev];
-        if (updated[assistantMessageIndex]) {
-          updated[assistantMessageIndex].content = '⚠️ Error: Failed to stream response. Please try again.';
-          updated[assistantMessageIndex].isStreaming = false;
+        const msg = updated[assistantMessageIndex];
+        if (msg) {
+          updated[assistantMessageIndex] = {
+            ...msg,
+            content: '⚠️ Error: Failed to stream response. Please try again.',
+            isStreaming: false,
+          };
         }
         return updated;
       });
@@ -379,8 +428,11 @@ const ChatStream = () => {
       const updated = [...prev];
       const lastMessage = updated[updated.length - 1];
       if (lastMessage?.isStreaming) {
-        lastMessage.isStreaming = false;
-        lastMessage.content += '\n\n[Stream stopped by user]';
+        updated[updated.length - 1] = {
+          ...lastMessage,
+          isStreaming: false,
+          content: lastMessage.content + '\n\n[Stream stopped by user]',
+        };
       }
       return updated;
     });
@@ -410,33 +462,30 @@ const ChatStream = () => {
     e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
   };
 
-  /** Formats the token usage numbers for display. */
-  const formatTokenUsage = (tokens: { input: number; output: number; total: number }) => {
-    return `${tokens.total.toLocaleString()}`;
+  const formatTokenUsage = (tokens: { input: number; output: number; total: number }): string => {
+    return tokens.total.toLocaleString();
   };
 
-  /** Formats a Date object into a time string (HH:MM). */
-  const formatTime = (date: Date) => {
+  const formatTime = (date: Date): string => {
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
     });
   };
 
-  /** Derived state: The list of models for the currently selected provider. */
-  const currentModels = providerModels[streamState.provider]?.models || [];
-  /** Derived state: Whether the models for the current provider are loading. */
-  const isModelsLoading = providerModels[streamState.provider]?.loading || false;
+  const currentModels = providerModels[provider]?.models || [];
+  //const isModelsLoading = providerModels[provider]?.loading || false;
+  const hasActiveStreamStats = streamStats.iterations > 0 || streamStats.toolCalls > 0 || streamStats.tokens.total > 0;
 
   // Loading state
   if (loading) {
     return (
-      <div className="h-[calc(100vh-8rem)] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background flex items-center justify-center p-6">
         <div className="text-center space-y-4">
           <div className="flex justify-center">
             <div className="relative">
-              <Loader2 className="h-16 w-16 animate-spin text-emerald-500"/>
-              <Bot className="h-6 w-6 text-emerald-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"/>
+              <Loader2 className="h-16 w-16 animate-spin text-primary"/>
+              <Bot className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"/>
             </div>
           </div>
           <div>
@@ -449,358 +498,314 @@ const ChatStream = () => {
   }
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col p-6 gap-4">
-      {/* Header */}
-      <Card className="shrink-0 border-0 shadow-sm">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-background p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-5xl mx-auto space-y-4">
+        {/* Header Section */}
+        <Card className="border border-border/50 shadow-lg">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0 pb-4">
             <div className="flex items-center gap-3">
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg">
-                <Activity className="h-6 w-6 text-white"/>
+              <div className="p-2 rounded-xl bg-primary/10 shadow-md">
+                <Activity className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold tracking-tight">Real-time Stream Chat</h2>
-                <p className="text-xs text-muted-foreground">
-                  Server-Sent Events streaming
-                </p>
+                <CardTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  Real-time Stream Chat
+                </CardTitle>
+                <p className="text-xs sm:text-sm text-muted-foreground">Server-Sent Events streaming</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge
-                variant={
-                  connectionStatus === 'connected'
-                    ? 'default'
-                    : connectionStatus === 'connecting'
-                      ? 'secondary'
-                      : 'outline'
-                }
-                className="gap-1.5 px-3"
-              >
-                <span className={`relative flex h-2 w-2`}>
-                  {connectionStatus === 'connected' && (
-                    <span
-                      className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  )}
-                  <span className={`relative inline-flex rounded-full h-2 w-2 ${
-                    connectionStatus === 'connected'
-                      ? 'bg-emerald-500'
-                      : connectionStatus === 'connecting'
-                        ? 'bg-blue-500'
-                        : 'bg-gray-400'
-                  }`}></span>
-                </span>
-                <span className="text-xs">
-                  {connectionStatus === 'connected' ? 'Connected' : connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-                </span>
-              </Badge>
+              {connectionStatus === 'connected' && (
+                <Badge variant="default" className="bg-green-500/20 text-green-400 border-green-500/30">
+                  <div className="w-2 h-2 rounded-full bg-green-400 mr-2 animate-pulse" />
+                  Connected
+                </Badge>
+              )}
+              {connectionStatus === 'connecting' && (
+                <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                  <Loader2 className="h-3 w-3 mr-2 animate-spin" />
+                  Connecting
+                </Badge>
+              )}
+              {connectionStatus === 'disconnected' && (
+                <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30">
+                  <AlertCircle className="h-3 w-3 mr-2" />
+                  Disconnected
+                </Badge>
+              )}
             </div>
-          </div>
-
-          {/* Settings Row */}
-          <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="flex items-center gap-2">
-              <Brain className="h-4 w-4 text-muted-foreground"/>
-              <Select
-                value={streamState.provider}
-                onValueChange={handleProviderChange}
-                disabled={streamState.isStreaming}
-              >
-                <SelectTrigger className="w-full h-8">
-                  <SelectValue placeholder="Provider"/>
-                </SelectTrigger>
-                <SelectContent>
-                  {providers.map((p) => (
-                    <SelectItem key={p.name} value={p.name}>
-                      <div className="flex items-center justify-between">
-                        <span>{p.name}</span>
-                        {p.isDefault && (
-                          <Badge variant="outline" className="text-[8px] px-1 h-5">
-                            default
-                          </Badge>
-                        )}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4 text-muted-foreground"/>
-              <Select
-                value={streamState.model}
-                onValueChange={(value) => setStreamState((prev) => ({...prev, model: value}))}
-                disabled={streamState.isStreaming || isModelsLoading}
-              >
-                <SelectTrigger className="w-full h-8">
-                  <SelectValue placeholder={isModelsLoading ? 'Loading...' : 'Model'}/>
-                </SelectTrigger>
-                <SelectContent>
-                  {isModelsLoading ? (
-                    <SelectItem value="loading" disabled>
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-3 w-3 animate-spin"/>
-                        Loading models...
-                      </div>
-                    </SelectItem>
-                  ) : (
-                    currentModels.map((m) => (
-                      <SelectItem key={m.id} value={m.id || m.name || ''}>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Select
+                  value={provider}
+                  onValueChange={handleProviderChange}
+                  disabled={isStreaming}
+                >
+                  <SelectTrigger className="w-full bg-background/50 border-border/50 h-10">
+                    <Settings className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <SelectValue placeholder="Select provider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providers.map((p) => (
+                      <SelectItem key={p.name} value={p.name}>
+                        <div className="flex items-center justify-between">
+                          <span>{p.name}</span>
+                          {p.name === 'ollama' && <Badge variant="outline" className="ml-2 text-[8px] h-5">default</Badge>}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="relative flex-1">
+                <Select
+                  value={model}
+                  onValueChange={(m) => setStreamState((prev) => ({...prev, model: m}))}
+                  disabled={isStreaming || currentModels.length === 0}
+                >
+                  <SelectTrigger className="w-full bg-background/50 border-border/50 h-10">
+                    <Brain className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <SelectValue placeholder="Select model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentModels.map((m) => (
+                      <SelectItem key={m.id || m.name} value={m.id || m.name || ''}>
                         {m.name || m.id}
                       </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Settings className="h-4 w-4 text-muted-foreground"/>
-              <div className="flex-1">
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="text-muted-foreground">Temperature</span>
-                  <span className="font-medium">{streamState.temperature.toFixed(1)}</span>
-                </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2 bg-background/50 border border-border/50 rounded-lg px-3 py-2 h-10 w-full sm:w-auto">
+                <Settings className="h-4 w-4 text-muted-foreground" />
                 <input
                   type="range"
                   min="0"
                   max="2"
                   step="0.1"
-                  value={streamState.temperature}
+                  value={temperature}
                   onChange={(e) => setStreamState((prev) => ({...prev, temperature: parseFloat(e.target.value)}))}
-                  disabled={streamState.isStreaming}
-                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                  style={{
-                    background: `linear-gradient(to right, #22c55e 0%, #3b82f6 ${streamState.temperature * 50}%, #e5e7eb ${streamState.temperature * 50}%, #e5e7eb 100%)`,
-                  }}
+                  disabled={isStreaming}
+                  className="w-20 sm:w-28 h-1 bg-secondary rounded-lg appearance-none cursor-pointer"
                 />
+                <span className="text-sm font-mono w-10 text-right">{temperature.toFixed(1)}</span>
               </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-muted-foreground"/>
-              <input
-                type="number"
-                value={streamState.maxTokens}
-                onChange={(e) => setStreamState((prev) => ({...prev, maxTokens: parseInt(e.target.value) || 4096}))}
-                disabled={streamState.isStreaming}
-                className="flex-1 h-8 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                min="1"
-                max="32000"
-                placeholder="Max tokens"
-              />
-            </div>
-          </div>
-
-        </CardContent>
-      </Card>
-
-      {/* Error Alert */}
-      {error && (
-        <Alert variant="destructive" className="shrink-0">
-          <AlertCircle className="h-4 w-4"/>
-          <AlertTitle className="text-sm">Error</AlertTitle>
-          <AlertDescription className="text-sm">{error}</AlertDescription>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setError(null)}
-            className="h-auto p-0 ml-auto"
-          >
-            <X className="h-4 w-4"/>
-          </Button>
-        </Alert>
-      )}
-
-      {/* Messages Display */}
-      <Card className="flex-1 flex flex-col min-h-[400px] overflow-hidden">
-        <CardHeader className="py-3 px-4 border-b shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-muted-foreground"/>
-              <CardTitle className="text-base">Conversation</CardTitle>
-              <Badge variant="secondary" className="text-xs">
-                {messages.length} {messages.length === 1 ? 'message' : 'messages'}
-              </Badge>
-            </div>
-            <div className="flex items-center gap-2">
-              {streamState.isStreaming && (
-                <Button
-                  onClick={handleStopStream}
-                  variant="destructive"
-                  size="sm"
-                  className="gap-2"
-                >
-                  <StopCircle className="h-4 w-4"/>
-                  Stop
-                </Button>
-              )}
-              <Button
-                onClick={handleClearMessages}
-                variant="ghost"
-                size="icon"
-                disabled={messages.length === 0 || streamState.isStreaming}
-                title="Clear conversation"
-              >
-                <Wrench className="h-4 w-4"/>
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="flex-1 overflow-y-auto p-4 space-y-4"
-                     onScroll={(e) => {
-                       const {scrollTop, scrollHeight, clientHeight} = e.currentTarget;
-                       setAutoScroll(scrollTop > scrollHeight - clientHeight - 10);
-                     }}
-        >
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <div
-                className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-2xl mb-6">
-                <Bot className="h-10 w-10 text-white"/>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Start Streaming</h3>
-              <p className="text-muted-foreground max-w-md">
-                Select a provider and model above, then type a message to start receiving real-time streamed responses
-                via Server-Sent Events.
-              </p>
-            </div>
-          ) : (
-            <>
-              {messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-                >
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full shadow-md ${
-                      msg.role === 'user'
-                        ? 'bg-primary'
-                        : msg.role === 'assistant'
-                          ? 'bg-gradient-to-br from-emerald-500 to-teal-600'
-                          : 'bg-gradient-to-br from-purple-500 to-pink-600'
-                    }`}
-                  >
-                    {msg.role === 'user' ? (
-                      <User className="h-5 w-5 text-primary-foreground"/>
-                    ) : msg.role === 'assistant' ? (
-                      <Bot className="h-5 w-5 text-white"/>
-                    ) : (
-                      <Wrench className="h-5 w-5 text-white"/>
-                    )}
-                  </div>
-
-                  <div
-                    className={`max-w-[85%] ${msg.role === 'user' ? 'text-right' : ''}`}
-                  >
-                    <div
-                      className={`inline-block rounded-2xl px-5 py-3 shadow-sm ${
-                        msg.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                          : msg.role === 'assistant'
-                            ? 'bg-muted border rounded-tl-sm'
-                            : 'bg-purple-50 border border-purple-200 dark:bg-purple-950/30 dark:border-purple-800 rounded-xl'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide">
-                          {msg.role === 'assistant' ? 'Assistant' : msg.role === 'user' ? 'You' : 'Tool'}
-                        </span>
-                        <span className="text-xs text-muted-foreground/70">
-                          {formatTime(msg.timestamp)}
-                        </span>
-                      </div>
-                      <div
-                        className={`text-sm ${msg.role === 'tool' ? 'font-mono' : ''} whitespace-pre-wrap break-words`}
-                      >
-                        {msg.content}
-                        {msg.isStreaming && (
-                          <span className="inline-block w-2 h-4 ml-1 animate-pulse bg-current"/>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <div ref={messagesEndRef}/>
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Stream Statistics */}
-      {(streamStats.iterations > 0 || streamStats.toolCalls > 0 || streamStats.tokens.total > 0) && (
-        <Card className="shrink-0">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="text-center p-3 rounded-xl bg-muted/30">
-                <Activity className="h-5 w-5 mx-auto mb-1 text-emerald-500"/>
-                <div className="text-2xl font-bold">{streamStats.iterations}</div>
-                <div className="text-xs text-muted-foreground">Iterations</div>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-muted/30">
-                <Wrench className="h-5 w-5 mx-auto mb-1 text-purple-500"/>
-                <div className="text-2xl font-bold">{streamStats.toolCalls}</div>
-                <div className="text-xs text-muted-foreground">Tool Calls</div>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-muted/30">
-                <Bot className="h-5 w-5 mx-auto mb-1 text-blue-500"/>
-                <div className="text-2xl font-bold">
-                  {streamStats.tokens.total > 0 ? formatTokenUsage(streamStats.tokens) : '-'}
-                </div>
-                <div className="text-xs text-muted-foreground">Total Tokens</div>
-              </div>
-              <div className="text-center p-3 rounded-xl bg-muted/30">
-                <Clock className="h-5 w-5 mx-auto mb-1 text-orange-500"/>
-                <div className="text-sm font-medium">
-                  {streamState.isStreaming ? 'Streaming...' : 'Complete'}
-                </div>
-                <div className="text-xs text-muted-foreground">Status</div>
+              <div className="relative w-full sm:w-28 h-10">
+                <Activity className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="number"
+                  value={maxTokens}
+                  onChange={(e) => setStreamState((prev) => ({...prev, maxTokens: parseInt(e.target.value) || 4096}))}
+                  disabled={isStreaming}
+                  className="w-full bg-background/50 border border-border/50 rounded-lg pl-9 pr-3 py-2 text-sm font-mono h-full"
+                  placeholder="4096"
+                />
               </div>
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Input Area */}
-      <Card className="shrink-0 border-0 shadow-md">
-        <CardContent className="p-2">
-          <div className="flex gap-3 items-end">
-            <div className="flex-1 relative">
-              <Textarea
-                ref={textareaRef}
-                value={inputMessage}
-                onChange={handleTextareaChange}
-                onKeyDown={handleKeyPress}
-                placeholder="Type your message here... (Shift+Enter for new line)"
-                disabled={streamState.isStreaming}
-                className="flex-1 min-h-[44px] max-h-[150px] resize-none pr-12 rounded-xl border-0 ring-1 ring-input focus:ring-2 focus:ring-ring"
-                rows={1}
-              />
-            </div>
-            <Button
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || streamState.isStreaming}
-              size="lg"
-              className="h-[44px] px-6 rounded-xl gap-2 shadow-md"
-            >
-              {streamState.isStreaming ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin"/>
-                  <span className="hidden sm:inline">Streaming...</span>
-                </>
-              ) : (
-                <>
-                  <span className="hidden sm:inline">Send</span>
-                  <Send className="h-5 w-5"/>
-                </>
-              )}
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive" className="border-none bg-red-500/10 backdrop-blur-sm animate-in fade-in slide-in-from-top-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+            <Button variant="ghost" size="sm" onClick={() => setError(null)} className="h-auto p-0 ml-auto">
+              <X className="h-4 w-4" />
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </Alert>
+        )}
+
+        {/* Chat Messages Section */}
+        <div className="flex flex-col gap-4 h-[calc(100vh-320px)] min-h-[500px]">
+          <Card className="border border-border/50 shadow-lg flex-1 flex flex-col min-h-0">
+            <CardHeader className="border-b border-border/50 py-3 px-4 shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle className="text-lg font-semibold">Conversation</CardTitle>
+                  <Badge variant="secondary" className="text-xs px-2 py-0.5">
+                    {messages.length} {messages.length === 1 ? 'message' : 'messages'}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isStreaming && (
+                    <Button
+                      onClick={handleStopStream}
+                      variant="destructive"
+                      size="sm"
+                      className="gap-2 h-8"
+                    >
+                      <StopCircle className="h-4 w-4" />
+                      <span className="hidden sm:inline">Stop</span>
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleClearMessages}
+                    variant="ghost"
+                    size="sm"
+                    disabled={messages.length === 0 || isStreaming}
+                    className="gap-2 h-8"
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="hidden sm:inline">Clear</span>
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="py-4 flex-1 min-h-0 px-4">
+              <div
+                className="h-full overflow-y-auto space-y-4 pr-2"
+                style={{scrollbarWidth: 'thin', scrollbarColor: 'hsl(var(--muted-foreground)) transparent'}}
+                onScroll={(e) => {
+                  const {scrollTop, scrollHeight, clientHeight} = e.currentTarget;
+                  setAutoScroll(scrollTop > scrollHeight - clientHeight - 10);
+                }}
+              >
+                {messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4">
+                    <div className="p-4 rounded-full bg-muted/50">
+                      <Bot className="h-12 w-12 opacity-30" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-base font-medium mb-1">No messages yet</p>
+                      <p className="text-sm opacity-70">Start a conversation by typing a message below</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {messages.map((msg, index) => (
+                      <div
+                        key={index}
+                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className="flex items-start gap-2 max-w-[85%] sm:max-w-[75%]">
+                          {msg.role === 'assistant' && (
+                            <div className="p-1.5 rounded-full bg-green-500/20 text-green-400 flex-shrink-0 shadow-sm">
+                              <Bot className="h-4 w-4" />
+                            </div>
+                          )}
+                          <div
+                            className={`rounded-2xl px-4 py-3 shadow-sm ${
+                              msg.role === 'user'
+                                ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                                : 'bg-secondary text-secondary-foreground rounded-tl-sm border border-border/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 mb-1 text-xs opacity-80">
+                              <span className="font-semibold uppercase tracking-wide">
+                                {msg.role === 'user' ? 'YOU' : 'ASSISTANT'}
+                              </span>
+                              <span className="opacity-60">•</span>
+                              <span>{formatTime(msg.timestamp)}</span>
+                              {msg.isStreaming && (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              )}
+                            </div>
+                            <div className="whitespace-pre-wrap break-words text-sm">
+                              {msg.content}
+                              {msg.isStreaming && (
+                                <span className="inline-block w-2 h-4 bg-current ml-1 animate-pulse" />
+                              )}
+                            </div>
+                          </div>
+                          {msg.role === 'user' && (
+                            <div className="p-1.5 rounded-full bg-primary/20 text-primary flex-shrink-0 shadow-sm">
+                              <User className="h-4 w-4" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Stats Section - Only show when there's data */}
+          {hasActiveStreamStats && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 shrink-0">
+              <Card className="border border-border/50 shadow-md transition-all hover:shadow-lg">
+                <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center space-y-1">
+                  <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500" />
+                  <span className="text-xl sm:text-2xl font-bold">{streamStats.iterations}</span>
+                  <span className="text-xs text-muted-foreground">Iterations</span>
+                </CardContent>
+              </Card>
+              <Card className="border border-border/50 shadow-md transition-all hover:shadow-lg">
+                <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center space-y-1">
+                  <Wrench className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" />
+                  <span className="text-xl sm:text-2xl font-bold">{streamStats.toolCalls}</span>
+                  <span className="text-xs text-muted-foreground">Tool Calls</span>
+                </CardContent>
+              </Card>
+              <Card className="border border-border/50 shadow-md transition-all hover:shadow-lg">
+                <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center space-y-1">
+                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
+                  <span className="text-xl sm:text-2xl font-bold">{formatTokenUsage(streamStats.tokens)}</span>
+                  <span className="text-xs text-muted-foreground">Total Tokens</span>
+                </CardContent>
+              </Card>
+              <Card className="border border-border/50 shadow-md transition-all hover:shadow-lg">
+                <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center space-y-1">
+                  {isStreaming ? (
+                    <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500 animate-spin" />
+                  ) : (
+                    <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
+                  )}
+                  <span className="text-xs sm:text-sm font-semibold">
+                    {isStreaming ? 'Streaming...' : 'Complete'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">Status</span>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </div>
+
+        {/* Input Section */}
+        <Card className="border border-border/50 shadow-lg shrink-0">
+          <CardContent className="p-2">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 relative">
+                <Textarea
+                  ref={textareaRef}
+                  value={inputMessage}
+                  onChange={handleTextareaChange}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Type your message here... (Shift+Enter for new line)"
+                  disabled={isStreaming}
+                  rows={1}
+                  className="min-h-[44px] max-h-[150px] resize-none rounded-xl pr-10 border-border/50 bg-background/50"
+                />
+              </div>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!inputMessage.trim() || isStreaming}
+                size="lg"
+                className="h-[44px] px-6 rounded-xl gap-2 shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isStreaming ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="hidden sm:inline">Streaming...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">Send</span>
+                    <Send className="h-5 w-5" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
