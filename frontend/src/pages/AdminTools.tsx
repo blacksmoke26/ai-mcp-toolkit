@@ -5,6 +5,7 @@ import {
   BookOpen,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Code,
   Filter,
@@ -39,6 +40,7 @@ export function AdminTools() {
   const [selectedTool, setSelectedTool] = useState<ToolDetailResponse | null>(null);
   const [expandedTool, setExpandedTool] = useState<string | null>(null);
   const [updateLoading, setUpdateLoading] = useState<string | null>(null);
+  const categoryScrollRef = React.useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
     try {
@@ -127,12 +129,23 @@ export function AdminTools() {
   }, [successMessage]);
 
   // Format JSON for display
-  const formatJSON = (data: unknown) => {
+  const formatJSON = (data: unknown): string => {
     try {
       return JSON.stringify(data, null, 2);
     } catch {
       return String(data);
     }
+  };
+
+  const scrollCategories = (direction: 'left' | 'right') => {
+    const container = categoryScrollRef.current;
+    if (!container) return;
+    const scrollAmount = 300;
+    const newScrollLeft =
+      direction === 'left'
+        ? container.scrollLeft - scrollAmount
+        : container.scrollLeft + scrollAmount;
+    container.scrollTo({ left: newScrollLeft, behavior: 'smooth' });
   };
 
   return (
@@ -226,23 +239,45 @@ export function AdminTools() {
                 className="pl-9"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              {categoryList.map((category) => (
-                <Badge
-                  key={category}
-                  variant={selectedCategory === category ? 'default' : 'outline'}
-                  className="cursor-pointer px-3 py-1"
-                  onClick={() => setSelectedCategory(category)}
-                >
-                  {category === 'all' ? 'All Categories' : category}
-                  {category !== 'all' && (
-                    <span className="ml-1 text-xs opacity-70">
-                      ({categories[category]?.length || 0})
-                    </span>
-                  )}
-                </Badge>
-              ))}
+            <div className="flex items-center gap-2 w-[60%]">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => scrollCategories('left')}
+                className="h-7 w-7 flex-shrink-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div
+                ref={categoryScrollRef}
+                className="flex items-center gap-2 overflow-x-auto flex-1"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                {categoryList.map((category) => (
+                  <Badge
+                    key={category}
+                    variant={selectedCategory === category ? 'default' : 'outline'}
+                    className="cursor-pointer px-3 py-1 whitespace-nowrap"
+                    onClick={() => setSelectedCategory(category)}
+                  >
+                    {category === 'all' ? 'All Categories' : category}
+                    {category !== 'all' && (
+                      <span className="ml-1 text-xs opacity-70">
+                        ({categories[category]?.length || 0})
+                      </span>
+                    )}
+                  </Badge>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => scrollCategories('right')}
+                className="h-7 w-7 flex-shrink-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </CardContent>
