@@ -28,6 +28,8 @@ import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {Textarea} from '@/components/ui/Textarea';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
 import {config, listProviderModels, listProviders, type Model, type Provider} from '@/lib/api';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface StreamMessage {
   /** The role of the message sender. */
@@ -361,6 +363,9 @@ const ChatStream: React.FC = () => {
                     toolCalls: data.toolCalls || prev.toolCalls,
                     tokens: data.tokens || prev.tokens,
                   }));
+
+                  // Stop the global streaming state when result is received
+                  setStreamState((prev) => ({...prev, isStreaming: false}));
                 } catch (e) {
                   console.error('Failed to parse result event:', e);
                 }
@@ -705,8 +710,34 @@ const ChatStream: React.FC = () => {
                                 <Loader2 className="h-3 w-3 animate-spin" />
                               )}
                             </div>
-                            <div className="whitespace-pre-wrap break-words text-sm">
-                              {msg.content}
+                            <div className="prose prose-sm dark:prose-invert max-w-none break-words text-sm">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  code: ({node, className, children, ...props}) => {
+                                    const match = /language-(\w+)/.exec(className || '');
+                                    // @ts-expect-error IGNORE
+                                    const isInline = !node || !node.type || node.type !== 'code';
+                                    return !isInline && match ? (
+                                      <code className={className} {...props}>{children}</code>
+                                    ) : (
+                                      <code className="bg-muted px-1.5 py-0.5 rounded text-sm" {...props}>{children}</code>
+                                    );
+                                  },
+                                  p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
+                                  h1: ({children}) => <h1 className="text-lg font-semibold mt-4 mb-2">{children}</h1>,
+                                  h2: ({children}) => <h2 className="text-base font-semibold mt-3 mb-2">{children}</h2>,
+                                  ul: ({children}) => <ul className="list-disc list-inside mb-2">{children}</ul>,
+                                  ol: ({children}) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
+                                  a: ({children, href}) => (
+                                    <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+                                      {children}
+                                    </a>
+                                  ),
+                                }}
+                              >
+                                {msg.content}
+                              </ReactMarkdown>
                               {msg.isStreaming && (
                                 <span className="inline-block w-2 h-4 bg-current ml-1 animate-pulse" />
                               )}
