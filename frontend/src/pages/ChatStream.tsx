@@ -21,6 +21,8 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Button} from '@/components/ui/Button';
 import {Badge} from '@/components/ui/Badge';
@@ -28,8 +30,6 @@ import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {Textarea} from '@/components/ui/Textarea';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
 import {config, listProviderModels, listProviders, type Model, type Provider} from '@/lib/api';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 
 interface StreamMessage {
   /** The role of the message sender. */
@@ -194,10 +194,10 @@ const ChatStream: React.FC = () => {
 
   /** Handles changes to the selected provider dropdown. */
   const handleProviderChange = (value: string) => {
-    setStreamState((prev) => ({...prev, provider: value}));
+    setStreamState((prev) => ({ ...prev, provider: value}));
     if (!providerModels[value]) {
       loadProviderModels(value);
-      setStreamState((prev) => ({...prev, model: ''}));
+      setStreamState((prev) => ({ ...prev, model: ''}));
     } else {
       const models = providerModels[value].models;
       if (models.length > 0) {
@@ -248,7 +248,6 @@ const ChatStream: React.FC = () => {
     });
 
     // Create assistant message placeholder for streaming
-    const assistantMessageIndex = messages.length;
     setMessages((prev) => [
       ...prev,
       {
@@ -288,7 +287,7 @@ const ChatStream: React.FC = () => {
       const cleanup = () => {
         if (!streamCompleted) {
           streamCompleted = true;
-          setStreamState((prev) => ({...prev, isStreaming: false}));
+          setStreamState((prev) => ({ ...prev, isStreaming: false}));
           setConnectionStatus('connected');
           reader.releaseLock();
         }
@@ -327,10 +326,12 @@ const ChatStream: React.FC = () => {
 
                   if (data.tools && data.tools.length > 0) {
                     setMessages((prev) => {
+                      if (prev.length === 0) return prev;
                       const updated = [...prev];
-                      const msg = updated[assistantMessageIndex];
+                      const lastMsgIndex = prev.length - 1;
+                      const msg = updated[lastMsgIndex];
                       if (msg && !msg.content.includes('[Calling tools...]')) {
-                        updated[assistantMessageIndex] = {
+                        updated[lastMsgIndex] = {
                           ...msg,
                           content: msg.content + '\n🔧 Calling tools...',
                         };
@@ -345,10 +346,12 @@ const ChatStream: React.FC = () => {
                 try {
                   const data = JSON.parse(currentDataLine.replace('data:', '').trim());
                   setMessages((prev) => {
+                    if (prev.length === 0) return prev;
                     const updated = [...prev];
-                    const msg = updated[assistantMessageIndex];
+                    const lastMsgIndex = prev.length - 1;
+                    const msg = updated[lastMsgIndex];
                     if (msg) {
-                      updated[assistantMessageIndex] = {
+                      updated[lastMsgIndex] = {
                         ...msg,
                         content: data.content || msg.content,
                         isStreaming: false,
@@ -365,7 +368,7 @@ const ChatStream: React.FC = () => {
                   }));
 
                   // Stop the global streaming state when result is received
-                  setStreamState((prev) => ({...prev, isStreaming: false}));
+                  setStreamState((prev) => ({ ...prev, isStreaming: false}));
                 } catch (e) {
                   console.error('Failed to parse result event:', e);
                 }
@@ -387,17 +390,19 @@ const ChatStream: React.FC = () => {
         if (!streamCompleted) {
           streamCompleted = true;
           setMessages((prev) => {
+            if (prev.length === 0) return prev;
             const updated = [...prev];
-            const msg = updated[assistantMessageIndex];
+            const lastMsgIndex = prev.length - 1;
+            const msg = updated[lastMsgIndex];
             if (msg && msg.isStreaming) {
-              updated[assistantMessageIndex] = {
+              updated[lastMsgIndex] = {
                 ...msg,
                 isStreaming: false,
               };
             }
             return updated;
           });
-          setStreamState((prev) => ({...prev, isStreaming: false}));
+          setStreamState((prev) => ({ ...prev, isStreaming: false}));
           setConnectionStatus('connected');
           reader.releaseLock();
         }
@@ -410,10 +415,12 @@ const ChatStream: React.FC = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to stream response');
       setMessages((prev) => {
+        if (prev.length === 0) return prev;
         const updated = [...prev];
-        const msg = updated[assistantMessageIndex];
+        const lastMsgIndex = prev.length - 1;
+        const msg = updated[lastMsgIndex];
         if (msg) {
-          updated[assistantMessageIndex] = {
+          updated[lastMsgIndex] = {
             ...msg,
             content: '⚠️ Error: Failed to stream response. Please try again.',
             isStreaming: false,
@@ -421,7 +428,7 @@ const ChatStream: React.FC = () => {
         }
         return updated;
       });
-      setStreamState((prev) => ({...prev, isStreaming: false}));
+      setStreamState((prev) => ({ ...prev, isStreaming: false}));
       setConnectionStatus('disconnected');
     }
   };
@@ -441,7 +448,7 @@ const ChatStream: React.FC = () => {
       }
       return updated;
     });
-    setStreamState((prev) => ({...prev, isStreaming: false}));
+    setStreamState((prev) => ({ ...prev, isStreaming: false}));
     setConnectionStatus('disconnected');
   };
 
@@ -567,7 +574,7 @@ const ChatStream: React.FC = () => {
               <div className="relative flex-1">
                 <Select
                   value={model}
-                  onValueChange={(m) => setStreamState((prev) => ({...prev, model: m}))}
+                  onValueChange={(m) => setStreamState((prev) => ({ ...prev, model: m}))}
                   disabled={isStreaming || currentModels.length === 0}
                 >
                   <SelectTrigger className="w-full bg-background/50 border-border/50 h-10">
@@ -591,7 +598,7 @@ const ChatStream: React.FC = () => {
                   max="2"
                   step="0.1"
                   value={temperature}
-                  onChange={(e) => setStreamState((prev) => ({...prev, temperature: parseFloat(e.target.value)}))}
+                  onChange={(e) => setStreamState((prev) => ({ ...prev, temperature: parseFloat(e.target.value)}))}
                   disabled={isStreaming}
                   className="w-20 sm:w-28 h-1 bg-secondary rounded-lg appearance-none cursor-pointer"
                 />
@@ -602,7 +609,7 @@ const ChatStream: React.FC = () => {
                 <input
                   type="number"
                   value={maxTokens}
-                  onChange={(e) => setStreamState((prev) => ({...prev, maxTokens: parseInt(e.target.value) || 4096}))}
+                  onChange={(e) => setStreamState((prev) => ({ ...prev, maxTokens: parseInt(e.target.value) || 4096}))}
                   disabled={isStreaming}
                   className="w-full bg-background/50 border border-border/50 rounded-lg pl-9 pr-3 py-2 text-sm font-mono h-full"
                   placeholder="4096"
