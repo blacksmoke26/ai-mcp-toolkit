@@ -11,26 +11,36 @@ import {
   AlertCircle,
   Bot,
   Brain,
+  Check,
   Clock,
+  Command,
+  Copy,
+  Info,
   Loader2,
   MessageSquare,
+  Search,
   Send,
   Settings,
   StopCircle,
+  Trash2,
   User,
-  Wrench,
   X,
+  Zap,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
-import {Button} from '@/components/ui/Button';
 import {Badge} from '@/components/ui/Badge';
-import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
+import {Button} from '@/components/ui/Button';
+import {Popover} from '@/components/ui/Popover';
 import {Textarea} from '@/components/ui/Textarea';
+import {ScrollArea} from '@/components/ui/ScrollArea';
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
+import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from '@/components/ui/Tooltip';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
 import {config, listProviderModels, listProviders, type Model, type Provider} from '@/lib/api';
 
+// Types
 interface StreamMessage {
   /** The role of the message sender. */
   role: 'user' | 'assistant' | 'tool' | 'system';
@@ -65,12 +75,473 @@ interface ProviderModels {
 }
 
 /**
- * ChatStream Component
- *
- * A React component that provides a real-time chat interface using Server-Sent Events (SSE).
- * It manages the streaming of messages from an LLM, handles tool calls, and displays
- * connection statistics.
+ * Represents statistics related to the current streaming session.
  */
+interface StreamStats {
+  /** The number of iterations or steps processed during the stream. */
+  iterations: number;
+  /** The total count of tool calls invoked during the session. */
+  toolCalls: number;
+  /** Token usage statistics for the session. */
+  tokens: {
+    /** The number of tokens used in the input prompt. */
+    input: number;
+    /** The number of tokens generated in the output. */
+    output: number;
+    /** The total number of tokens used (input + output). */
+    total: number;
+  };
+}
+
+/**
+ * Props for the StatsWidget component.
+ */
+interface StatsWidgetProps {
+  /** The label text to display above the value. */
+  label: string;
+  /** The numerical or string value to display. */
+  value: string | number;
+  /** The icon element to display alongside the value. */
+  icon: React.ReactNode;
+  /** The color theme for the widget background and text. */
+  color?: 'blue' | 'green' | 'purple' | 'orange' | 'red' | 'teal' | 'cyan';
+  /** Whether to apply a pulse animation to the value. */
+  animate?: boolean;
+}
+
+/**
+ * Props for the ModelGuide component.
+ */
+interface ModelGuideProps {
+  /** The model object containing details and capabilities. */
+  model: Model;
+  /** The name of the provider supplying the model. */
+  provider: string;
+  /** Controls the visibility of the guide modal. */
+  isOpen: boolean;
+  /** Callback function invoked when the modal is closed. */
+  onClose: () => void;
+}
+
+// Stats Widget Component
+const StatsWidget: React.FC<StatsWidgetProps> = ({
+                                                   label,
+                                                   value,
+                                                   icon,
+                                                   color = 'blue',
+                                                   animate = false,
+                                                 }) => {
+  const colorClasses: Record<string, string> = {
+    blue: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    green: 'bg-green-500/10 text-green-500 border-green-500/20',
+    purple: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+    orange: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+    red: 'bg-red-500/10 text-red-500 border-red-500/20',
+    teal: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
+    cyan: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
+  };
+
+  return (
+    <div
+      className={`rounded-xl border p-4 backdrop-blur-sm ${colorClasses[color]} transition-all hover:shadow-lg hover:scale-105`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium opacity-80">{label}</p>
+          <p className="text-2xl font-bold mt-1">
+            {animate ? (
+              <span className="inline-block animate-pulse">{value}</span>
+            ) : (
+              value
+            )}
+          </p>
+        </div>
+        <div className="p-2 rounded-lg bg-background/50 backdrop-blur-sm">
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Model Guide Component
+const ModelGuide: React.FC<ModelGuideProps> = ({model, provider, isOpen, onClose}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div
+        className="bg-background rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto border border-border/50">
+        <Card className="border-0 shadow-none">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary to-primary/60 shadow-lg">
+                  <Brain className="h-5 w-5 text-white"/>
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{model.name || model.id}</CardTitle>
+                  <p className="text-sm text-muted-foreground">provided by {provider}</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="h-8 w-8 rounded-full"
+              >
+                <X className="h-4 w-4"/>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-xl bg-gradient-to-br from-muted to-muted/50 p-5 border border-border/50">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm">
+                  <FileText className="h-4 w-4 text-primary"/>
+                  <span className="font-medium">Model ID:</span>
+                  <code
+                    className="bg-background px-2 py-0.5 rounded-md text-xs border border-border/50">{model.id}</code>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Activity className="h-4 w-4 text-primary"/>
+                  <span className="font-medium">Type:</span>
+                  <Badge variant="outline" className="text-xs">LLM</Badge>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <p className="font-medium mb-2 text-foreground">Capabilities:</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs">
+                    <li>Natural language processing</li>
+                    <li>Conversational AI responses</li>
+                    <li>Context-aware messaging</li>
+                    <li>Real-time streaming support</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-gradient-to-br from-primary/5 to-primary/10 border border-primary/20 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Zap className="h-4 w-4 text-primary"/>
+                <span className="font-medium text-sm text-primary">Usage Tips</span>
+              </div>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0"/>
+                  <span>Be specific in your prompts for optimal results</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0"/>
+                  <span>Use streaming for real-time feedback and control</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0"/>
+                  <span>Adjust temperature for creativity vs precision</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0"/>
+                  <span>Monitor token usage for cost optimization</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0"/>
+                <div className="text-sm">
+                  <p className="font-medium text-amber-700 dark:text-amber-400 mb-1">Important Notes</p>
+                  <ul className="list-disc list-inside space-y-1 text-xs opacity-80">
+                    <li>AI can make mistakes - verify critical information</li>
+                    <li>Respect rate limits and usage policies</li>
+                    <li>Don't share sensitive or personal information</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// Search Panel Component
+const SearchPanel: React.FC<{
+  /** The list of messages to search through. */
+  messages: StreamMessage[];
+  /** Callback function invoked when the panel is closed. */
+  onClose(): void;
+}> = ({messages, onClose}) => {
+  /** The current text string entered by the user to filter messages. */
+  const [searchTerm, setSearchTerm] = useState('');
+  /** The selected role filter to apply to the message list. */
+  const [filterRole, setFilterRole] = useState<'all' | 'user' | 'assistant'>('all');
+
+  /** The list of messages that match both the search term and the selected role filter. */
+  const filteredMessages = messages.filter(msg => {
+    /** Checks if the message content contains the search term (case-insensitive). */
+    const matchesSearch = msg.content.toLowerCase().includes(searchTerm.toLowerCase());
+    /** Checks if the message role matches the selected filter. */
+    const matchesRole = filterRole === 'all' || msg.role === filterRole;
+    return matchesSearch && matchesRole;
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div
+        className="bg-background rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col border border-border/50">
+        <Card className="border-0 shadow-none flex-1 flex flex-col overflow-hidden">
+          <CardHeader className="pb-3 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Search className="h-5 w-5 text-primary"/>
+                <CardTitle className="text-lg">Search Messages</CardTitle>
+                <Badge variant="outline" className="text-xs px-2">
+                  {filteredMessages.length} results
+                </Badge>
+              </div>
+              <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full">
+                <X className="h-4 w-4"/>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-hidden p-4">
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search in messages..."
+                    className="w-full bg-muted rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 border border-border/50"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                {(['all', 'user', 'assistant'] as const).map((role) => (
+                  <Button
+                    key={role}
+                    variant={filterRole === role ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterRole(role)}
+                    className="text-xs capitalize flex-1"
+                  >
+                    {role}
+                  </Button>
+                ))}
+              </div>
+
+              <ScrollArea className="h-[calc(100%-10rem)] pr-4">
+                {filteredMessages.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Search className="h-12 w-12 mx-auto mb-3 opacity-30"/>
+                    <p className="text-sm">No messages found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredMessages.map((msg, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg border transition-all cursor-pointer hover:shadow-md ${
+                          msg.role === 'user'
+                            ? 'bg-blue-500/5 border-blue-500/20 hover:bg-blue-500/10'
+                            : 'bg-muted/50 border-border/30 hover:bg-muted'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            {msg.role === 'user' ? (
+                              <User className="h-3.5 w-3.5 text-blue-500"/>
+                            ) : (
+                              <Bot className="h-3.5 w-3.5 text-emerald-500"/>
+                            )}
+                            <span className="text-xs font-medium capitalize">{msg.role}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {msg.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// Connection Status Indicator Component
+const ConnectionStatus: React.FC<{ status: 'disconnected' | 'connecting' | 'connected' | 'error' }> = ({status}) => {
+  const statusConfig = {
+    disconnected: {
+      badge: 'bg-red-500/10 text-red-500 border-red-500/20',
+      dot: 'bg-red-500',
+      label: 'Disconnected',
+    },
+    connecting: {
+      badge: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+      dot: 'bg-yellow-500 animate-pulse',
+      label: 'Connecting...',
+    },
+    connected: {
+      badge: 'bg-green-500/10 text-green-500 border-green-500/20',
+      dot: 'bg-green-500',
+      label: 'Connected',
+    },
+    error: {
+      badge: 'bg-red-500/10 text-red-500 border-red-500/20',
+      dot: 'bg-red-500',
+      label: 'Error',
+    },
+  };
+
+  const config = statusConfig[status];
+
+  return (
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${config.badge}`}>
+      <div className={`w-2 h-2 rounded-full ${config.dot}`}/>
+      <span className="text-xs font-medium">{config.label}</span>
+    </div>
+  );
+};
+
+// Message Bubble Component
+const MessageBubble: React.FC<{
+  message: StreamMessage;
+  onCopy?(content: string): void;
+}> = ({message, onCopy}) => {
+  const [isCopied, setIsCopied] = useState(false);
+  const isUser = message.role === 'user';
+  const isAssistant = message.role === 'assistant';
+
+  const handleCopy = () => {
+    if (onCopy) {
+      onCopy(message.content);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'});
+  };
+
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} group`}>
+      <div className="flex items-start gap-3 max-w-[85%] lg:max-w-[75%]">
+        {isAssistant && (
+          <div className="p-2 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shrink-0">
+            <Bot className="h-4 w-4 text-white"/>
+          </div>
+        )}
+
+        <div className={`rounded-2xl px-5 py-4 shadow-md transition-all group-hover:shadow-lg ${
+          isUser
+            ? 'bg-gradient-to-br from-blue-600 to-cyan-700 text-white rounded-tr-sm'
+            : 'bg-card border border-border/50 rounded-tl-sm'
+        }`}>
+          <div className="flex items-center gap-2 mb-2 opacity-80">
+            <span className="text-xs font-semibold uppercase tracking-wide">
+              {isUser ? 'YOU' : 'AI ASSISTANT'}
+            </span>
+            <span className="opacity-60">•</span>
+            <Clock className="h-3 w-3"/>
+            <span className="text-xs">{formatTime(message.timestamp)}</span>
+            {message.isStreaming && (
+              <Loader2 className="h-3 w-3 animate-spin"/>
+            )}
+          </div>
+
+          <div className="prose prose-sm dark:prose-invert max-w-none break-words text-sm">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                code: ({node, className, children, ...props}) => {
+                  const match = /language-(\w+)/.exec(className || '');
+                  // @ts-expect-error ignore it
+                  const isInline = !node || !node.type || node.type !== 'code';
+                  return !isInline && match ? (
+                    <pre className="bg-muted/50 rounded-lg p-4 overflow-x-auto my-2 border border-border/50">
+                      <code className={className}>{children}</code>
+                    </pre>
+                  ) : (
+                    <code className="bg-muted/50 px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+                p: ({children}) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+                h1: ({children}) => <h1 className="text-base font-semibold mt-4 mb-2">{children}</h1>,
+                h2: ({children}) => <h2 className="text-sm font-semibold mt-3 mb-1.5">{children}</h2>,
+                ul: ({children}) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
+                ol: ({children}) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
+                a: ({children, href}) => (
+                  <a
+                    href={href}
+                    className="text-primary hover:underline cursor-pointer"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+            {message.isStreaming && (
+              <span className="inline-block w-2 h-4 bg-current ml-1 animate-pulse align-middle"/>
+            )}
+          </div>
+        </div>
+
+        {isUser && (
+          <div className="p-2 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-lg shrink-0">
+            <User className="h-4 w-4 text-white"/>
+          </div>
+        )}
+      </div>
+
+      {!isUser && !message.isStreaming && (
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCopy}
+                  className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
+                >
+                  {isCopied ? (
+                    <Check className="h-4 w-4 text-green-500"/>
+                  ) : (
+                    <Copy className="h-4 w-4"/>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{isCopied ? 'Copied!' : 'Copy message'}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Main ChatStream Component
 const ChatStream: React.FC = () => {
   const [messages, setMessages] = useState<StreamMessage[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
@@ -81,33 +552,24 @@ const ChatStream: React.FC = () => {
     temperature: 0.7,
     maxTokens: 4096,
   });
-  const {
-    isStreaming,
-    provider,
-    model,
-    temperature,
-    maxTokens,
-  } = streamState;
-
+  const {isStreaming, provider, model, temperature, maxTokens} = streamState;
   const [providers, setProviders] = useState<Provider[]>([]);
   const [providerModels, setProviderModels] = useState<Record<string, ProviderModels>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
-  const [streamStats, setStreamStats] = useState({
+  const [streamStats, setStreamStats] = useState<StreamStats>({
     iterations: 0,
     toolCalls: 0,
-    tokens: {
-      input: 0,
-      output: 0,
-      total: 0,
-    },
+    tokens: {input: 0, output: 0, total: 0},
   });
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
+  const [showSearch, setShowSearch] = useState<boolean>(false);
+  const [selectedModelGuide, setSelectedModelGuide] = useState<Model | null>(null);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
 
   /** Scrolls the chat view to the bottom if auto-scroll is enabled. */
   const scrollToBottom = () => {
@@ -194,10 +656,10 @@ const ChatStream: React.FC = () => {
 
   /** Handles changes to the selected provider dropdown. */
   const handleProviderChange = (value: string) => {
-    setStreamState((prev) => ({ ...prev, provider: value}));
+    setStreamState((prev) => ({...prev, provider: value}));
     if (!providerModels[value]) {
       loadProviderModels(value);
-      setStreamState((prev) => ({ ...prev, model: ''}));
+      setStreamState((prev) => ({...prev, model: ''}));
     } else {
       const models = providerModels[value].models;
       if (models.length > 0) {
@@ -211,10 +673,9 @@ const ChatStream: React.FC = () => {
 
   /** Closes the active EventSource connection and updates status. */
   const closeEventSource = () => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-      setConnectionStatus('disconnected');
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
     }
   };
 
@@ -234,18 +695,10 @@ const ChatStream: React.FC = () => {
       textareaRef.current.style.height = 'auto';
     }
 
-    // Reset stream state
-    setStreamState((prev) => ({
-      ...prev,
-      isStreaming: true,
-    }));
+    setStreamState((prev) => ({...prev, isStreaming: true}));
     setConnectionStatus('connecting');
     setError(null);
-    setStreamStats({
-      iterations: 0,
-      toolCalls: 0,
-      tokens: {input: 0, output: 0, total: 0},
-    });
+    setStreamStats({iterations: 0, toolCalls: 0, tokens: {input: 0, output: 0, total: 0}});
 
     // Create assistant message placeholder for streaming
     setMessages((prev) => [
@@ -257,6 +710,9 @@ const ChatStream: React.FC = () => {
         timestamp: new Date(),
       },
     ]);
+
+    const controller = new AbortController();
+    setAbortController(controller);
 
     try {
       // Send message to stream endpoint
@@ -270,6 +726,7 @@ const ChatStream: React.FC = () => {
           temperature: temperature,
           maxTokens: maxTokens,
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok || !response.body) {
@@ -287,7 +744,7 @@ const ChatStream: React.FC = () => {
       const cleanup = () => {
         if (!streamCompleted) {
           streamCompleted = true;
-          setStreamState((prev) => ({ ...prev, isStreaming: false}));
+          setStreamState((prev) => ({...prev, isStreaming: false}));
           setConnectionStatus('connected');
           reader.releaseLock();
         }
@@ -296,9 +753,7 @@ const ChatStream: React.FC = () => {
       try {
         while (true) {
           const {done, value} = await reader.read();
-          if (done) {
-            break;
-          }
+          if (done) break;
 
           const chunk = decoder.decode(value, {stream: true});
           buffer += chunk;
@@ -368,7 +823,7 @@ const ChatStream: React.FC = () => {
                   }));
 
                   // Stop the global streaming state when result is received
-                  setStreamState((prev) => ({ ...prev, isStreaming: false}));
+                  setStreamState((prev) => ({...prev, isStreaming: false}));
                 } catch (e) {
                   console.error('Failed to parse result event:', e);
                 }
@@ -402,40 +857,50 @@ const ChatStream: React.FC = () => {
             }
             return updated;
           });
-          setStreamState((prev) => ({ ...prev, isStreaming: false}));
+          setStreamState((prev) => ({...prev, isStreaming: false}));
           setConnectionStatus('connected');
           reader.releaseLock();
         }
       } catch (readError) {
-        console.error('Error reading stream:', readError);
+        if (readError instanceof Error && readError.name === 'AbortError') {
+          console.log('Stream aborted by user');
+        } else {
+          console.error('Error reading stream:', readError);
+        }
         cleanup();
-        // noinspection ExceptionCaughtLocallyJS
-        throw readError;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to stream response');
-      setMessages((prev) => {
-        if (prev.length === 0) return prev;
-        const updated = [...prev];
-        const lastMsgIndex = prev.length - 1;
-        const msg = updated[lastMsgIndex];
-        if (msg) {
-          updated[lastMsgIndex] = {
-            ...msg,
-            content: '⚠️ Error: Failed to stream response. Please try again.',
-            isStreaming: false,
-          };
-        }
-        return updated;
-      });
-      setStreamState((prev) => ({ ...prev, isStreaming: false}));
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('Request aborted by user');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to stream response');
+        setMessages((prev) => {
+          if (prev.length === 0) return prev;
+          const updated = [...prev];
+          const lastMsgIndex = prev.length - 1;
+          const msg = updated[lastMsgIndex];
+          if (msg) {
+            updated[lastMsgIndex] = {
+              ...msg,
+              content: '⚠️ Error: Failed to stream response. Please try again.',
+              isStreaming: false,
+            };
+          }
+          return updated;
+        });
+      }
+      setStreamState((prev) => ({...prev, isStreaming: false}));
       setConnectionStatus('disconnected');
     }
   };
 
   /** Stops the active stream and updates the UI to reflect the stop action. */
   const handleStopStream = () => {
-    closeEventSource();
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+    }
+
     setMessages((prev) => {
       const updated = [...prev];
       const lastMessage = updated[updated.length - 1];
@@ -448,7 +913,8 @@ const ChatStream: React.FC = () => {
       }
       return updated;
     });
-    setStreamState((prev) => ({ ...prev, isStreaming: false}));
+
+    setStreamState((prev) => ({...prev, isStreaming: false}));
     setConnectionStatus('disconnected');
   };
 
@@ -474,6 +940,10 @@ const ChatStream: React.FC = () => {
     e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
   };
 
+  const handleCopyMessage = (content: string) => {
+    navigator.clipboard.writeText(content);
+  };
+
   const formatTokenUsage = (tokens: { input: number; output: number; total: number }): string => {
     return tokens.total.toLocaleString();
   };
@@ -492,360 +962,473 @@ const ChatStream: React.FC = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background flex items-center justify-center p-6">
-        <div className="text-center space-y-4">
-          <div className="flex justify-center">
-            <div className="relative">
-              <Loader2 className="h-16 w-16 animate-spin text-primary"/>
-              <Bot className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"/>
+      <div
+        className="min-h-screen bg-gradient-to-br from-background via-background to-background flex items-center justify-center p-6">
+        <Card className="max-w-md w-full shadow-2xl">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="flex justify-center">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/10 rounded-full animate-ping"/>
+                <div className="relative p-4 rounded-full bg-gradient-to-br from-primary to-primary/60 shadow-xl">
+                  <Loader2 className="h-12 w-12 animate-spin text-white"/>
+                </div>
+              </div>
             </div>
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold mb-1">Initializing Stream Chat</h2>
-            <p className="text-muted-foreground">Loading providers and models...</p>
-          </div>
-        </div>
+            <div className="space-y-2">
+              <h2
+                className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                Initializing Stream Chat
+              </h2>
+              <p className="text-muted-foreground">Loading providers and models...</p>
+            </div>
+            <div className="flex justify-center gap-2">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="w-2 h-2 rounded-full bg-primary/60 animate-bounce"
+                  style={{animationDelay: `${i * 0.1}s`}}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-background p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-5xl mx-auto space-y-4">
-        {/* Header Section */}
-        <Card className="border border-border/50 shadow-lg">
-          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-primary/10 shadow-md">
-                <Activity className="h-7 w-7 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                  Real-time Stream Chat
-                </CardTitle>
-                <p className="text-xs sm:text-sm text-muted-foreground">Server-Sent Events streaming</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {connectionStatus === 'connected' && (
-                <Badge variant="default" className="bg-green-500/20 text-green-400 border-green-500/30">
-                  <div className="w-2 h-2 rounded-full bg-green-400 mr-2 animate-pulse" />
-                  Connected
-                </Badge>
-              )}
-              {connectionStatus === 'connecting' && (
-                <Badge variant="secondary" className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                  <Loader2 className="h-3 w-3 mr-2 animate-spin" />
-                  Connecting
-                </Badge>
-              )}
-              {connectionStatus === 'disconnected' && (
-                <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/30">
-                  <AlertCircle className="h-3 w-3 mr-2" />
-                  Disconnected
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Select
-                  value={provider}
-                  onValueChange={handleProviderChange}
-                  disabled={isStreaming}
-                >
-                  <SelectTrigger className="w-full bg-background/50 border-border/50 h-10">
-                    <Settings className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <SelectValue placeholder="Select provider" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {providers.map((p) => (
-                      <SelectItem key={p.name} value={p.name}>
-                        <div className="flex items-center justify-between">
-                          <span>{p.name}</span>
-                          {p.name === 'ollama' && <Badge variant="outline" className="ml-2 text-[8px] h-5">default</Badge>}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="relative flex-1">
-                <Select
-                  value={model}
-                  onValueChange={(m) => setStreamState((prev) => ({ ...prev, model: m}))}
-                  disabled={isStreaming || currentModels.length === 0}
-                >
-                  <SelectTrigger className="w-full bg-background/50 border-border/50 h-10">
-                    <Brain className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <SelectValue placeholder="Select model" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currentModels.map((m) => (
-                      <SelectItem key={m.id || m.name} value={m.id || m.name || ''}>
-                        {m.name || m.id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2 bg-background/50 border border-border/50 rounded-lg px-3 py-2 h-10 w-full sm:w-auto">
-                <Settings className="h-4 w-4 text-muted-foreground" />
-                <input
-                  type="range"
-                  min="0"
-                  max="2"
-                  step="0.1"
-                  value={temperature}
-                  onChange={(e) => setStreamState((prev) => ({ ...prev, temperature: parseFloat(e.target.value)}))}
-                  disabled={isStreaming}
-                  className="w-20 sm:w-28 h-1 bg-secondary rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="text-sm font-mono w-10 text-right">{temperature.toFixed(1)}</span>
-              </div>
-              <div className="relative w-full sm:w-28 h-10">
-                <Activity className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="number"
-                  value={maxTokens}
-                  onChange={(e) => setStreamState((prev) => ({ ...prev, maxTokens: parseInt(e.target.value) || 4096}))}
-                  disabled={isStreaming}
-                  className="w-full bg-background/50 border border-border/50 rounded-lg pl-9 pr-3 py-2 text-sm font-mono h-full"
-                  placeholder="4096"
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Error Alert */}
-        {error && (
-          <Alert variant="destructive" className="border-none bg-red-500/10 backdrop-blur-sm animate-in fade-in slide-in-from-top-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-            <Button variant="ghost" size="sm" onClick={() => setError(null)} className="h-auto p-0 ml-auto">
-              <X className="h-4 w-4" />
-            </Button>
-          </Alert>
-        )}
-
-        {/* Chat Messages Section */}
-        <div className="flex flex-col gap-4 h-[calc(100vh-320px)] min-h-[500px]">
-          <Card className="border border-border/50 shadow-lg flex-1 flex flex-col min-h-0">
-            <CardHeader className="border-b border-border/50 py-3 px-4 shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <MessageSquare className="h-5 w-5 text-muted-foreground" />
-                  <CardTitle className="text-lg font-semibold">Conversation</CardTitle>
-                  <Badge variant="secondary" className="text-xs px-2 py-0.5">
-                    {messages.length} {messages.length === 1 ? 'message' : 'messages'}
-                  </Badge>
+    <TooltipProvider>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-background p-4 sm:p-6 lg:p-8">
+        <div className="w-full max-w-6xl mx-auto space-y-4">
+          {/* Header Section */}
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-background to-background/95 backdrop-blur-sm">
+            <CardHeader
+              className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary to-primary/60 shadow-xl">
+                  <Activity className="h-6 w-6 text-white"/>
                 </div>
-                <div className="flex items-center gap-2">
-                  {isStreaming && (
-                    <Button
-                      onClick={handleStopStream}
-                      variant="destructive"
-                      size="sm"
-                      className="gap-2 h-8"
-                    >
-                      <StopCircle className="h-4 w-4" />
-                      <span className="hidden sm:inline">Stop</span>
-                    </Button>
-                  )}
-                  <Button
-                    onClick={handleClearMessages}
-                    variant="ghost"
-                    size="sm"
-                    disabled={messages.length === 0 || isStreaming}
-                    className="gap-2 h-8"
-                  >
-                    <X className="h-4 w-4" />
-                    <span className="hidden sm:inline">Clear</span>
-                  </Button>
+                <div>
+                  <CardTitle
+                    className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                    Real-time Stream Chat
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    Server-Sent Events
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help"/>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Real-time streaming with instant feedback</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </p>
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <ConnectionStatus status={connectionStatus}/>
               </div>
             </CardHeader>
-            <CardContent className="py-4 flex-1 min-h-0 px-4">
-              <div
-                className="h-full overflow-y-auto space-y-4 pr-2"
-                style={{scrollbarWidth: 'thin', scrollbarColor: 'hsl(var(--muted-foreground)) transparent'}}
-                onScroll={(e) => {
-                  const {scrollTop, scrollHeight, clientHeight} = e.currentTarget;
-                  setAutoScroll(scrollTop > scrollHeight - clientHeight - 10);
-                }}
-              >
-                {messages.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4">
-                    <div className="p-4 rounded-full bg-muted/50">
-                      <Bot className="h-12 w-12 opacity-30" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-base font-medium mb-1">No messages yet</p>
-                      <p className="text-sm opacity-70">Start a conversation by typing a message below</p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {messages.map((msg, index) => (
-                      <div
-                        key={index}
-                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div className="flex items-start gap-2 max-w-[85%] sm:max-w-[75%]">
-                          {msg.role === 'assistant' && (
-                            <div className="p-1.5 rounded-full bg-green-500/20 text-green-400 flex-shrink-0 shadow-sm">
-                              <Bot className="h-4 w-4" />
-                            </div>
-                          )}
-                          <div
-                            className={`rounded-2xl px-4 py-3 shadow-sm ${
-                              msg.role === 'user'
-                                ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                                : 'bg-secondary text-secondary-foreground rounded-tl-sm border border-border/50'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 mb-1 text-xs opacity-80">
-                              <span className="font-semibold uppercase tracking-wide">
-                                {msg.role === 'user' ? 'YOU' : 'ASSISTANT'}
-                              </span>
-                              <span className="opacity-60">•</span>
-                              <span>{formatTime(msg.timestamp)}</span>
-                              {msg.isStreaming && (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              )}
-                            </div>
-                            <div className="prose prose-sm dark:prose-invert max-w-none break-words text-sm">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                  code: ({node, className, children, ...props}) => {
-                                    const match = /language-(\w+)/.exec(className || '');
-                                    // @ts-expect-error IGNORE
-                                    const isInline = !node || !node.type || node.type !== 'code';
-                                    return !isInline && match ? (
-                                      <code className={className} {...props}>{children}</code>
-                                    ) : (
-                                      <code className="bg-muted px-1.5 py-0.5 rounded text-sm" {...props}>{children}</code>
-                                    );
-                                  },
-                                  p: ({children}) => <p className="mb-2 last:mb-0">{children}</p>,
-                                  h1: ({children}) => <h1 className="text-lg font-semibold mt-4 mb-2">{children}</h1>,
-                                  h2: ({children}) => <h2 className="text-base font-semibold mt-3 mb-2">{children}</h2>,
-                                  ul: ({children}) => <ul className="list-disc list-inside mb-2">{children}</ul>,
-                                  ol: ({children}) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
-                                  a: ({children, href}) => (
-                                    <a href={href} className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-                                      {children}
-                                    </a>
-                                  ),
-                                }}
-                              >
-                                {msg.content}
-                              </ReactMarkdown>
-                              {msg.isStreaming && (
-                                <span className="inline-block w-2 h-4 bg-current ml-1 animate-pulse" />
-                              )}
-                            </div>
+            <CardContent className="pt-0">
+              <div className="flex flex-col lg:flex-row gap-3">
+                {/* Provider Selector */}
+                <div className="relative flex-1">
+                  <Select value={provider} onValueChange={handleProviderChange} disabled={isStreaming}>
+                    <SelectTrigger className="w-full bg-background/50 border-border/50 h-10">
+                      <Settings className="h-4 w-4 mr-2 text-muted-foreground"/>
+                      <SelectValue placeholder="Select provider"/>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {providers.map((p) => (
+                        <SelectItem key={p.name} value={p.name}>
+                          <div className="flex items-center justify-between">
+                            <span>{p.name}</span>
+                            {p.name === 'ollama' && (
+                              <Badge variant="outline" className="ml-2 text-[8px] h-4">default</Badge>
+                            )}
                           </div>
-                          {msg.role === 'user' && (
-                            <div className="p-1.5 rounded-full bg-primary/20 text-primary flex-shrink-0 shadow-sm">
-                              <User className="h-4 w-4" />
-                            </div>
-                          )}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Model Selector */}
+                <div className="relative flex-1">
+                  <Select
+                    value={model}
+                    onValueChange={(m) => setStreamState((prev) => ({...prev, model: m}))}
+                    disabled={isStreaming || currentModels.length === 0}
+                  >
+                    <SelectTrigger className="w-full bg-background/50 border-border/50 h-10">
+                      <Brain className="h-4 w-4 mr-2 text-muted-foreground"/>
+                      <SelectValue placeholder="Select model"/>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currentModels.map((m) => (
+                        <SelectItem key={m.id || m.name} value={m.id || m.name || ''}>
+                          <div className="flex items-center gap-2">
+                            <span>{m.name || m.id}</span>
+                            <Popover
+                              trigger={() => (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <Info className="h-3 w-3"/>
+                                </Button>
+                              )}>
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Brain className="h-4 w-4 text-primary"/>
+                                  <span className="font-semibold">{m.name || m.id}</span>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Model ID: <code className="bg-muted px-1 rounded text-xs">{m.id}</code>
+                                </p>
+                                <Button
+                                  size="sm"
+                                  className="w-full mt-2"
+                                  onClick={() => setSelectedModelGuide(m)}
+                                >
+                                  Learn more
+                                </Button>
+                              </div>
+                            </Popover>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Temperature Control */}
+                <div
+                  className="flex items-center gap-2 bg-background/50 border border-border/50 rounded-lg px-3 py-2 h-10 w-full lg:w-auto">
+                  <Settings className="h-4 w-4 text-muted-foreground"/>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="relative flex items-center gap-2">
+                          <input
+                            type="range"
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            value={temperature}
+                            onChange={(e) =>
+                              setStreamState((prev) => ({...prev, temperature: parseFloat(e.target.value)}))
+                            }
+                            disabled={isStreaming}
+                            className="w-20 lg:w-28 h-1 bg-secondary rounded-lg appearance-none cursor-pointer"
+                          />
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help"/>
                         </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-                <div ref={messagesEndRef} />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-[200px]">Lower = precise, Higher = creative</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <span className="text-sm font-mono w-10 text-right">{temperature.toFixed(1)}</span>
+                </div>
+
+                {/* Max Tokens Input */}
+                <div className="relative w-full lg:w-32 h-10">
+                  <Activity className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
+                  <input
+                    type="number"
+                    value={maxTokens}
+                    onChange={(e) =>
+                      setStreamState((prev) => ({...prev, maxTokens: parseInt(e.target.value) || 4096}))
+                    }
+                    disabled={isStreaming}
+                    className="w-full bg-background/50 border border-border/50 rounded-lg pl-9 pr-3 py-2 text-sm font-mono h-full"
+                    placeholder="4096"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Stats Section - Only show when there's data */}
-          {hasActiveStreamStats && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 shrink-0">
-              <Card className="border border-border/50 shadow-md transition-all hover:shadow-lg">
-                <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center space-y-1">
-                  <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-500" />
-                  <span className="text-xl sm:text-2xl font-bold">{streamStats.iterations}</span>
-                  <span className="text-xs text-muted-foreground">Iterations</span>
-                </CardContent>
-              </Card>
-              <Card className="border border-border/50 shadow-md transition-all hover:shadow-lg">
-                <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center space-y-1">
-                  <Wrench className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" />
-                  <span className="text-xl sm:text-2xl font-bold">{streamStats.toolCalls}</span>
-                  <span className="text-xs text-muted-foreground">Tool Calls</span>
-                </CardContent>
-              </Card>
-              <Card className="border border-border/50 shadow-md transition-all hover:shadow-lg">
-                <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center space-y-1">
-                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
-                  <span className="text-xl sm:text-2xl font-bold">{formatTokenUsage(streamStats.tokens)}</span>
-                  <span className="text-xs text-muted-foreground">Total Tokens</span>
-                </CardContent>
-              </Card>
-              <Card className="border border-border/50 shadow-md transition-all hover:shadow-lg">
-                <CardContent className="p-3 sm:p-4 flex flex-col items-center justify-center space-y-1">
-                  {isStreaming ? (
-                    <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500 animate-spin" />
-                  ) : (
-                    <Activity className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
-                  )}
-                  <span className="text-xs sm:text-sm font-semibold">
-                    {isStreaming ? 'Streaming...' : 'Complete'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">Status</span>
-                </CardContent>
-              </Card>
-            </div>
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive"
+                   className="border-0 bg-red-500/10 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 shadow-lg">
+              <AlertCircle className="h-5 w-5"/>
+              <AlertTitle className="text-base">Error</AlertTitle>
+              <AlertDescription className="text-sm">{error}</AlertDescription>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setError(null)}
+                className="h-auto p-0 ml-auto hover:bg-red-500/20"
+              >
+                <X className="h-4 w-4"/>
+              </Button>
+            </Alert>
           )}
-        </div>
 
-        {/* Input Section */}
-        <Card className="border border-border/50 shadow-lg shrink-0">
-          <CardContent className="p-2">
-            <div className="flex items-end gap-2">
-              <div className="flex-1 relative">
-                <Textarea
-                  ref={textareaRef}
-                  value={inputMessage}
-                  onChange={handleTextareaChange}
-                  onKeyDown={handleKeyPress}
-                  placeholder="Type your message here... (Shift+Enter for new line)"
-                  disabled={isStreaming}
-                  rows={1}
-                  className="min-h-[44px] max-h-[150px] resize-none rounded-xl pr-10 border-border/50 bg-background/50"
+          {/* Chat Messages Section */}
+          <div className="flex flex-col gap-4 h-[calc(100vh-340px)] min-h-[500px]">
+            <Card className="border-0 shadow-lg flex-1 flex flex-col min-h-0">
+              <CardHeader className="border-b border-border/50 py-3 px-4 shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <MessageSquare className="h-5 w-5 text-primary"/>
+                    <CardTitle className="text-lg font-semibold">Conversation</CardTitle>
+                    <Badge variant="secondary" className="text-xs px-2 py-0.5 bg-primary/10 text-primary">
+                      {messages.length} {messages.length === 1 ? 'message' : 'messages'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setShowSearch(true)}
+                            className="h-8 w-8"
+                          >
+                            <Search className="h-4 w-4"/>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Search messages (Ctrl+K)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+
+                    {isStreaming && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              onClick={handleStopStream}
+                              variant="destructive"
+                              size="sm"
+                              className="gap-2 h-8 animate-pulse"
+                            >
+                              <StopCircle className="h-4 w-4"/>
+                              <span className="hidden sm:inline">Stop</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Stop generating response</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={handleClearMessages}
+                            variant="ghost"
+                            size="icon"
+                            disabled={messages.length === 0 || isStreaming}
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4"/>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Clear all messages</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="py-4 flex-1 min-h-0 px-4">
+                <ScrollArea
+                  className="h-full pr-4"
+                  onScroll={(e) => {
+                    const {scrollTop, scrollHeight, clientHeight} = e.currentTarget;
+                    setAutoScroll(scrollTop > scrollHeight - clientHeight - 10);
+                  }}
+                >
+                  <div className="space-y-4">
+                    {messages.length === 0 ? (
+                      <div
+                        className="flex flex-col items-center justify-center h-full text-muted-foreground space-y-4 py-12">
+                        <div
+                          className="p-6 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+                          <Bot className="h-12 w-12 text-primary opacity-50"/>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-lg font-medium text-foreground mb-2">No messages yet</p>
+                          <p className="text-sm opacity-70">Start a conversation by typing a message below</p>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-4">
+                          <Keyboard className="h-3 w-3"/>
+                          <span>Press Enter to send, Shift+Enter for new line</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {messages.map((msg, index) => (
+                          <MessageBubble key={index} message={msg} onCopy={handleCopyMessage}/>
+                        ))}
+                        <div ref={messagesEndRef}/>
+                      </>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            {/* Stats Section */}
+            {hasActiveStreamStats && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0 animate-in fade-in slide-in-from-bottom-4">
+                <StatsWidget
+                  label="Iterations"
+                  value={streamStats.iterations}
+                  icon={<Activity className="h-5 w-5"/>}
+                  color="teal"
+                />
+                <StatsWidget
+                  label="Tool Calls"
+                  value={streamStats.toolCalls}
+                  icon={<Zap className="h-5 w-5"/>}
+                  color="purple"
+                />
+                <StatsWidget
+                  label="Total Tokens"
+                  value={formatTokenUsage(streamStats.tokens)}
+                  icon={<Clock className="h-5 w-5"/>}
+                  color="cyan"
+                />
+                <StatsWidget
+                  label="Status"
+                  value={isStreaming ? 'Streaming...' : 'Complete'}
+                  icon={isStreaming ? <Loader2 className="h-5 w-5 animate-spin"/> : <Check className="h-5 w-5"/>}
+                  color={isStreaming ? 'orange' : 'green'}
+                  animate={isStreaming}
                 />
               </div>
-              <Button
-                onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || isStreaming}
-                size="lg"
-                className="h-[44px] px-6 rounded-xl gap-2 shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isStreaming ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span className="hidden sm:inline">Streaming...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="hidden sm:inline">Send</span>
-                    <Send className="h-5 w-5" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            )}
+          </div>
+
+          {/* Input Section */}
+          <Card className="border-0 shadow-lg shrink-0">
+            <CardContent className="p-2">
+              <div className="flex items-end gap-2">
+                <div className="flex-1 relative">
+                  <Textarea
+                    ref={textareaRef}
+                    value={inputMessage}
+                    onChange={handleTextareaChange}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Type your message here... (Shift+Enter for new line)"
+                    disabled={isStreaming}
+                    rows={1}
+                    className="min-h-[48px] max-h-[150px] resize-none rounded-2xl pr-10 border-0 ring-1 ring-input focus:ring-2 focus:ring-primary/50 bg-background/50"
+                  />
+                  <div className="absolute right-3 bottom-3 flex items-center gap-1 text-xs text-muted-foreground">
+                    <Command className="h-3 w-3"/>
+                    <span>K</span>
+                    <span className="hidden sm:inline">to search</span>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!inputMessage.trim() || isStreaming}
+                  size="lg"
+                  className="h-[48px] px-6 rounded-2xl gap-2 shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isStreaming ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin"/>
+                      <span className="hidden sm:inline">Streaming...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="hidden sm:inline">Send</span>
+                      <Send className="h-5 w-5"/>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Search Panel */}
+        {showSearch && (
+          <SearchPanel
+            messages={messages}
+            onClose={() => setShowSearch(false)}
+          />
+        )}
+
+        {/* Model Guide Modal */}
+        {selectedModelGuide && (
+          <ModelGuide
+            model={selectedModelGuide}
+            provider={provider}
+            isOpen={true}
+            onClose={() => setSelectedModelGuide(null)}
+          />
+        )}
       </div>
-    </div>
+    </TooltipProvider>
   );
 };
+
+// Helper component for keyboard hint
+const Keyboard: React.FC<{ className?: string }> = ({className}) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <rect width="20" height="16" x="2" y="4" rx="2"/>
+    <path d="M6 8h.001"/>
+    <path d="M10 8h.001"/>
+    <path d="M14 8h.001"/>
+    <path d="M18 8h.001"/>
+    <path d="M6 12h.001"/>
+    <path d="M10 12h.001"/>
+    <path d="M14 12h.001"/>
+    <path d="M18 12h.001"/>
+    <path d="M7 16h10"/>
+  </svg>
+);
+
+// Helper component for file text icon
+const FileText: React.FC<{ className?: string }> = ({className}) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <path d="M16 13H8"/>
+    <path d="M16 17H8"/>
+    <path d="M10 9H8"/>
+  </svg>
+);
 
 export default ChatStream;

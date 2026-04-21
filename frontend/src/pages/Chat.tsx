@@ -10,128 +10,355 @@ import {
   AlertCircle,
   Bot,
   Brain,
+  Check,
   Clock,
+  Copy,
+  FileText,
+  Flame,
+  Globe,
+  Hash,
+  Info,
   Loader2,
   Menu,
   MessageSquare,
+  MessagesSquare,
+  Play,
+  Search,
   Send,
   Sparkles,
+  StopCircle,
   Trash2,
   User,
   Wrench,
   X,
+  Zap,
 } from 'lucide-react';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Button} from '@/components/ui/Button';
 import {Textarea} from '@/components/ui/Textarea';
 import {Badge} from '@/components/ui/Badge';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/Select';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
+import {Popover} from '@/components/ui/Popover';
+import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from '@/components/ui/Tooltip';
+import {ScrollArea} from '@/components/ui/ScrollArea';
 import {
   type ChatMessage,
   type ChatRequest,
   type Conversation,
-  type Model,
-  type Provider,
   deleteConversation,
   getConversation,
   listConversations,
-  listProviders,
   listProviderModels,
+  listProviders,
+  type Model,
+  type Provider,
   sendChat,
 } from '@/lib/api';
 
-/**
- * Props for the MessageBubble component.
- */
+// Types
 interface MessageBubbleProps {
   /** The message content and metadata to display. */
   message: ChatMessage;
   /** Whether the message is currently in a loading state. */
   isLoading?: boolean;
+  /** Callback function triggered when the user requests to copy the message content. */
+  onCopy? (content: string): void;
 }
 
-/**
- * MessageBubble component renders a single chat message bubble.
- * It handles different roles (user, assistant, tool) with distinct styles.
- *
- * @param props - The component props.
- * @returns The rendered message bubble.
- */
-const MessageBubble: React.FC<MessageBubbleProps> = ({message, isLoading = false}) => {
-  /** Flag indicating if the message is from the user. */
+/** Represents the state of available models for a specific provider. */
+interface ProviderModels {
+  /** The list of models available for the provider. */
+  models: Model[];
+  /** Indicates whether the models are currently being fetched. */
+  loading: boolean;
+}
+
+/** Props for the StatsWidget component, displaying a single statistic. */
+interface StatsWidgetProps {
+  /** The label text to display above the value. */
+  label: string;
+  /** The numerical or string value to display. */
+  value: string | number;
+  /** The icon element to display next to the value. */
+  icon: React.ReactNode;
+  /** The trend direction of the statistic, affecting the icon and status text. */
+  trend?: 'up' | 'down' | 'neutral';
+  /** The color theme for the widget background and text. */
+  color?: 'blue' | 'green' | 'purple' | 'orange' | 'red' | 'teal';
+}
+
+/** Props for the ModelGuide component, a modal showing model details. */
+interface ModelGuideProps {
+  /** The model object containing information to display. */
+  model: Model;
+  /** Controls the visibility of the guide modal. */
+  isOpen: boolean;
+  /** Callback function triggered when the modal is closed. */
+  onClose(): void;
+}
+
+// Stats Widget Component
+const StatsWidget: React.FC<StatsWidgetProps> = ({
+  label,
+  value,
+  icon,
+  trend,
+  color = 'blue',
+}) => {
+  const colorClasses: Record<string, string> = {
+    blue: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    green: 'bg-green-500/10 text-green-500 border-green-500/20',
+    purple: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+    orange: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+    red: 'bg-red-500/10 text-red-500 border-red-500/20',
+    teal: 'bg-teal-500/10 text-teal-500 border-teal-500/20',
+  };
+
+  return (
+    <div className={`rounded-xl border p-4 ${colorClasses[color]}`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium opacity-80">{label}</p>
+          <p className="text-2xl font-bold mt-1">{value}</p>
+        </div>
+        <div className="p-2 rounded-lg bg-background/50">
+          {icon}
+        </div>
+      </div>
+      {trend && (
+        <div className="mt-2 flex items-center gap-1 text-xs">
+          {trend === 'up' && (
+            <Sparkles className="h-3 w-3 text-green-500" />
+          )}
+          {trend === 'down' && (
+            <AlertCircle className="h-3 w-3 text-red-500" />
+          )}
+          {trend === 'neutral' && (
+            <Hash className="h-3 w-3" />
+          )}
+          <span className="opacity-70">{trend === 'up' ? 'Active' : trend === 'down' ? 'Warning' : 'Normal'}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Model Guide Component
+const ModelGuide: React.FC<ModelGuideProps> = ({ model, isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-background rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto">
+        <Card className="border-0 shadow-none">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Brain className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{model.name || model.id}</CardTitle>
+                  <p className="text-sm text-muted-foreground">Model Information</p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+                className="h-8 w-8"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg bg-muted/50 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Model ID:</span>
+                <code className="bg-background px-2 py-0.5 rounded text-xs">{model.id}</code>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Capabilities:</span>
+                <Badge variant="outline" className="text-xs">Text Generation</Badge>
+                <Badge variant="outline" className="text-xs">Chat</Badge>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p className="font-medium mb-1">Usage Guide:</p>
+                <ul className="list-disc list-inside space-y-1 text-xs">
+                  <li>Best for: General chat and text generation</li>
+                  <li>Recommended for: Conversations, writing assistance</li>
+                  <li>Context window: Varies by provider</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="h-4 w-4 text-primary" />
+                <span className="font-medium text-sm text-primary">Tips</span>
+              </div>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span>Be specific in your prompts for better results</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span>You can ask follow-up questions in the same conversation</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <span>Use the copy button to save important responses</span>
+                </li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// Message Bubble Component
+const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  isLoading = false,
+  onCopy,
+}) => {
+  const [isCopied, setIsCopied] = useState(false);
   const isUser = message.role === 'user';
-  /** Flag indicating if the message is a tool execution result. */
   const isTool = message.role === 'tool';
+  const isAssistant = message.role === 'assistant';
+
+  const handleCopy = () => {
+    if (onCopy) {
+      onCopy(message.content);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    }
+  };
+
+  const timeString = new Date().toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   if (isTool) {
     return (
-      <div className="flex items-start gap-3">
-        <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30">
-          <Wrench className="h-4 w-4 text-purple-600 dark:text-purple-400"/>
+      <div className="flex items-start gap-3 group">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 shadow-lg">
+          <Wrench className="h-5 w-5 text-white" />
         </div>
-        <div className="flex-1 rounded-lg border bg-card p-3 shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <Badge variant="secondary" className="text-xs">
-              Tool Execution
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              {new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
-            </span>
+        <div className="flex-1 min-w-0">
+          <div className="rounded-2xl border-2 border-purple-500/20 bg-purple-500/5 p-4 shadow-sm backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <Wrench className="h-3 w-3 mr-1" />
+                  Tool Execution
+                </Badge>
+                <span className="text-xs text-muted-foreground">{timeString}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleCopy}
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                {isCopied ? (
+                  <Check className="h-3.5 w-3.5 text-green-500" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </div>
+            <pre className="text-sm font-mono whitespace-pre-wrap text-muted-foreground bg-purple-500/5 rounded-lg p-3 overflow-x-auto">
+              {message.content}
+            </pre>
           </div>
-          <pre className="text-sm font-mono whitespace-pre-wrap text-muted-foreground">
-            {message.content}
-          </pre>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex items-start gap-3 group ${isUser ? 'flex-row-reverse' : ''}`}>
       <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-lg transition-transform group-hover:scale-105 ${
           isUser
-            ? 'bg-primary shadow-md'
-            : 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md'
+            ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
+            : 'bg-gradient-to-br from-emerald-500 to-teal-600'
         }`}
       >
         {isUser ? (
-          <User className="h-5 w-5 text-primary-foreground"/>
+          <User className="h-5 w-5 text-white" />
         ) : (
-          <Bot className="h-5 w-5 text-white"/>
+          <Bot className="h-5 w-5 text-white" />
         )}
       </div>
-      <div className={`flex-1 ${isUser ? 'flex flex-col items-end' : ''}`}>
+      <div className={`flex-1 min-w-0 ${isUser ? 'flex flex-col items-end' : ''}`}>
         <div
-          className={`inline-block max-w-[85%] rounded-2xl px-5 py-3 shadow-sm ${
+          className={`inline-block max-w-[85%] rounded-2xl px-5 py-4 shadow-md transition-all group-hover:shadow-lg ${
             isUser
-              ? 'bg-primary text-primary-foreground rounded-tr-sm'
-              : 'bg-muted border rounded-tl-sm'
+              ? 'bg-gradient-to-br from-blue-600 to-cyan-700 text-white rounded-tr-sm'
+              : 'bg-card border border-border/50 rounded-tl-sm'
           }`}
         >
           {isLoading ? (
-            <div className="flex items-center gap-3">
-              <Loader2 className="h-5 w-5 animate-spin"/>
-              <span className="text-sm">AI is thinking...</span>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1">
+                  <span className="h-2 w-2 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <span className="h-2 w-2 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                  <span className="h-2 w-2 bg-primary/60 rounded-full animate-bounce" />
+                </div>
+                <span className="text-sm text-muted-foreground">AI is thinking...</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                <span>Generating response...</span>
+              </div>
             </div>
           ) : (
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-2 opacity-70">
+                <span className="text-xs font-semibold uppercase tracking-wide">
+                  {isUser ? 'YOU' : 'AI ASSISTANT'}
+                </span>
+                <span className="text-xs opacity-60">•</span>
+                <span className="text-xs">{timeString}</span>
+              </div>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+            </div>
           )}
         </div>
-        {!isLoading && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-            <Clock className="h-3 w-3"/>
-            <span>
-              {new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
-            </span>
+        {!isLoading && !isUser && (
+          <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleCopy}
+                    className="h-7 w-7 text-muted-foreground"
+                  >
+                    {isCopied ? (
+                      <Check className="h-3.5 w-3.5 text-green-500" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isCopied ? 'Copied!' : 'Copy message'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         )}
       </div>
@@ -139,21 +366,121 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({message, isLoading = false
   );
 };
 
-/**
- * Interface to track the state of models for a specific provider.
- */
-interface ProviderModels {
-  /** List of available models for the provider. */
-  models: Model[];
-  /** Loading state indicating if models are currently being fetched. */
-  loading: boolean;
-}
+// Search Panel Component
+const SearchPanel: React.FC<{
+  /** The list of chat messages to search through. */
+  messages: ChatMessage[];
+  /** Callback function triggered when a user selects a message from the search results. */
+  onSelectMessage: (index: number) => void;
+  /** Callback function triggered when the search panel is closed. */
+  onClose: () => void;
+}> = ({ messages, onSelectMessage, onClose }) => {
+  /** The current text string entered by the user to filter messages. */
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  /** The currently selected role filter ('all', 'user', or 'assistant'). */
+  const [filterRole, setFilterRole] = useState<'all' | 'user' | 'assistant'>('all');
 
-/**
- * Main Chat component.
- * Manages the chat interface, message history, provider/model selection,
- * and conversation persistence.
- */
+  /** The list of messages that match both the search term and the selected role filter. */
+  const filteredMessages = messages.filter((msg) => {
+    const matchesSearch = msg.content.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRole = filterRole === 'all' || msg.role === filterRole;
+    return matchesSearch && matchesRole;
+  });
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-background rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+        <Card className="border-0 shadow-none flex-1 flex flex-col overflow-hidden">
+          <CardHeader className="pb-3 border-b">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Search className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Search Messages</CardTitle>
+                <Badge variant="outline" className="text-xs">
+                  {filteredMessages.length} results
+                </Badge>
+              </div>
+              <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="flex-1 overflow-hidden p-4">
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search in messages..."
+                    className="w-full bg-muted rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-1">
+                  {(['all', 'user', 'assistant'] as const).map((role) => (
+                    <Button
+                      key={role}
+                      variant={filterRole === role ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setFilterRole(role)}
+                      className="text-xs capitalize"
+                    >
+                      {role}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <ScrollArea className="h-[calc(100%-8rem)] pr-4">
+                {filteredMessages.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Search className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p>No messages found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredMessages.map((msg, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          onSelectMessage(idx);
+                          onClose();
+                        }}
+                        className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                          msg.role === 'user' ? 'bg-blue-500/10 hover:bg-blue-500/20' : 'bg-muted hover:bg-muted/70'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          {msg.role === 'user' ? (
+                            <User className="h-3.5 w-3.5 text-blue-500" />
+                          ) : (
+                            <Bot className="h-3.5 w-3.5 text-emerald-500" />
+                          )}
+                          <span className="text-xs font-medium capitalize">{msg.role}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <p className="text-sm line-clamp-2 text-muted-foreground">
+                          {msg.content}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+// Main Chat Component
 const Chat = () => {
   /** Array of chat messages in the current session. */
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -181,15 +508,23 @@ const Chat = () => {
   const [loadingConversations, setLoadingConversations] = useState(false);
   /** Flag to enable/disable auto-scrolling to the bottom of the chat. */
   const [autoScroll, setAutoScroll] = useState(true);
+  const [showSearch, setShowSearch] = useState(false);
+  const [selectedModelGuide, setSelectedModelGuide] = useState<Model | null>(null);
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [stats, setStats] = useState({
+    totalMessages: 0,
+    userMessages: 0,
+    aiMessages: 0,
+    toolCalls: 0,
+    avgResponseTime: 0,
+  });
 
-  /** Ref to the end of the messages list for auto-scrolling. */
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  /** Ref to the textarea input element. */
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (autoScroll && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({behavior: 'smooth'});
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, autoScroll]);
 
@@ -199,9 +534,9 @@ const Chat = () => {
         const response = await listProviders();
         const allProviders: Provider[] = [
           ...response.active,
-          ...response.configured?.filter(
+          ...(response.configured?.filter(
             (c) => !response.active.some((a) => a.name === c.name),
-          ).map((c) => ({...c, id: c.id.toString()})) || [],
+          ).map((c) => ({ ...c, id: c.id.toString() })) || []),
         ];
         setProviders(allProviders);
         if (allProviders.length > 0) {
@@ -226,20 +561,29 @@ const Chat = () => {
     }
   }, [showConversations]);
 
-  /**
-   * Fetches the list of available models for a specific provider.
-   * @param providerName - The name of the provider to fetch models for.
-   */
+  useEffect(() => {
+    const userMsgs = messages.filter((m) => m.role === 'user').length;
+    const aiMsgs = messages.filter((m) => m.role === 'assistant').length;
+    const toolMsgs = messages.filter((m) => m.role === 'tool').length;
+    setStats({
+      totalMessages: messages.length,
+      userMessages: userMsgs,
+      aiMessages: aiMsgs,
+      toolCalls: toolMsgs,
+      avgResponseTime: aiMsgs > 0 ? Math.round(messages.length / aiMsgs * 1000) : 0,
+    });
+  }, [messages]);
+
   const loadProviderModels = async (providerName: string) => {
     setProviderModels((prev) => ({
       ...prev,
-      [providerName]: {models: [], loading: true},
+      [providerName]: { models: [], loading: true },
     }));
     try {
       const response = await listProviderModels(providerName);
       setProviderModels((prev) => ({
         ...prev,
-        [providerName]: {models: response.models || [], loading: false},
+        [providerName]: { models: response.models || [], loading: false },
       }));
 
       if (response.models?.length > 0 && !selectedModel) {
@@ -249,7 +593,7 @@ const Chat = () => {
       console.error(`Failed to fetch models for ${providerName}:`, err);
       setProviderModels((prev) => ({
         ...prev,
-        [providerName]: {models: [], loading: false},
+        [providerName]: { models: [], loading: false },
       }));
     }
   };
@@ -293,7 +637,7 @@ const Chat = () => {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || loading) return;
 
-    const userMessage: ChatMessage = {role: 'user', content: inputMessage.trim()};
+    const userMessage: ChatMessage = { role: 'user', content: inputMessage.trim() };
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage('');
     setLoading(true);
@@ -310,6 +654,9 @@ const Chat = () => {
     };
 
     try {
+      const controller = new AbortController();
+      setAbortController(controller);
+
       const response = await sendChat(request);
 
       if (response.conversationId && !conversationId) {
@@ -318,33 +665,45 @@ const Chat = () => {
 
       setMessages((prev) => [
         ...prev,
-        {role: 'assistant', content: response.content || ''},
+        { role: 'assistant', content: response.content || '' },
       ]);
 
       if (response.toolCalls && response.toolCalls.length > 0) {
         response.toolCalls.forEach((toolCall) => {
           setMessages((prev) => [
             ...prev,
-            {role: 'tool', content: toolCall.result || ''},
+            { role: 'tool', content: toolCall.result || '' },
           ]);
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send message');
-      setMessages((prev) => [
-        ...prev,
-        {role: 'assistant', content: '⚠️ Error: Could not process your request. Please try again.'},
-      ]);
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('Request aborted by user');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to send message');
+        setMessages((prev) => [
+          ...prev,
+          { role: 'assistant', content: '⚠️ Error: Could not process your request. Please try again.' },
+        ]);
+      }
     } finally {
       setLoading(false);
+      setAbortController(null);
     }
   };
 
-  /**
-   * Handles keyboard events within the textarea.
-   * Sends message on Enter, allows new line on Shift+Enter.
-   * @param e - The keyboard event.
-   */
+  const handleAbort = () => {
+    if (abortController) {
+      abortController.abort();
+      setLoading(false);
+      setAbortController(null);
+    }
+  };
+
+  const handleCopyMessage = (content: string) => {
+    navigator.clipboard.writeText(content);
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -426,339 +785,515 @@ const Chat = () => {
   const isModelsLoading = providerModels[selectedProvider]?.loading || false;
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-6 p-6">
-      <div className="flex-1 flex flex-col min-w-0 gap-4">
-        {/* Header */}
-        <Card className="shrink-0 border-0 shadow-sm">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setShowConversations(!showConversations)}
-                  className="lg:hidden"
-                >
-                  <Menu className="h-4 w-4"/>
-                </Button>
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg">
-                    <Bot className="h-6 w-6 text-white"/>
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold tracking-tight">MCP AI Assistant</h2>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Badge
-                        variant={selectedProvider ? 'default' : 'outline'}
-                        className="text-xs px-1.5 py-0"
-                      >
-                        {selectedProvider || 'No provider'}
-                      </Badge>
-                      {selectedModel && (
-                        <span className="text-muted-foreground">• {selectedModel}</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {conversationId && (
-                  <Badge variant="outline" className="text-xs hidden sm:flex">
-                    Active Session
-                  </Badge>
-                )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleNewChat}
-                  disabled={loading}
-                  className="gap-2"
-                >
-                  <Sparkles className="h-4 w-4"/>
-                  <span className="hidden sm:inline">New Chat</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleClearMessages}
-                  disabled={messages.length === 0 || loading}
-                  className="text-muted-foreground"
-                >
-                  <Trash2 className="h-4 w-4"/>
-                </Button>
-              </div>
-            </div>
-
-            {/* Settings Row */}
-            <div className="mt-4 flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Brain className="h-4 w-4 text-muted-foreground"/>
-                <Select value={selectedProvider} onValueChange={handleProviderChange} disabled={loading}>
-                  <SelectTrigger className="w-[180px] h-8">
-                    <SelectValue placeholder="Select provider"/>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {providers.map((p) => (
-                      <SelectItem key={p.name} value={p.name}>
-                        <div className="flex items-center gap-2">
-                          <span>{p.name}</span>
-                          {p.isDefault && (
-                            <Badge variant="outline" className="text-[8px] px-1 h-5">
-                              default
-                            </Badge>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {selectedProvider && (
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Bot
-                      className="h-4 w-4 text-muted-foreground absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"/>
-                    <Select
-                      value={selectedModel}
-                      onValueChange={setSelectedModel}
-                      disabled={loading || isModelsLoading}
-                    >
-                      <SelectTrigger className="w-[200px] h-8 pl-7">
-                        <SelectValue placeholder={isModelsLoading ? 'Loading...' : 'Select model'}/>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {isModelsLoading ? (
-                          <SelectItem value="loading" disabled>
-                            <div className="flex items-center gap-2">
-                              <Loader2 className="h-3 w-3 animate-spin"/>
-                              Loading models...
-                            </div>
-                          </SelectItem>
-                        ) : (
-                          currentModels.map((m) => (
-                            <SelectItem key={m.id} value={m.id || m.name || ''}>
-                              {m.name || m.id}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Error Alert */}
-        {error && (
-          <Alert variant="destructive" className="shrink-0">
-            <AlertCircle className="h-4 w-4"/>
-            <AlertTitle className="text-sm">Error</AlertTitle>
-            <AlertDescription className="text-sm">{error}</AlertDescription>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setError(null)}
-              className="h-auto p-0 ml-auto"
-            >
-              <X className="h-4 w-4"/>
-            </Button>
-          </Alert>
-        )}
-
-        {/* Messages Area */}
-        <div
-          className="flex-1 overflow-y-auto space-y-4 p-4 bg-muted/20 rounded-2xl border shadow-inner min-h-[400px]"
-          onScroll={(e) => {
-            const {scrollTop, scrollHeight, clientHeight} = e.currentTarget;
-            setAutoScroll(scrollTop > scrollHeight - clientHeight - 10);
-          }}
-        >
-          {messages.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-center">
-              <div className="max-w-md space-y-6">
-                <div className="flex justify-center">
-                  <div
-                    className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-2xl">
-                    <Bot className="h-10 w-10 text-white"/>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-semibold mb-2">Welcome to MCP AI</h3>
-                  <p className="text-muted-foreground">
-                    Select a provider and model above, then start a conversation.
-                    The AI assistant can use tools to help you accomplish tasks.
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-xl bg-muted/50 p-3">
-                    <Sparkles className="h-4 w-4 mb-2 text-emerald-500"/>
-                    <p className="font-medium">Smart Responses</p>
-                    <p className="text-xs text-muted-foreground">AI-powered assistance</p>
-                  </div>
-                  <div className="rounded-xl bg-muted/50 p-3">
-                    <Wrench className="h-4 w-4 mb-2 text-purple-500"/>
-                    <p className="font-medium">Tool Support</p>
-                    <p className="text-xs text-muted-foreground">Execute MCP tools</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <>
-              {messages.map((msg, index) => (
-                <MessageBubble key={index} message={msg}/>
-              ))}
-              {loading && (
-                <MessageBubble
-                  message={{role: 'assistant', content: ''}}
-                  isLoading
-                />
-              )}
-              <div ref={messagesEndRef}/>
-            </>
-          )}
-        </div>
-
-        {/* Input Area */}
-        <Card className="shrink-0 border-0 shadow-md">
-          <CardContent className="p-2">
-            <div className="flex gap-2 items-end">
-              <div className="flex-1 relative">
-                <Textarea
-                  ref={textareaRef}
-                  value={inputMessage}
-                  onChange={handleTextareaChange}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your message here... (Shift+Enter for new line)"
-                  className="flex-1 min-h-[44px] max-h-[150px] resize-none pr-12 rounded-xl border-0 ring-1 ring-input focus:ring-2 focus:ring-ring"
-                  disabled={loading}
-                  rows={1}
-                />
-              </div>
-              <Button
-                onClick={handleSendMessage}
-                disabled={loading || !inputMessage.trim()}
-                size="lg"
-                className="h-[44px] px-6 rounded-xl gap-2 shadow-md"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin"/>
-                    <span className="hidden sm:inline">Sending...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="hidden sm:inline">Send</span>
-                    <Send className="h-5 w-5"/>
-                  </>
-                )}
-              </Button>
-            </div>
-            <div className="mt-2 text-center">
-              <p className="text-xs text-muted-foreground">
-                MCP AI can make mistakes. Consider checking important information.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Conversations Sidebar */}
-      {showConversations && (
-        <>
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
-            onClick={() => setShowConversations(false)}
-          />
-          <Card
-            className="absolute right-0 top-0 h-full w-80 lg:static lg:w-80 z-50 shadow-2xl lg:shadow-none border-l">
-            <CardHeader className="pb-2 border-b">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5"/>
-                  <CardTitle className="text-base">Conversations</CardTitle>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" onClick={handleNewChat} title="New Chat">
-                    <Sparkles className="h-4 w-4"/>
-                  </Button>
+    <TooltipProvider>
+      <div className="h-[calc(100vh-8rem)] flex gap-6 p-6">
+        <div className="flex-1 flex flex-col min-w-0 gap-4">
+          {/* Header */}
+          <Card className="shrink-0 border-0 shadow-lg bg-gradient-to-r from-background to-background/95 backdrop-blur-sm">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-4">
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon"
-                    className="lg:hidden"
-                    onClick={() => setShowConversations(false)}
+                    onClick={() => setShowConversations(!showConversations)}
+                    className="lg:hidden hover:bg-primary/10"
                   >
-                    <X className="h-4 w-4"/>
+                    <Menu className="h-4 w-4" />
                   </Button>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl">
+                      <Bot className="h-7 w-7 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                        MCP AI Assistant
+                      </h2>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge
+                          variant={selectedProvider ? 'default' : 'outline'}
+                          className="text-xs px-2 py-0.5"
+                        >
+                          {selectedProvider || 'No provider'}
+                        </Badge>
+                        {selectedModel && (
+                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Brain className="h-3 w-3" />
+                            {selectedModel}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {conversationId && (
+                    <Badge variant="outline" className="text-xs hidden sm:flex gap-1">
+                      <Play className="h-3 w-3" />
+                      Active Session
+                    </Badge>
+                  )}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setShowSearch(true)}
+                          className="hover:bg-primary/10"
+                        >
+                          <Search className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Search messages (Ctrl+K)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleNewChat}
+                          disabled={loading}
+                          className="gap-2 hover:bg-primary/10"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          <span className="hidden sm:inline">New Chat</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Start a new conversation</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleClearMessages}
+                          disabled={messages.length === 0 || loading}
+                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Clear all messages</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-2 p-3 h-[calc(100%-80px)] overflow-y-auto">
-              {loadingConversations ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-20 bg-muted rounded-xl animate-pulse"/>
-                  ))}
+
+              {/* Settings Row */}
+              <div className="mt-4 flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-muted-foreground" />
+                  <Select
+                    value={selectedProvider}
+                    onValueChange={handleProviderChange}
+                    disabled={loading}
+                  >
+                    <SelectTrigger className="w-[180px] h-9">
+                      <SelectValue placeholder="Select provider" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {providers.map((p) => (
+                        <SelectItem key={p.name} value={p.name}>
+                          <div className="flex items-center gap-2">
+                            <span>{p.name}</span>
+                            {p.isDefault && (
+                              <Badge variant="outline" className="text-[8px] px-1 h-4">
+                                default
+                              </Badge>
+                            )}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              ) : conversations.length === 0 ? (
-                <div className="text-center py-12">
-                  <MessageSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40"/>
-                  <p className="text-sm text-muted-foreground">No conversations yet</p>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {conversations.map((conv) => (
-                    <div
-                      key={conv.id}
-                      className={`group flex items-center justify-between rounded-xl p-3 transition-all cursor-pointer ${
-                        conversationId === conv.id
-                          ? 'bg-primary/10 border border-primary/20'
-                          : 'hover:bg-muted border border-transparent'
-                      }`}
-                      onClick={() => handleLoadConversation(conv.id)}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
-                          <span className={`font-medium text-sm truncate ${
-                            conversationId === conv.id ? 'text-primary' : ''
-                          }`}>
-                            {conv.title || 'Untitled'}
-                          </span>
-                        </div>
-                        {conv.lastMessage && (
-                          <p className="text-xs text-muted-foreground truncate mt-0.5">
-                            {conv.lastMessage}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground/70 mt-0.5">
-                          {new Date(conv.updatedAt).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                        onClick={(e) => handleDeleteConversation(conv.id, e)}
-                        title="Delete conversation"
+                {selectedProvider && (
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Bot className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Select
+                        value={selectedModel}
+                        onValueChange={setSelectedModel}
+                        disabled={loading || isModelsLoading}
                       >
-                        <Trash2 className="h-4 w-4 text-muted-foreground group-hover:text-destructive"/>
-                      </Button>
+                        <SelectTrigger className="w-[200px] h-9 pl-9">
+                          <SelectValue
+                            placeholder={isModelsLoading ? 'Loading...' : 'Select model'}
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {isModelsLoading ? (
+                            <SelectItem value="loading" disabled>
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Loading models...
+                              </div>
+                            </SelectItem>
+                          ) : (
+                            currentModels.map((m) => (
+                              <SelectItem key={m.id} value={m.id || m.name || ''}>
+                                <div className="flex items-center gap-2">
+                                  <span>{m.name || m.id}</span>
+                                  <Popover
+                                    trigger={() => (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-4 w-4 opacity-0 group-hover:opacity-100"
+                                      >
+                                        <Info className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  >
+                                    <div className="p-4">
+                                      <div className="flex items-center gap-2 mb-3">
+                                        <Brain className="h-4 w-4 text-primary" />
+                                        <span className="font-semibold">{m.name || m.id}</span>
+                                      </div>
+                                      <p className="text-sm text-muted-foreground mb-3">
+                                        Model ID: <code className="bg-muted px-1 rounded">{m.id}</code>
+                                      </p>
+                                      <Button
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => {
+                                          setSelectedModelGuide(m);
+                                        }}
+                                      >
+                                        Learn more
+                                      </Button>
+                                    </div>
+                                  </Popover>
+                                </div>
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ))}
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
-        </>
-      )}
-    </div>
+
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive" className="shrink-0 animate-in slide-in-from-top-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle className="text-sm">Error</AlertTitle>
+              <AlertDescription className="text-sm">{error}</AlertDescription>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setError(null)}
+                className="h-auto p-0 ml-auto"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </Alert>
+          )}
+
+          {/* Messages Area */}
+          <Card className="flex-1 border-0 shadow-lg overflow-hidden">
+            <CardContent className="p-4 h-full flex flex-col">
+              <div
+                className="flex-1 overflow-y-auto space-y-4 pr-2"
+                onScroll={(e) => {
+                  const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+                  setAutoScroll(scrollTop > scrollHeight - clientHeight - 10);
+                }}
+              >
+                {messages.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-center">
+                    <div className="max-w-md space-y-6">
+                      <div className="flex justify-center">
+                        <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-2xl">
+                          <Bot className="h-12 w-12 text-white" />
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                          Welcome to MCP AI
+                        </h3>
+                        <p className="text-muted-foreground">
+                          Select a provider and model above, then start a conversation.
+                          The AI assistant can use tools to help you accomplish tasks.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 p-4 border border-blue-500/20">
+                          <Sparkles className="h-5 w-5 mb-2 text-blue-500" />
+                          <p className="font-semibold text-sm">Smart Responses</p>
+                          <p className="text-xs text-muted-foreground">AI-powered assistance</p>
+                        </div>
+                        <div className="rounded-xl bg-gradient-to-br from-purple-500/10 to-violet-500/10 p-4 border border-purple-500/20">
+                          <Wrench className="h-5 w-5 mb-2 text-purple-500" />
+                          <p className="font-semibold text-sm">Tool Support</p>
+                          <p className="text-xs text-muted-foreground">Execute MCP tools</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {messages.map((msg, index) => (
+                      <MessageBubble
+                        key={index}
+                        message={msg}
+                        isLoading={loading && index === messages.length - 1}
+                        onCopy={handleCopyMessage}
+                      />
+                    ))}
+                    {loading && (
+                      <MessageBubble
+                        message={{ role: 'assistant', content: '' }}
+                        isLoading={true}
+                      />
+                    )}
+                    <div ref={messagesEndRef} />
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Stats Widgets */}
+          {messages.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
+              <StatsWidget
+                label="Messages"
+                value={stats.totalMessages}
+                icon={<MessageSquare className="h-5 w-5" />}
+                trend="neutral"
+                color="blue"
+              />
+              <StatsWidget
+                label="Your Msgs"
+                value={stats.userMessages}
+                icon={<User className="h-5 w-5" />}
+                trend="up"
+                color="teal"
+              />
+              <StatsWidget
+                label="AI Msgs"
+                value={stats.aiMessages}
+                icon={<Bot className="h-5 w-5" />}
+                trend="up"
+                color="purple"
+              />
+              <StatsWidget
+                label="Tool Calls"
+                value={stats.toolCalls}
+                icon={<Wrench className="h-5 w-5" />}
+                trend={stats.toolCalls > 0 ? 'up' : 'neutral'}
+                color="orange"
+              />
+            </div>
+          )}
+
+          {/* Input Area */}
+          <Card className="shrink-0 border-0 shadow-lg">
+            <CardContent className="p-2">
+              <div className="flex gap-2 items-end">
+                <div className="flex-1 relative">
+                  <Textarea
+                    ref={textareaRef}
+                    value={inputMessage}
+                    onChange={handleTextareaChange}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type your message here... (Shift+Enter for new line)"
+                    className="flex-1 min-h-[48px] max-h-[150px] resize-none pr-12 rounded-2xl border-0 ring-1 ring-input focus:ring-2 focus:ring-primary/50"
+                    disabled={loading}
+                    rows={1}
+                  />
+                </div>
+                {loading ? (
+                  <Button
+                    onClick={handleAbort}
+                    variant="destructive"
+                    size="lg"
+                    className="h-[48px] px-6 rounded-2xl gap-2 shadow-md animate-pulse"
+                  >
+                    <StopCircle className="h-5 w-5" />
+                    <span className="hidden sm:inline">Stop</span>
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!inputMessage.trim()}
+                    size="lg"
+                    className="h-[48px] px-6 rounded-2xl gap-2 shadow-md transition-all hover:shadow-lg disabled:opacity-50"
+                  >
+                    <span className="hidden sm:inline">Send</span>
+                    <Send className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
+              <div className="mt-2 text-center">
+                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                  <Flame className="h-3 w-3" />
+                  MCP AI can make mistakes. Consider checking important information.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Conversations Sidebar */}
+        {showConversations && (
+          <>
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
+              onClick={() => setShowConversations(false)}
+            />
+            <Card className="absolute right-0 top-0 h-full w-80 lg:static lg:w-80 z-50 shadow-2xl lg:shadow-none border-l">
+              <CardHeader className="pb-3 border-b">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessagesSquare className="h-5 w-5 text-primary" />
+                    <CardTitle className="text-base">Conversations</CardTitle>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleNewChat}
+                            title="New Chat"
+                            className="h-8 w-8"
+                          >
+                            <Sparkles className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>New chat</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="lg:hidden h-8 w-8"
+                      onClick={() => setShowConversations(false)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <ScrollArea className="h-[calc(100%-80px)] pr-4">
+                <div className="space-y-1 p-2">
+                  {loadingConversations ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-20 bg-muted rounded-xl animate-pulse" />
+                      ))}
+                    </div>
+                  ) : conversations.length === 0 ? (
+                    <div className="text-center py-12">
+                      <MessagesSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+                      <p className="text-sm text-muted-foreground">No conversations yet</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {conversations.map((conv) => (
+                        <div
+                          key={conv.id}
+                          className={`group flex items-center justify-between rounded-xl p-3 transition-all cursor-pointer border ${
+                            conversationId === conv.id
+                              ? 'bg-primary/10 border-primary/30 shadow-sm'
+                              : 'hover:bg-muted border-transparent'
+                          }`}
+                          onClick={() => handleLoadConversation(conv.id)}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span
+                                className={`font-medium text-sm truncate ${
+                                  conversationId === conv.id ? 'text-primary' : ''
+                                }`}
+                              >
+                                {conv.title || 'Untitled'}
+                              </span>
+                            </div>
+                            {conv.lastMessage && (
+                              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                {conv.lastMessage}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground/70 mt-0.5">
+                              {new Date(conv.updatedAt).toLocaleDateString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                              })}
+                            </p>
+                          </div>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                                  onClick={(e) => handleDeleteConversation(conv.id, e)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-muted-foreground group-hover:text-destructive" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Delete conversation</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </Card>
+          </>
+        )}
+
+        {/* Search Panel */}
+        {showSearch && (
+          <SearchPanel
+            messages={messages}
+            onSelectMessage={(index) => {
+              const msgEndRef = document.querySelectorAll('[data-message-bubble]')[index];
+              if (msgEndRef) {
+                msgEndRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }}
+            onClose={() => setShowSearch(false)}
+          />
+        )}
+
+        {/* Model Guide Modal */}
+        {selectedModelGuide && (
+          <ModelGuide
+            model={selectedModelGuide}
+            isOpen={true}
+            onClose={() => setSelectedModelGuide(null)}
+          />
+        )}
+      </div>
+    </TooltipProvider>
   );
 };
 
