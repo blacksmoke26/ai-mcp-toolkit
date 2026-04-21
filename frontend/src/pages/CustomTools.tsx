@@ -16,17 +16,21 @@
  * - Enable/Disable tools dynamically
  * - Delete custom tools
  * - Load example templates
+ * - Interactive documentation via tooltips, popovers, and modals
  */
 
 import React, {useCallback, useEffect, useState} from 'react';
 import {
   AlertCircle,
+  BookOpen,
   Check,
   Code,
   Copy,
   Download,
   Edit,
   FileCode,
+  HelpCircle,
+  Info,
   Loader2,
   Play,
   Plus,
@@ -34,6 +38,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Trash2,
+  Zap,
 } from 'lucide-react';
 import type {
   CreateCustomToolRequest,
@@ -71,6 +76,14 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/compo
 import {Label} from '@/components/ui/Label';
 import Separator from '@/components/ui/Separator';
 import CodeEditor from '@/components/ui/CodeEditor';
+import {Popover} from '@/components/ui/Popover';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/Tooltip';
+import * as Tabs from '@radix-ui/react-tabs';
 
 interface CreateEditDialogProps {
   /** Controls the visibility of the dialog. */
@@ -126,6 +139,19 @@ interface TemplateDialogProps {
   onSelectTemplate(template: CustomToolTemplate): void;
 }
 
+interface InfoDialogProps {
+  /** Controls the visibility of the dialog. */
+  open: boolean;
+
+  /** Callback function invoked when the dialog's open state changes. */
+  onOpenChange(open: boolean): void;
+}
+
+/**
+ * Info Dialog component displaying comprehensive documentation about Custom Tools.
+ * Includes overview, architecture, API endpoints, templates, security considerations, and troubleshooting.
+ */
+
 /**
  * Dialog component for creating or editing a custom tool.
  *
@@ -153,6 +179,41 @@ interface TemplateDialogProps {
  * />
  */
 const CreateEditDialog: React.FC<CreateEditDialogProps> = ({open, onOpenChange, tool, templateData, onSave, isEditing}) => {
+  // Documentation content for popovers
+  const inputSchemaHelp = `
+Input Schema defines the parameters your tool accepts. It follows JSON Schema format:
+
+{
+  "type": "object",
+  "properties": {
+    "paramName": {
+      "type": "string|number|boolean|array|object",
+      "description": "Parameter description"
+    }
+  },
+  "required": ["requiredParam"]
+}
+
+Supported types: string, number, boolean, array, object
+  `.trim();
+
+  const handlerCodeHelp = `
+Handler Code is JavaScript that executes when your tool is called.
+
+Available: 
+  - args: Input parameters from the schema
+  - safeContext: Access to safe globals (Math, Date, JSON, fetch, etc.)
+
+Must return:
+  {
+    content: [{ type: 'text', text: 'result' }],
+    isError: false
+  }
+
+Example:
+  const result = args.a + args.b;
+  return { content: [{ type: 'text', text: String(result) }] };
+  `.trim();
   const [name, setName] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [description, setDescription] = useState('');
@@ -272,7 +333,19 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = ({open, onOpenChange, 
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Tool Name *</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="name">Tool Name *</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" onClick={(e) => e.preventDefault()}/>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Tool name must start with a letter and contain only letters, numbers, and underscores (e.g., my_custom_tool).</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Input
                 id="name"
                 value={name}
@@ -286,7 +359,19 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = ({open, onOpenChange, 
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="displayName">Display Name *</Label>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="displayName">Display Name *</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" onClick={(e) => e.preventDefault()}/>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Human-readable name displayed in the UI (e.g., My Custom Tool).</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Input
                 id="displayName"
                 value={displayName}
@@ -297,7 +382,19 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = ({open, onOpenChange, 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description *</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="description">Description *</Label>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" onClick={(e) => e.preventDefault()}/>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Detailed description of what your tool does. This appears in tool listings.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <Textarea
               id="description"
               value={description}
@@ -337,7 +434,19 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = ({open, onOpenChange, 
           <Separator/>
 
           <div className="space-y-2">
-            <Label htmlFor="inputSchema">Input Schema (JSON) *</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="inputSchema">Input Schema (JSON) *</Label>
+              <Popover
+                title="Input Schema Guide"
+                description="JSON Schema format for defining tool parameters"
+                contentClassName="max-w-md"
+                maxHeight="400px"
+                triggerIcon={HelpCircle}
+                triggerVariant="outline"
+              >
+                <pre className="text-xs font-mono whitespace-pre-wrap">{inputSchemaHelp}</pre>
+              </Popover>
+            </div>
             <CodeEditor
               editorProps={{id: 'inputSchema'}}
               language="json"
@@ -352,7 +461,19 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = ({open, onOpenChange, 
           <Separator/>
 
           <div className="space-y-2">
-            <Label htmlFor="handlerCode">Handler Code (JavaScript) *</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="handlerCode">Handler Code (JavaScript) *</Label>
+              <Popover
+                title="Handler Code Guide"
+                description="JavaScript code that executes when your tool is called"
+                contentClassName="max-w-md"
+                maxHeight="400px"
+                triggerIcon={HelpCircle}
+                triggerVariant="outline"
+              >
+                <pre className="text-xs font-mono whitespace-pre-wrap">{handlerCodeHelp}</pre>
+              </Popover>
+            </div>
             <CodeEditor
               editorProps={{id: 'handlerCode'}}
               language="javascript"
@@ -373,6 +494,472 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = ({open, onOpenChange, 
           <Button onClick={handleSubmit} disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
             {isEditing ? 'Update Tool' : 'Create Tool'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+/**
+ * Info Dialog component displaying comprehensive documentation about Custom Tools.
+ */
+const InfoDialog: React.FC<InfoDialogProps> = ({open, onOpenChange}) => {
+  const [activeTab, setActiveTab] = useState('overview');
+
+  const documentation = {
+    overview: {
+      title: 'Overview',
+      icon: BookOpen,
+      content: (
+        <div className="space-y-4">
+          <p>
+            The Custom Tools feature allows you to create your own MCP (Model Context Protocol) tools
+            using JavaScript. These tools can be used to extend the capabilities of your AI assistant
+            with custom logic, data processing, and integrations.
+          </p>
+          <Alert>
+            <Info className="h-4 w-4"/>
+            <AlertTitle>What are Custom Tools?</AlertTitle>
+            <AlertDescription>
+              Custom tools are JavaScript functions that can be called by the MCP protocol. They receive
+              input arguments, execute your custom logic, and return results to the AI assistant.
+            </AlertDescription>
+          </Alert>
+          <div className="space-y-2">
+            <h4 className="font-semibold">Key Features:</h4>
+            <ul className="list-disc list-inside space-y-1 text-sm">
+              <li>Create tools with custom input schemas (JSON Schema)</li>
+              <li>Write JavaScript handler code</li>
+              <li>Test tools before deploying</li>
+              <li>Enable/Disable tools dynamically</li>
+              <li>Organize tools by category</li>
+              <li>Use pre-built templates to get started</li>
+            </ul>
+          </div>
+        </div>
+      ),
+    },
+    architecture: {
+      title: 'Architecture',
+      icon: Code,
+      content: (
+        <div className="space-y-4">
+          <p>
+            Custom Tools are registered with the MCP server and made available to AI assistants
+            through the standard MCP protocol. The architecture consists of several components:
+          </p>
+          <div className="space-y-3">
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm">1. Frontend UI</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Web interface for creating, editing, testing, and managing custom tools. Built with React
+                  and includes code editors, form validation, and real-time testing.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm">2. Backend API</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  RESTful API endpoints for CRUD operations on tools. Handles tool compilation, testing,
+                  and registration with the MCP server.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm">3. Tool Engine</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Secure JavaScript execution environment (vm2) that runs tool handler code with access
+                  to a safe context containing only approved globals.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-3">
+                <CardTitle className="text-sm">4. MCP Server</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Registers custom tools with the MCP protocol, making them available to AI assistants
+                  for discovery and invocation.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ),
+    },
+    'api-endpoints': {
+      title: 'API Endpoints',
+      icon: Zap,
+      content: (
+        <div className="space-y-4">
+          <p>The following API endpoints are available for managing custom tools:</p>
+          <div className="space-y-3">
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <span className="text-green-500">GET</span>
+                  /api/custom-tools
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  List all custom tools with optional filtering by enabled status, category, and search query.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <span className="text-green-500">GET</span>
+                  /api/custom-tools/{'{id}'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Get detailed information about a specific tool, including input schema and handler code.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <span className="text-blue-500">POST</span>
+                  /api/custom-tools
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Create a new custom tool.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <span className="text-yellow-500">PUT</span>
+                  /api/custom-tools/{'{id}'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Update an existing custom tool.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <span className="text-red-500">DELETE</span>
+                  /api/custom-tools/{'{id}'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Delete a custom tool.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <span className="text-purple-500">POST</span>
+                  /api/custom-tools/{'{id}'}
+                  /test
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Test a custom tool with provided input arguments.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <span className="text-orange-500">PATCH</span>
+                  /api/custom-tools/{'{id}'}
+                  /toggle
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Toggle a custom tool's enabled status.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <span className="text-green-500">GET</span>
+                  /api/custom-tools/templates
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Get available tool templates for quick creation.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ),
+    },
+    templates: {
+      title: 'Templates',
+      icon: FileCode,
+      content: (
+        <div className="space-y-4">
+          <p>
+            Choose from 40+ pre-built templates across different categories to get started quickly.
+            Templates provide a foundation you can customize for your specific needs.
+          </p>
+          <div className="space-y-2">
+            <h4 className="font-semibold">Available Categories:</h4>
+            <ul className="list-disc list-inside space-y-1 text-sm">
+              <li><strong>Math & Numbers:</strong> Calculator, Random Generator, Percentage, Fibonacci, Prime Checker</li>
+              <li><strong>Text & String:</strong> Transformer, Word Counter, Palindrome Checker, Base64, Regex Matcher</li>
+              <li><strong>Data & Parsing:</strong> JSON Formatter, CSV Parser, URL Parser</li>
+              <li><strong>Date & Time:</strong> Current Time, Date Difference, Age Calculator</li>
+              <li><strong>Array & List:</strong> Reverser, Shuffler, Sorter</li>
+              <li><strong>Conversion:</strong> Temperature, Length, Weight, Currency Formatter</li>
+              <li><strong>Utility:</strong> UUID Generator, Email Validator, Color Converter, City Lookup</li>
+            </ul>
+          </div>
+          <Alert>
+            <BookOpen className="h-4 w-4"/>
+            <AlertDescription>
+              Click the Templates button to browse and use any template. Templates auto-fill the create form.
+            </AlertDescription>
+          </Alert>
+        </div>
+      ),
+    },
+    'handler-code': {
+      title: 'Handler Code',
+      icon: Code,
+      content: (
+        <div className="space-y-4">
+          <p>
+            The handler code is JavaScript that executes when your tool is called. It receives
+            input arguments and a safe context, and must return a properly formatted result.
+          </p>
+          <Alert>
+            <Info className="h-4 w-4"/>
+            <AlertTitle>Function Signature</AlertTitle>
+            <AlertDescription>
+              Your handler receives <code>args</code> (input parameters) and can access globals via <code>safeContext</code>.
+            </AlertDescription>
+          </Alert>
+          <h4 className="font-semibold">Example Handler:</h4>
+          <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto">
+{`// Simple greeting tool
+const name = args.name || 'World';
+return {
+  content: [{
+    type: 'text',
+    text: \`Hello, \${name}!\`
+  }]
+};`}
+          </pre>
+          <h4 className="font-semibold">Return Format:</h4>
+          <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto">
+{`{
+  content: [
+    { type: 'text', text: 'Plain text result' },
+    { type: 'resource', resource: { uri: '...', text: '...' } }
+  ],
+  isError: false
+}`}
+          </pre>
+          <h4 className="font-semibold">Available in safeContext:</h4>
+          <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+            <li><code>Math</code> - Mathematical functions</li>
+            <li><code>Date</code> - Date and time operations</li>
+            <li><code>JSON</code> - JSON parsing/stringifying</li>
+            <li><code>RegExp</code> - Regular expressions</li>
+            <li><code>Array</code>, <code>String</code> - Built-in types</li>
+            <li><code>fetch</code> - HTTP requests (limited)</li>
+          </ul>
+        </div>
+      ),
+    },
+    security: {
+      title: 'Security',
+      icon: AlertCircle,
+      content: (
+        <div className="space-y-4">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4"/>
+            <AlertTitle>Important Security Notes</AlertTitle>
+            <AlertDescription>
+              Custom tool code runs in a sandboxed environment, but you should still follow security best practices.
+            </AlertDescription>
+          </Alert>
+          <div className="space-y-3">
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-sm">🔒 Sandboxed Execution</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Tools run in a restricted VM2 environment with no direct access to the filesystem,
+                  environment variables, or dangerous APIs.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-sm">🚫 Restricted Globals</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Only approved globals are available through <code>safeContext</code>. Functions like <code>require()</code>,
+                  <code>process</code>, <code>eval()</code>, and <code>setTimeout()</code> are blocked.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-sm">⚠️ Never Trust Input</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Always validate and sanitize input arguments. Use secure patterns for HTTP requests
+                  and avoid executing user-provided code.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-sm">🔑 Protect Sensitive Data</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Do not hardcode API keys or secrets in handler code. Use environment variables or
+                  secure configuration management for sensitive values.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ),
+    },
+    troubleshooting: {
+      title: 'Troubleshooting',
+      icon: AlertCircle,
+      content: (
+        <div className="space-y-4">
+          <div className="space-y-3">
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-sm">Tool Not Appearing in List</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>Check if the tool is enabled (use toggle button)</li>
+                  <li>Clear any active search or category filters</li>
+                  <li>Refresh the page to reload from the database</li>
+                  <li>Check browser console for API errors</li>
+                </ul>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-sm">Tool Execution Errors</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>Verify input arguments match the schema</li>
+                  <li>Check handler code for syntax errors</li>
+                  <li>Ensure all variables are properly declared</li>
+                  <li>Use the Test feature to debug before deployment</li>
+                </ul>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-sm">Compilation Errors</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>Wrap your code in a function body format</li>
+                  <li>Don't use top-level <code>import</code> statements</li>
+                  <li>Avoid async/await at top level; use regular functions</li>
+                  <li>Check for ES2015+ features not supported in the VM</li>
+                </ul>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-sm">Tool in Inconsistent State</CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <ul className="text-xs text-muted-foreground space-y-1">
+                  <li>Try editing and saving the tool</li>
+                  <li>Check database records for corrupted data</li>
+                  <li>Restart the MCP server if needed</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ),
+    },
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5"/>
+            Custom Tools Documentation
+          </DialogTitle>
+          <DialogDescription>
+            Comprehensive guide for creating, managing, and troubleshooting custom MCP tools.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs.List className="grid w-full grid-cols-3 md:grid-cols-6 gap-1 bg-muted p-1 rounded-lg">
+            {Object.entries(documentation).map(([key, {title, icon: Icon}]) => (
+              <Tabs.Trigger
+                key={key}
+                value={key}
+                className="flex items-center justify-center gap-1 data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-md py-2 text-sm font-medium transition-all"
+              >
+                <Icon className="h-3.5 w-3.5"/>
+                <span className="hidden sm:inline">{title}</span>
+              </Tabs.Trigger>
+            ))}
+          </Tabs.List>
+
+          <div className="mt-4">
+            {Object.entries(documentation).map(([key, {title, content}]) => (
+              <Tabs.Content key={key} value={key} className="space-y-4">
+                <Separator/>
+                <div className="prose prose-sm max-w-none">
+                  {content}
+                </div>
+              </Tabs.Content>
+            ))}
+          </div>
+        </Tabs.Root>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -473,11 +1060,20 @@ const TestDialog: React.FC<TestDialogProps> = ({open, onOpenChange, tool, onTest
             />
           </div>
 
-          <Button onClick={handleTest} disabled={loading} className="w-full">
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
-            <Play className="mr-2 h-4 w-4"/>
-            Run Test
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={handleTest} disabled={loading} className="w-full">
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}
+                  <Play className="mr-2 h-4 w-4"/>
+                  Run Test
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Execute the tool with the provided JSON arguments</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {result && (
             <Card>
@@ -621,6 +1217,9 @@ const CustomTools: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Info dialog state
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -783,46 +1382,100 @@ const CustomTools: React.FC = () => {
           <p className="text-muted-foreground mt-1">
             Create, manage, and test custom MCP tools
           </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setInfoDialogOpen(true)}
+            className="mt-2 text-muted-foreground hover:text-foreground"
+          >
+            <BookOpen className="h-4 w-4 mr-2"/>
+            Documentation
+          </Button>
         </div>
 
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setTemplateDialogOpen(true)}>
-            <Download className="mr-2 h-4 w-4"/>
-            Templates
-          </Button>
-          <Button onClick={handleCreate}>
-            <Plus className="mr-2 h-4 w-4"/>
-            Create Tool
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" onClick={() => setTemplateDialogOpen(true)}>
+                  <Download className="mr-2 h-4 w-4"/>
+                  Templates
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Browse 40+ pre-built tool templates</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={handleCreate}>
+                  <Plus className="mr-2 h-4 w-4"/>
+                  Create Tool
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Create a new custom MCP tool</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm font-medium">Total Tools</CardTitle>
-          </CardHeader>
-          <CardContent className="py-2">
-            <div className="text-2xl font-bold">{totalTools}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm font-medium">Enabled</CardTitle>
-          </CardHeader>
-          <CardContent className="py-2">
-            <div className="text-2xl font-bold text-green-500">{enabledTools}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="py-3">
-            <CardTitle className="text-sm font-medium">Disabled</CardTitle>
-          </CardHeader>
-          <CardContent className="py-2">
-            <div className="text-2xl font-bold text-muted-foreground">{disabledTools}</div>
-          </CardContent>
-        </Card>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="cursor-help">
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm font-medium">Total Tools</CardTitle>
+                </CardHeader>
+                <CardContent className="py-2">
+                  <div className="text-2xl font-bold">{totalTools}</div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Total number of custom tools created</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="cursor-help">
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm font-medium">Enabled</CardTitle>
+                </CardHeader>
+                <CardContent className="py-2">
+                  <div className="text-2xl font-bold text-green-500">{enabledTools}</div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Tools currently available to MCP clients</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Card className="cursor-help">
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm font-medium">Disabled</CardTitle>
+                </CardHeader>
+                <CardContent className="py-2">
+                  <div className="text-2xl font-bold text-muted-foreground">{disabledTools}</div>
+                </CardContent>
+              </Card>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Tools currently not available to MCP clients</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Notifications */}
@@ -859,22 +1512,40 @@ const CustomTools: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-              <Select.Root value={selectedCategory?.toString?.() ?? ''} onValueChange={setSelectedCategory}>
-                <Select.Trigger/>
-                <Select.Content>
-                  {categories.filter((c) => c !== 'all').map(cat => (
-                    <Select.Item value={cat}>{cat}</Select.Item>
-                  ))}
-                </Select.Content>
-              </Select.Root>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Select.Root value={selectedCategory?.toString?.() ?? ''} onValueChange={setSelectedCategory}>
+                      <Select.Trigger className="w-[180px]"/>
+                      <Select.Content>
+                        {categories.filter((c) => c !== 'all').map(cat => (
+                          <Select.Item value={cat}>{cat}</Select.Item>
+                        ))}
+                      </Select.Content>
+                    </Select.Root>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Filter tools by category</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-              <Button
-                variant={showDisabled ? 'default' : 'outline'}
-                onClick={() => setShowDisabled(!showDisabled)}
-                className="whitespace-nowrap"
-              >
-                Show Disabled: {showDisabled ? 'On' : 'Off'}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={showDisabled ? 'default' : 'outline'}
+                      onClick={() => setShowDisabled(!showDisabled)}
+                      className="whitespace-nowrap"
+                    >
+                      Show Disabled: {showDisabled ? 'On' : 'Off'}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Toggle visibility of disabled tools</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </CardContent>
@@ -1005,6 +1676,11 @@ const CustomTools: React.FC = () => {
         templateData={templateData}
         setTemplateData={setTemplateData}
         onSelectTemplate={handleSelectTemplate}
+      />
+
+      <InfoDialog
+        open={infoDialogOpen}
+        onOpenChange={setInfoDialogOpen}
       />
     </div>
   );
