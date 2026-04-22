@@ -322,6 +322,8 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
       id: conversation.conversationId,
       title: conversation.title,
       model: conversation.modelName,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
       messages: conversation.messages?.map((m: Message) => ({
         role: m.role,
         content: m.content,

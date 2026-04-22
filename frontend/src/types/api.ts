@@ -208,10 +208,14 @@ export interface ToolsCallRequest {
 // ============================================================================
 
 export interface ChatMessage {
+  /** Unique message identifier */
+  id?: string;
   /** Message role */
   role: 'system' | 'user' | 'assistant' | 'tool';
   /** Message content */
   content: string;
+  /** Message timestamp */
+  timestamp?: number;
 }
 
 export interface ChatRequest {
@@ -279,6 +283,8 @@ export interface ConversationMessage {
   toolName?: string;
   /** Creation timestamp */
   createdAt: string;
+  /** Number of tokens count */
+  tokenCount?: number;
 }
 
 export interface Conversation {
@@ -292,6 +298,8 @@ export interface Conversation {
   lastMessage?: string;
   /** Last update timestamp */
   updatedAt: string;
+  /** Created timestamp */
+  createdAt: string;
 }
 
 export interface ConversationWithMessages extends Conversation {
