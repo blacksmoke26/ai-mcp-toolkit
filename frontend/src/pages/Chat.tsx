@@ -62,8 +62,9 @@ interface MessageBubbleProps {
   message: ChatMessage;
   /** Whether the message is currently in a loading state. */
   isLoading?: boolean;
+
   /** Callback function triggered when the user requests to copy the message content. */
-  onCopy? (content: string): void;
+  onCopy?(content: string): void;
 }
 
 /** Represents the state of available models for a specific provider. */
@@ -94,18 +95,15 @@ interface ModelGuideProps {
   model: Model;
   /** Controls the visibility of the guide modal. */
   isOpen: boolean;
+
   /** Callback function triggered when the modal is closed. */
   onClose(): void;
 }
 
 // Stats Widget Component
-const StatsWidget: React.FC<StatsWidgetProps> = ({
-  label,
-  value,
-  icon,
-  trend,
-  color = 'blue',
-}) => {
+const StatsWidget: React.FC<StatsWidgetProps> = (props) => {
+  const {label, value, icon, trend, color = 'blue'} = props;
+
   const colorClasses: Record<string, string> = {
     blue: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
     green: 'bg-green-500/10 text-green-500 border-green-500/20',
@@ -129,13 +127,13 @@ const StatsWidget: React.FC<StatsWidgetProps> = ({
       {trend && (
         <div className="mt-2 flex items-center gap-1 text-xs">
           {trend === 'up' && (
-            <Sparkles className="h-3 w-3 text-green-500" />
+            <Sparkles className="h-3 w-3 text-green-500"/>
           )}
           {trend === 'down' && (
-            <AlertCircle className="h-3 w-3 text-red-500" />
+            <AlertCircle className="h-3 w-3 text-red-500"/>
           )}
           {trend === 'neutral' && (
-            <Hash className="h-3 w-3" />
+            <Hash className="h-3 w-3"/>
           )}
           <span className="opacity-70">{trend === 'up' ? 'Active' : trend === 'down' ? 'Warning' : 'Normal'}</span>
         </div>
@@ -145,7 +143,7 @@ const StatsWidget: React.FC<StatsWidgetProps> = ({
 };
 
 // Model Guide Component
-const ModelGuide: React.FC<ModelGuideProps> = ({ model, isOpen, onClose }) => {
+const ModelGuide: React.FC<ModelGuideProps> = ({model, isOpen, onClose}) => {
   if (!isOpen) return null;
 
   return (
@@ -156,7 +154,7 @@ const ModelGuide: React.FC<ModelGuideProps> = ({ model, isOpen, onClose }) => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
-                  <Brain className="h-5 w-5 text-primary" />
+                  <Brain className="h-5 w-5 text-primary"/>
                 </div>
                 <div>
                   <CardTitle className="text-lg">{model.name || model.id}</CardTitle>
@@ -169,19 +167,19 @@ const ModelGuide: React.FC<ModelGuideProps> = ({ model, isOpen, onClose }) => {
                 onClick={onClose}
                 className="h-8 w-8"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4"/>
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-lg bg-muted/50 p-4 space-y-3">
               <div className="flex items-center gap-2 text-sm">
-                <FileText className="h-4 w-4 text-muted-foreground" />
+                <FileText className="h-4 w-4 text-muted-foreground"/>
                 <span className="font-medium">Model ID:</span>
                 <code className="bg-background px-2 py-0.5 rounded text-xs">{model.id}</code>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <Globe className="h-4 w-4 text-muted-foreground" />
+                <Globe className="h-4 w-4 text-muted-foreground"/>
                 <span className="font-medium">Capabilities:</span>
                 <Badge variant="outline" className="text-xs">Text Generation</Badge>
                 <Badge variant="outline" className="text-xs">Chat</Badge>
@@ -198,20 +196,20 @@ const ModelGuide: React.FC<ModelGuideProps> = ({ model, isOpen, onClose }) => {
 
             <div className="rounded-lg bg-primary/5 border border-primary/20 p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Zap className="h-4 w-4 text-primary" />
+                <Zap className="h-4 w-4 text-primary"/>
                 <span className="font-medium text-sm text-primary">Tips</span>
               </div>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <Check className="h-4 w-4 text-green-500 mt-0.5"/>
                   <span>Be specific in your prompts for better results</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <Check className="h-4 w-4 text-green-500 mt-0.5"/>
                   <span>You can ask follow-up questions in the same conversation</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <Check className="h-4 w-4 text-green-500 mt-0.5" />
+                  <Check className="h-4 w-4 text-green-500 mt-0.5"/>
                   <span>Use the copy button to save important responses</span>
                 </li>
               </ul>
@@ -224,16 +222,22 @@ const ModelGuide: React.FC<ModelGuideProps> = ({ model, isOpen, onClose }) => {
 };
 
 // Message Bubble Component
-const MessageBubble: React.FC<MessageBubbleProps> = ({
-  message,
-  isLoading = false,
-  onCopy,
-}) => {
+const MessageBubble: React.FC<MessageBubbleProps> = (props) => {
+  const {message, isLoading = false, onCopy} = props;
+
+  /** State to track if the message content has been copied to the clipboard. */
   const [isCopied, setIsCopied] = useState(false);
+  /** Determines if the message was sent by the user. */
   const isUser = message.role === 'user';
+  /** Determines if the message is a tool execution result. */
   const isTool = message.role === 'tool';
+  /** Determines if the message is from the AI assistant. */
   const isAssistant = message.role === 'assistant';
 
+  /**
+   * Handles the copy action for the message content.
+   * Triggers the `onCopy` callback and temporarily sets the copied state.
+   */
   const handleCopy = () => {
     if (onCopy) {
       onCopy(message.content);
@@ -242,23 +246,27 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
-  const timeString = new Date().toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  /** Formats the message timestamp into a localized time string (HH:MM). */
+  const timeString = message.timestamp
+    ? new Date(message.timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    : '';
 
   if (isTool) {
     return (
       <div className="flex items-start gap-3 group">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 shadow-lg">
-          <Wrench className="h-5 w-5 text-white" />
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 shadow-lg">
+          <Wrench className="h-5 w-5 text-white"/>
         </div>
         <div className="flex-1 min-w-0">
           <div className="rounded-2xl border-2 border-purple-500/20 bg-purple-500/5 p-4 shadow-sm backdrop-blur-sm">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                  <Wrench className="h-3 w-3 mr-1" />
+                  <Wrench className="h-3 w-3 mr-1"/>
                   Tool Execution
                 </Badge>
                 <span className="text-xs text-muted-foreground">{timeString}</span>
@@ -270,13 +278,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 {isCopied ? (
-                  <Check className="h-3.5 w-3.5 text-green-500" />
+                  <Check className="h-3.5 w-3.5 text-green-500"/>
                 ) : (
-                  <Copy className="h-3.5 w-3.5" />
+                  <Copy className="h-3.5 w-3.5"/>
                 )}
               </Button>
             </div>
-            <pre className="text-sm font-mono whitespace-pre-wrap text-muted-foreground bg-purple-500/5 rounded-lg p-3 overflow-x-auto">
+            <pre
+              className="text-sm font-mono whitespace-pre-wrap text-muted-foreground bg-purple-500/5 rounded-lg p-3 overflow-x-auto">
               {message.content}
             </pre>
           </div>
@@ -295,9 +304,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         }`}
       >
         {isUser ? (
-          <User className="h-5 w-5 text-white" />
+          <User className="h-5 w-5 text-white"/>
         ) : (
-          <Bot className="h-5 w-5 text-white" />
+          <Bot className="h-5 w-5 text-white"/>
         )}
       </div>
       <div className={`flex-1 min-w-0 ${isUser ? 'flex flex-col items-end' : ''}`}>
@@ -312,14 +321,14 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex gap-1">
-                  <span className="h-2 w-2 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                  <span className="h-2 w-2 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                  <span className="h-2 w-2 bg-primary/60 rounded-full animate-bounce" />
+                  <span className="h-2 w-2 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.3s]"/>
+                  <span className="h-2 w-2 bg-primary/60 rounded-full animate-bounce [animation-delay:-0.15s]"/>
+                  <span className="h-2 w-2 bg-primary/60 rounded-full animate-bounce"/>
                 </div>
                 <span className="text-sm text-muted-foreground">AI is thinking...</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
+                <Clock className="h-3 w-3"/>
                 <span>Generating response...</span>
               </div>
             </div>
@@ -348,9 +357,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                     className="h-7 w-7 text-muted-foreground"
                   >
                     {isCopied ? (
-                      <Check className="h-3.5 w-3.5 text-green-500" />
+                      <Check className="h-3.5 w-3.5 text-green-500"/>
                     ) : (
-                      <Copy className="h-3.5 w-3.5" />
+                      <Copy className="h-3.5 w-3.5"/>
                     )}
                   </Button>
                 </TooltipTrigger>
@@ -366,15 +375,17 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   );
 };
 
-// Search Panel Component
-const SearchPanel: React.FC<{
+interface SearchPanelProps {
   /** The list of chat messages to search through. */
   messages: ChatMessage[];
   /** Callback function triggered when a user selects a message from the search results. */
   onSelectMessage: (index: number) => void;
   /** Callback function triggered when the search panel is closed. */
   onClose: () => void;
-}> = ({ messages, onSelectMessage, onClose }) => {
+}
+
+// Search Panel Component
+const SearchPanel: React.FC<SearchPanelProps> = ({messages, onSelectMessage, onClose}) => {
   /** The current text string entered by the user to filter messages. */
   const [searchTerm, setSearchTerm] = useState<string>('');
   /** The currently selected role filter ('all', 'user', or 'assistant'). */
@@ -394,14 +405,14 @@ const SearchPanel: React.FC<{
           <CardHeader className="pb-3 border-b">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Search className="h-5 w-5 text-primary" />
+                <Search className="h-5 w-5 text-primary"/>
                 <CardTitle className="text-lg">Search Messages</CardTitle>
                 <Badge variant="outline" className="text-xs">
                   {filteredMessages.length} results
                 </Badge>
               </div>
               <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4"/>
               </Button>
             </div>
           </CardHeader>
@@ -409,7 +420,7 @@ const SearchPanel: React.FC<{
             <div className="space-y-4">
               <div className="flex gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
                   <input
                     type="text"
                     value={searchTerm}
@@ -437,7 +448,7 @@ const SearchPanel: React.FC<{
               <ScrollArea className="h-[calc(100%-8rem)] pr-4">
                 {filteredMessages.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    <Search className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <Search className="h-12 w-12 mx-auto mb-3 opacity-30"/>
                     <p>No messages found</p>
                   </div>
                 ) : (
@@ -455,13 +466,13 @@ const SearchPanel: React.FC<{
                       >
                         <div className="flex items-center gap-2 mb-1">
                           {msg.role === 'user' ? (
-                            <User className="h-3.5 w-3.5 text-blue-500" />
+                            <User className="h-3.5 w-3.5 text-blue-500"/>
                           ) : (
-                            <Bot className="h-3.5 w-3.5 text-emerald-500" />
+                            <Bot className="h-3.5 w-3.5 text-emerald-500"/>
                           )}
                           <span className="text-xs font-medium capitalize">{msg.role}</span>
                           <span className="text-xs text-muted-foreground">
-                            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            {new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
                           </span>
                         </div>
                         <p className="text-sm line-clamp-2 text-muted-foreground">
@@ -508,9 +519,13 @@ const Chat = () => {
   const [loadingConversations, setLoadingConversations] = useState(false);
   /** Flag to enable/disable auto-scrolling to the bottom of the chat. */
   const [autoScroll, setAutoScroll] = useState(true);
+  /** State to control the visibility of the search panel. */
   const [showSearch, setShowSearch] = useState(false);
+  /** The currently selected model object to display in the guide modal. */
   const [selectedModelGuide, setSelectedModelGuide] = useState<Model | null>(null);
+  /** The AbortController instance for the current active request, allowing cancellation. */
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  /** Statistics about the current chat session, including message counts and performance metrics. */
   const [stats, setStats] = useState({
     totalMessages: 0,
     userMessages: 0,
@@ -519,12 +534,14 @@ const Chat = () => {
     avgResponseTime: 0,
   });
 
+  /** Ref to the DOM element at the end of the message list for auto-scrolling. */
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  /** Ref to the textarea input element for focus and height management. */
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (autoScroll && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current.scrollIntoView({behavior: 'smooth'});
     }
   }, [messages, autoScroll]);
 
@@ -536,7 +553,7 @@ const Chat = () => {
           ...response.active,
           ...(response.configured?.filter(
             (c) => !response.active.some((a) => a.name === c.name),
-          ).map((c) => ({ ...c, id: c.id.toString() })) || []),
+          ).map((c) => ({...c, id: c.id.toString()})) || []),
         ];
         setProviders(allProviders);
         if (allProviders.length > 0) {
@@ -553,6 +570,7 @@ const Chat = () => {
       }
     };
     fetchProviders();
+    // eslint-disable-next-line
   }, []);
 
   useEffect(() => {
@@ -577,13 +595,13 @@ const Chat = () => {
   const loadProviderModels = async (providerName: string) => {
     setProviderModels((prev) => ({
       ...prev,
-      [providerName]: { models: [], loading: true },
+      [providerName]: {models: [], loading: true},
     }));
     try {
       const response = await listProviderModels(providerName);
       setProviderModels((prev) => ({
         ...prev,
-        [providerName]: { models: response.models || [], loading: false },
+        [providerName]: {models: response.models || [], loading: false},
       }));
 
       if (response.models?.length > 0 && !selectedModel) {
@@ -593,7 +611,7 @@ const Chat = () => {
       console.error(`Failed to fetch models for ${providerName}:`, err);
       setProviderModels((prev) => ({
         ...prev,
-        [providerName]: { models: [], loading: false },
+        [providerName]: {models: [], loading: false},
       }));
     }
   };
@@ -637,11 +655,18 @@ const Chat = () => {
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || loading) return;
 
-    const userMessage: ChatMessage = { role: 'user', content: inputMessage.trim() };
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      role: 'user',
+      content: inputMessage.trim(),
+      timestamp: Date.now(),
+    };
+
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage('');
     setLoading(true);
     setError(null);
+
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -665,14 +690,24 @@ const Chat = () => {
 
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: response.content || '' },
+        {
+          id: `assistant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          role: 'assistant',
+          content: response.content || '',
+          timestamp: Date.now(),
+        },
       ]);
 
       if (response.toolCalls && response.toolCalls.length > 0) {
         response.toolCalls.forEach((toolCall) => {
           setMessages((prev) => [
             ...prev,
-            { role: 'tool', content: toolCall.result || '' },
+            {
+              id: `tool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              role: 'tool',
+              content: toolCall.result || '',
+              timestamp: Date.now(),
+            },
           ]);
         });
       }
@@ -683,7 +718,12 @@ const Chat = () => {
         setError(err instanceof Error ? err.message : 'Failed to send message');
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: '⚠️ Error: Could not process your request. Please try again.' },
+          {
+            id: `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            role: 'assistant',
+            content: '⚠️ Error: Could not process your request. Please try again.',
+            timestamp: Date.now(),
+          },
         ]);
       }
     } finally {
@@ -692,6 +732,10 @@ const Chat = () => {
     }
   };
 
+  /**
+   * Aborts the currently active message generation request.
+   * Resets the loading state and clears the abort controller.
+   */
   const handleAbort = () => {
     if (abortController) {
       abortController.abort();
@@ -700,10 +744,19 @@ const Chat = () => {
     }
   };
 
+  /**
+   * Copies the specified text content to the user's clipboard.
+   * @param content - The string content to be copied.
+   */
   const handleCopyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
   };
 
+  /**
+   * Handles keyboard events within the message input textarea.
+   * Triggers message sending on 'Enter' key press, unless 'Shift' is held.
+   * @param e - The keyboard event object.
+   */
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -731,6 +784,10 @@ const Chat = () => {
     setError(null);
   };
 
+  const dateToTimestamp = (date: string): number => {
+    return new Date(date).getTime();
+  };
+
   /**
    * Loads a specific conversation from the API by ID.
    * @param id - The ID of the conversation to load.
@@ -740,9 +797,11 @@ const Chat = () => {
       const conv = await getConversation(id);
       setConversationId(id);
       setMessages(
-        conv.messages?.map((m) => ({
+        conv.messages?.map((m, index) => ({
+          id: `loaded-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
           role: m.role as 'system' | 'user' | 'assistant' | 'tool',
           content: m.content || '',
+          timestamp: m?.createdAt?.trim?.() ? dateToTimestamp(m.createdAt) : Date.now(),
         })) || [],
       );
       setError(null);
@@ -789,7 +848,8 @@ const Chat = () => {
       <div className="h-[calc(100vh-8rem)] flex gap-6 p-6">
         <div className="flex-1 flex flex-col min-w-0 gap-4">
           {/* Header */}
-          <Card className="shrink-0 border-0 shadow-lg bg-gradient-to-r from-background to-background/95 backdrop-blur-sm">
+          <Card
+            className="shrink-0 border-0 shadow-lg bg-gradient-to-r from-background to-background/95 backdrop-blur-sm">
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -799,14 +859,16 @@ const Chat = () => {
                     onClick={() => setShowConversations(!showConversations)}
                     className="lg:hidden hover:bg-primary/10"
                   >
-                    <Menu className="h-4 w-4" />
+                    <Menu className="h-4 w-4"/>
                   </Button>
                   <div className="flex items-center gap-3">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl">
-                      <Bot className="h-7 w-7 text-white" />
+                    <div
+                      className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-xl">
+                      <Bot className="h-7 w-7 text-white"/>
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                      <h2
+                        className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                         MCP AI Assistant
                       </h2>
                       <div className="flex items-center gap-2 mt-0.5">
@@ -818,7 +880,7 @@ const Chat = () => {
                         </Badge>
                         {selectedModel && (
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Brain className="h-3 w-3" />
+                            <Brain className="h-3 w-3"/>
                             {selectedModel}
                           </span>
                         )}
@@ -829,7 +891,7 @@ const Chat = () => {
                 <div className="flex items-center gap-2">
                   {conversationId && (
                     <Badge variant="outline" className="text-xs hidden sm:flex gap-1">
-                      <Play className="h-3 w-3" />
+                      <Play className="h-3 w-3"/>
                       Active Session
                     </Badge>
                   )}
@@ -842,7 +904,7 @@ const Chat = () => {
                           onClick={() => setShowSearch(true)}
                           className="hover:bg-primary/10"
                         >
-                          <Search className="h-4 w-4" />
+                          <Search className="h-4 w-4"/>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -860,7 +922,7 @@ const Chat = () => {
                           disabled={loading}
                           className="gap-2 hover:bg-primary/10"
                         >
-                          <Sparkles className="h-4 w-4" />
+                          <Sparkles className="h-4 w-4"/>
                           <span className="hidden sm:inline">New Chat</span>
                         </Button>
                       </TooltipTrigger>
@@ -879,7 +941,7 @@ const Chat = () => {
                           disabled={messages.length === 0 || loading}
                           className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4"/>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>
@@ -893,14 +955,14 @@ const Chat = () => {
               {/* Settings Row */}
               <div className="mt-4 flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <Brain className="h-4 w-4 text-muted-foreground" />
+                  <Brain className="h-4 w-4 text-muted-foreground"/>
                   <Select
                     value={selectedProvider}
                     onValueChange={handleProviderChange}
                     disabled={loading}
                   >
                     <SelectTrigger className="w-[180px] h-9">
-                      <SelectValue placeholder="Select provider" />
+                      <SelectValue placeholder="Select provider"/>
                     </SelectTrigger>
                     <SelectContent>
                       {providers.map((p) => (
@@ -921,7 +983,8 @@ const Chat = () => {
                 {selectedProvider && (
                   <div className="flex items-center gap-2">
                     <div className="relative">
-                      <Bot className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Bot
+                        className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"/>
                       <Select
                         value={selectedModel}
                         onValueChange={setSelectedModel}
@@ -936,7 +999,7 @@ const Chat = () => {
                           {isModelsLoading ? (
                             <SelectItem value="loading" disabled>
                               <div className="flex items-center gap-2">
-                                <Loader2 className="h-3 w-3 animate-spin" />
+                                <Loader2 className="h-3 w-3 animate-spin"/>
                                 Loading models...
                               </div>
                             </SelectItem>
@@ -952,13 +1015,13 @@ const Chat = () => {
                                         size="icon"
                                         className="h-4 w-4 opacity-0 group-hover:opacity-100"
                                       >
-                                        <Info className="h-3 w-3" />
+                                        <Info className="h-3 w-3"/>
                                       </Button>
                                     )}
                                   >
                                     <div className="p-4">
                                       <div className="flex items-center gap-2 mb-3">
-                                        <Brain className="h-4 w-4 text-primary" />
+                                        <Brain className="h-4 w-4 text-primary"/>
                                         <span className="font-semibold">{m.name || m.id}</span>
                                       </div>
                                       <p className="text-sm text-muted-foreground mb-3">
@@ -991,7 +1054,7 @@ const Chat = () => {
           {/* Error Alert */}
           {error && (
             <Alert variant="destructive" className="shrink-0 animate-in slide-in-from-top-4">
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircle className="h-4 w-4"/>
               <AlertTitle className="text-sm">Error</AlertTitle>
               <AlertDescription className="text-sm">{error}</AlertDescription>
               <Button
@@ -1000,7 +1063,7 @@ const Chat = () => {
                 onClick={() => setError(null)}
                 className="h-auto p-0 ml-auto"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4"/>
               </Button>
             </Alert>
           )}
@@ -1011,7 +1074,7 @@ const Chat = () => {
               <div
                 className="flex-1 overflow-y-auto space-y-4 pr-2"
                 onScroll={(e) => {
-                  const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+                  const {scrollTop, scrollHeight, clientHeight} = e.currentTarget;
                   setAutoScroll(scrollTop > scrollHeight - clientHeight - 10);
                 }}
               >
@@ -1019,12 +1082,14 @@ const Chat = () => {
                   <div className="h-full flex items-center justify-center text-center">
                     <div className="max-w-md space-y-6">
                       <div className="flex justify-center">
-                        <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-2xl">
-                          <Bot className="h-12 w-12 text-white" />
+                        <div
+                          className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-2xl">
+                          <Bot className="h-12 w-12 text-white"/>
                         </div>
                       </div>
                       <div>
-                        <h3 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                        <h3
+                          className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                           Welcome to MCP AI
                         </h3>
                         <p className="text-muted-foreground">
@@ -1033,13 +1098,15 @@ const Chat = () => {
                         </p>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 p-4 border border-blue-500/20">
-                          <Sparkles className="h-5 w-5 mb-2 text-blue-500" />
+                        <div
+                          className="rounded-xl bg-gradient-to-br from-blue-500/10 to-cyan-500/10 p-4 border border-blue-500/20">
+                          <Sparkles className="h-5 w-5 mb-2 text-blue-500"/>
                           <p className="font-semibold text-sm">Smart Responses</p>
                           <p className="text-xs text-muted-foreground">AI-powered assistance</p>
                         </div>
-                        <div className="rounded-xl bg-gradient-to-br from-purple-500/10 to-violet-500/10 p-4 border border-purple-500/20">
-                          <Wrench className="h-5 w-5 mb-2 text-purple-500" />
+                        <div
+                          className="rounded-xl bg-gradient-to-br from-purple-500/10 to-violet-500/10 p-4 border border-purple-500/20">
+                          <Wrench className="h-5 w-5 mb-2 text-purple-500"/>
                           <p className="font-semibold text-sm">Tool Support</p>
                           <p className="text-xs text-muted-foreground">Execute MCP tools</p>
                         </div>
@@ -1048,21 +1115,20 @@ const Chat = () => {
                   </div>
                 ) : (
                   <>
-                    {messages.map((msg, index) => (
+                    {messages.map((msg) => (
                       <MessageBubble
-                        key={index}
+                        key={msg.id || msg.content}
                         message={msg}
-                        isLoading={loading && index === messages.length - 1}
                         onCopy={handleCopyMessage}
                       />
                     ))}
                     {loading && (
                       <MessageBubble
-                        message={{ role: 'assistant', content: '' }}
+                        message={{role: 'assistant', content: ''}}
                         isLoading={true}
                       />
                     )}
-                    <div ref={messagesEndRef} />
+                    <div ref={messagesEndRef}/>
                   </>
                 )}
               </div>
@@ -1075,28 +1141,28 @@ const Chat = () => {
               <StatsWidget
                 label="Messages"
                 value={stats.totalMessages}
-                icon={<MessageSquare className="h-5 w-5" />}
+                icon={<MessageSquare className="h-5 w-5"/>}
                 trend="neutral"
                 color="blue"
               />
               <StatsWidget
                 label="Your Msgs"
                 value={stats.userMessages}
-                icon={<User className="h-5 w-5" />}
+                icon={<User className="h-5 w-5"/>}
                 trend="up"
                 color="teal"
               />
               <StatsWidget
                 label="AI Msgs"
                 value={stats.aiMessages}
-                icon={<Bot className="h-5 w-5" />}
+                icon={<Bot className="h-5 w-5"/>}
                 trend="up"
                 color="purple"
               />
               <StatsWidget
                 label="Tool Calls"
                 value={stats.toolCalls}
-                icon={<Wrench className="h-5 w-5" />}
+                icon={<Wrench className="h-5 w-5"/>}
                 trend={stats.toolCalls > 0 ? 'up' : 'neutral'}
                 color="orange"
               />
@@ -1126,7 +1192,7 @@ const Chat = () => {
                     size="lg"
                     className="h-[48px] px-6 rounded-2xl gap-2 shadow-md animate-pulse"
                   >
-                    <StopCircle className="h-5 w-5" />
+                    <StopCircle className="h-5 w-5"/>
                     <span className="hidden sm:inline">Stop</span>
                   </Button>
                 ) : (
@@ -1137,13 +1203,13 @@ const Chat = () => {
                     className="h-[48px] px-6 rounded-2xl gap-2 shadow-md transition-all hover:shadow-lg disabled:opacity-50"
                   >
                     <span className="hidden sm:inline">Send</span>
-                    <Send className="h-5 w-5" />
+                    <Send className="h-5 w-5"/>
                   </Button>
                 )}
               </div>
               <div className="mt-2 text-center">
                 <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                  <Flame className="h-3 w-3" />
+                  <Flame className="h-3 w-3"/>
                   MCP AI can make mistakes. Consider checking important information.
                 </p>
               </div>
@@ -1158,11 +1224,12 @@ const Chat = () => {
               className="absolute inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
               onClick={() => setShowConversations(false)}
             />
-            <Card className="absolute right-0 top-0 h-full w-80 lg:static lg:w-80 z-50 shadow-2xl lg:shadow-none border-l">
+            <Card
+              className="absolute right-0 top-0 h-full w-80 lg:static lg:w-80 z-50 shadow-2xl lg:shadow-none border-l">
               <CardHeader className="pb-3 border-b">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <MessagesSquare className="h-5 w-5 text-primary" />
+                    <MessagesSquare className="h-5 w-5 text-primary"/>
                     <CardTitle className="text-base">Conversations</CardTitle>
                   </div>
                   <div className="flex items-center gap-1">
@@ -1176,7 +1243,7 @@ const Chat = () => {
                             title="New Chat"
                             className="h-8 w-8"
                           >
-                            <Sparkles className="h-4 w-4" />
+                            <Sparkles className="h-4 w-4"/>
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
@@ -1190,7 +1257,7 @@ const Chat = () => {
                       className="lg:hidden h-8 w-8"
                       onClick={() => setShowConversations(false)}
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4"/>
                     </Button>
                   </div>
                 </div>
@@ -1200,12 +1267,12 @@ const Chat = () => {
                   {loadingConversations ? (
                     <div className="space-y-2">
                       {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-20 bg-muted rounded-xl animate-pulse" />
+                        <div key={i} className="h-20 bg-muted rounded-xl animate-pulse"/>
                       ))}
                     </div>
                   ) : conversations.length === 0 ? (
                     <div className="text-center py-12">
-                      <MessagesSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+                      <MessagesSquare className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40"/>
                       <p className="text-sm text-muted-foreground">No conversations yet</p>
                     </div>
                   ) : (
@@ -1222,7 +1289,7 @@ const Chat = () => {
                         >
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0"/>
                               <span
                                 className={`font-medium text-sm truncate ${
                                   conversationId === conv.id ? 'text-primary' : ''
@@ -1252,7 +1319,7 @@ const Chat = () => {
                                   className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
                                   onClick={(e) => handleDeleteConversation(conv.id, e)}
                                 >
-                                  <Trash2 className="h-4 w-4 text-muted-foreground group-hover:text-destructive" />
+                                  <Trash2 className="h-4 w-4 text-muted-foreground group-hover:text-destructive"/>
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
@@ -1277,7 +1344,7 @@ const Chat = () => {
             onSelectMessage={(index) => {
               const msgEndRef = document.querySelectorAll('[data-message-bubble]')[index];
               if (msgEndRef) {
-                msgEndRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                msgEndRef.scrollIntoView({behavior: 'smooth', block: 'center'});
               }
             }}
             onClose={() => setShowSearch(false)}
