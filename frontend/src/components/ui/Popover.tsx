@@ -340,6 +340,45 @@ export const Popover: React.FC<PopoverProps> = (props) => {
     // Prevent default closing if saving or disabled
     if (!closeOnOutsideClick || isSaving) {
       event.preventDefault();
+      return;
+    }
+
+    // Prevent closing when clicking on interactive elements inside the popover content
+    const target = event.detail?.originalEvent?.target as HTMLElement;
+    if (target) {
+      const interactiveSelectors = [
+        'input',
+        'textarea',
+        'select',
+        'button',
+        'a',
+        '[contenteditable="true"]',
+        '[tabindex]:not([tabindex="-1"])',
+        '.CodeMirror',
+        '.cm-editor',
+        '.cm-content',
+        '[role="combobox"]',
+        '[role="listbox"]',
+        '[role="option"]',
+        '[role="tablist"]',
+        '[role="tab"]',
+        '[role="tabpanel"]',
+        '[data-state="open"]',
+        '[data-radix-popper-content]',
+      ];
+
+      const isInteractiveElement = interactiveSelectors.some((selector) => {
+        try {
+          return target.closest(selector) !== null;
+        } catch {
+          return false;
+        }
+      });
+
+      if (isInteractiveElement) {
+        event.preventDefault();
+        return;
+      }
     }
   };
 
