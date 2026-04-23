@@ -4,7 +4,6 @@
  * @see https://github.com/blacksmoke26
  */
 
-import type {MCPServerTemplate, UpdateMCPServerRequest} from '@/types/api.ts';
 import React, {useEffect, useState} from 'react';
 import {
   Dialog,
@@ -14,17 +13,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import {AlertCircle, Check, HelpCircle, Loader2, Plus, Server, Wrench} from 'lucide-react';
+import {AlertCircle, Check, Loader2, Plus, Server, Wrench} from 'lucide-react';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {Label} from '@/components/ui/Label';
 import {Input} from '@/components/ui/Input';
 import {Textarea} from '@/components/ui/Textarea';
 import Separator from '@/components/ui/Separator';
-import * as Select from '@radix-ui/react-select';
 import * as Tabs from '@radix-ui/react-tabs';
 import CodeEditor from '@/components/ui/CodeEditor';
 import {Button} from '@/components/ui/Button';
+import {Select, SelectContent, SelectItem, SelectTrigger} from '@/components/ui/Select';
 import Popover from '@/components/ui/Popover';
+import {DocTooltip} from '@/components/ui/Tooltip';
+import type {MCPServerTemplate, UpdateMCPServerRequest} from '@/types/api';
 
 /**
  * Properties for the CreateEditDialog component.
@@ -72,24 +73,42 @@ export interface CreateEditDialogProps {
 const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
   const {open, onOpenChange, isEditing, server, templateData, onSave} = props;
 
-  const [name, setName] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [description, setDescription] = useState('');
+  /** Unique server identifier used in API calls and internal references. */
+  const [name, setName] = useState<string>('');
+  /** Human-readable name displayed in the UI. */
+  const [displayName, setDisplayName] = useState<string>('');
+  /** Brief description of the server's purpose. */
+  const [description, setDescription] = useState<string>('');
+  /** Transport mechanism for communicating with the server. */
   const [type, setType] = useState<'stdio' | 'sse' | 'streamable-http'>('stdio');
-  const [command, setCommand] = useState('');
-  const [args, setArgs] = useState('[]');
-  const [env, setEnv] = useState('{}');
-  const [url, setUrl] = useState('');
-  const [headers, setHeaders] = useState('{}');
-  const [enabled, setEnabled] = useState(false);
-  const [timedOut, setTimedOut] = useState(30000);
-  const [autoReconnect, setAutoReconnect] = useState(true);
-  const [maxReconnectAttempts, setMaxReconnectAttempts] = useState(-1);
-  const [reconnectDelay, setReconnectDelay] = useState(5000);
-  const [settings, setSettings] = useState('{}');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  /** Executable command to run for stdio type servers. */
+  const [command, setCommand] = useState<string>('');
+  /** Command-line arguments as a JSON string. */
+  const [args, setArgs] = useState<string>('[]');
+  /** Environment variables as a JSON string. */
+  const [env, setEnv] = useState<string>('{}');
+  /** HTTP endpoint URL for SSE or streamable-http servers. */
+  const [url, setUrl] = useState<string>('');
+  /** HTTP headers as a JSON string. */
+  const [headers, setHeaders] = useState<string>('{}');
+  /** Flag indicating if the server should be enabled after saving. */
+  const [enabled, setEnabled] = useState<boolean>(false);
+  /** Maximum time in milliseconds to wait for a server response. */
+  const [timedOut, setTimedOut] = useState<number>(30000);
+  /** Flag indicating whether to automatically reconnect on failure. */
+  const [autoReconnect, setAutoReconnect] = useState<boolean>(true);
+  /** Maximum number of reconnection attempts before giving up. */
+  const [maxReconnectAttempts, setMaxReconnectAttempts] = useState<number>(-1);
+  /** Time in milliseconds to wait before attempting to reconnect. */
+  const [reconnectDelay, setReconnectDelay] = useState<number>(5000);
+  /** Additional custom configuration options as a JSON string. */
+  const [settings, setSettings] = useState<string>('{}');
+  /** Loading state indicating if a save operation is in progress. */
+  const [loading, setLoading] = useState<boolean>(false);
+  /** Error message to display if validation or save fails. */
+  const [error, setError] = useState<string>('');
+  /** Success message to display after a successful save operation. */
+  const [success, setSuccess] = useState<string>('');
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -286,14 +305,20 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
             <div className="space-y-2">
               <Label htmlFor="name">
                 Server Name
-                <Popover trigger={() => (
-                  <HelpCircle className="ml-1 h-3 w-3 inline cursor-help"/>
-                )}>
-                  <p className="text-sm">
-                    Unique identifier for the server. Must start with a letter and contain only letters, numbers,
-                    underscores, and hyphens.
-                  </p>
-                </Popover>
+                <DocTooltip content={
+                  <>
+                    <p className="font-medium mb-1">Server Name</p>
+                    <p className="text-muted-foreground">
+                      A unique identifier for the server. This value is used in API calls and internal references.
+                    </p>
+                    <ul className="mt-1.5 space-y-1 text-muted-foreground list-disc pl-4">
+                      <li>Must start with a letter</li>
+                      <li>Only letters, numbers, underscores, and hyphens allowed</li>
+                      <li>Example: <code className="bg-muted px-1 rounded">filesystem</code>, <code
+                        className="bg-muted px-1 rounded">postgres-db</code></li>
+                    </ul>
+                  </>
+                }/>
               </Label>
               <Input
                 id="name"
@@ -305,7 +330,23 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="displayName">Display Name</Label>
+              <Label htmlFor="displayName">
+                Display Name
+                <DocTooltip content={
+                  <>
+                    <p className="font-medium mb-1">Display Name</p>
+                    <p className="text-muted-foreground">
+                      A human-readable name shown in the UI. This is what users see when selecting or viewing the
+                      server.
+                    </p>
+                    <ul className="mt-1.5 space-y-1 text-muted-foreground list-disc pl-4">
+                      <li>Can contain spaces and special characters</li>
+                      <li>Example: <code className="bg-muted px-1 rounded">File System</code>, <code
+                        className="bg-muted px-1 rounded">PostgreSQL Database</code></li>
+                    </ul>
+                  </>
+                }/>
+              </Label>
               <Input
                 id="displayName"
                 placeholder="File System Access"
@@ -316,7 +357,20 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">
+              Description
+              <DocTooltip content={
+                <>
+                  <p className="font-medium mb-1">Description</p>
+                  <p className="text-muted-foreground">
+                    A brief description of what this MCP server does. This helps users understand the server's purpose.
+                  </p>
+                  <p className="mt-1 text-muted-foreground">
+                    Tip: Reference examples from MCP server templates for consistency.
+                  </p>
+                </>
+              }/>
+            </Label>
             <Textarea
               id="description"
               placeholder="Provides read/write access to the local file system..."
@@ -327,52 +381,83 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
           </div>
 
           <div className="space-y-2">
+
+            <Popover
+              trigger={(opener) => (
+                <span className="cursor-pointer">
+                  Transport Type: <span
+                  className="text-amber-700">{type === 'stdio' ? 'Stdio' : type === 'sse' ? 'SSE' : 'HTTP'}</span>
+                </span>
+              )}
+              side="bottom"
+              align="start"
+              showArrow
+              showHeader={false}
+              showFooter={false}
+              showCloseButton={false}
+            >
+              <div className="p-3">
+                <Select value={type} onValueChange={(v) => setType(v as typeof type)}>
+                  <SelectTrigger id="type">
+                    {type === 'stdio' ? 'Stdio (Local Process)' : type === 'sse' ? 'SSE (Server-Sent Events)' : 'Streamable HTTP'}
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stdio">Stdio (Local Process)</SelectItem>
+                    <SelectItem value="sse">SSE (Server-Sent Events)</SelectItem>
+                    <SelectItem value="streamable-http">Streamable HTTP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </Popover>
             <Label htmlFor="type">
-              Transport Type
-              <Popover trigger={() => (
-                <HelpCircle className="ml-1 h-3 w-3 inline cursor-help"/>
-              )}>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">stdio</p>
-                  <p className="text-sm text-muted-foreground">
-                    Standard input/output for local processes (most common for MCP servers).
-                  </p>
-                  <Separator/>
-                  <p className="text-sm font-medium">sse</p>
-                  <p className="text-sm text-muted-foreground">
-                    Server-Sent Events over HTTP for remote servers.
-                  </p>
-                  <Separator/>
-                  <p className="text-sm font-medium">streamable-http</p>
-                  <p className="text-sm text-muted-foreground">
-                    HTTP with streaming support for bidirectional communication.
-                  </p>
-                </div>
-              </Popover>
+              <DocTooltip content={
+                <>
+                  <p className="font-medium mb-2">Transport Type</p>
+                  <div className="space-y-1.5">
+                    <div>
+                      <p className="font-medium text-foreground">stdio</p>
+                      <p className="text-muted-foreground text-[11px]">Local process via standard I/O (most common)</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">sse</p>
+                      <p className="text-muted-foreground text-[11px]">Server-Sent Events over HTTP (remote)</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">streamable-http</p>
+                      <p className="text-muted-foreground text-[11px]">HTTP with streaming for bidirectional comms</p>
+                    </div>
+                  </div>
+                </>
+              }/>
             </Label>
-            <Select.Root value={type} onValueChange={(v) => setType(v as typeof type)}>
-              <Select.Trigger id="type">
-                <Select.Value/>
-              </Select.Trigger>
-              <Select.Content>
-                <Select.Item value="stdio">Stdio (Local Process)</Select.Item>
-                <Select.Item value="sse">SSE (Server-Sent Events)</Select.Item>
-                <Select.Item value="streamable-http">Streamable HTTP</Select.Item>
-              </Select.Content>
-            </Select.Root>
           </div>
 
           {/* Transport-specific fields */}
           {type === 'stdio' && (
             <Tabs.Root defaultValue="command" className="w-full">
-              <Tabs.List className="grid w-full grid-cols-2">
-                <Tabs.Trigger value="command">Command & Args</Tabs.Trigger>
+              <Tabs.List className="grid w-full grid-cols-2 border-b pb-2">
+                <Tabs.Trigger value="command" className="border-r">Command & Args</Tabs.Trigger>
                 <Tabs.Trigger value="env">Environment</Tabs.Trigger>
               </Tabs.List>
 
               <Tabs.Content value="command" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="command">Command</Label>
+                  <Label htmlFor="command">
+                    Command
+                    <DocTooltip content={
+                      <>
+                        <p className="font-medium mb-1">Command</p>
+                        <p className="text-muted-foreground">
+                          The executable to run. Common values include:
+                        </p>
+                        <ul className="mt-1 space-y-0.5 text-muted-foreground list-disc pl-4">
+                          <li><code className="bg-muted px-1 rounded">npx</code> - for npm packages</li>
+                          <li><code className="bg-muted px-1 rounded">node</code> - for .js files</li>
+                          <li><code className="bg-muted px-1 rounded">/usr/bin/python3</code> - for Python scripts</li>
+                        </ul>
+                      </>
+                    }/>
+                  </Label>
                   <Input
                     id="command"
                     placeholder="npx"
@@ -385,7 +470,20 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="args">Arguments (JSON Array)</Label>
+                  <Label htmlFor="args">
+                    Arguments (JSON Array)
+                    <DocTooltip content={
+                      <>
+                        <p className="font-medium mb-1">Arguments</p>
+                        <p className="text-muted-foreground">
+                          Command-line arguments as a JSON array. The last argument often specifies configuration.
+                        </p>
+                        <pre className="mt-1.5 bg-muted p-1.5 rounded text-[10px] overflow-x-auto">
+                          {`["-y", "@modelcontextprotocol/server-filesystem", "/safe/path"]`}
+                        </pre>
+                      </>
+                    }/>
+                  </Label>
                   <CodeEditor
                     heightClass="h-[200px]"
                     language="json"
@@ -402,7 +500,23 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
 
               <Tabs.Content value="env" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="env">Environment Variables (JSON Object)</Label>
+                  <Label htmlFor="env">
+                    Environment Variables (JSON Object)
+                    <DocTooltip content={
+                      <>
+                        <p className="font-medium mb-1">Environment Variables</p>
+                        <p className="text-muted-foreground">
+                          Key-value pairs passed to the process. Common variables from templates include:
+                        </p>
+                        <ul className="mt-1 space-y-0.5 text-muted-foreground list-disc pl-4">
+                          <li><code className="bg-muted px-1 rounded">DATABASE_URL</code> - Database connection</li>
+                          <li><code className="bg-muted px-1 rounded">API_KEY</code> - Authentication token</li>
+                          <li><code className="bg-muted px-1 rounded">GOOGLE_APPLICATION_CREDENTIALS</code> - GCP auth
+                          </li>
+                        </ul>
+                      </>
+                    }/>
+                  </Label>
                   <CodeEditor
                     heightClass="h-[250px]"
                     language="json"
@@ -421,14 +535,31 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
 
           {(type === 'sse' || type === 'streamable-http') && (
             <Tabs.Root defaultValue="url" className="w-full">
-              <Tabs.List className="grid w-full grid-cols-2">
-                <Tabs.Trigger value="url">URL</Tabs.Trigger>
+              <Tabs.List className="grid w-full grid-cols-2 border-b pb-2">
+                <Tabs.Trigger value="url" className="border-r">URL</Tabs.Trigger>
                 <Tabs.Trigger value="headers">Headers</Tabs.Trigger>
               </Tabs.List>
 
               <Tabs.Content value="url" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="url">Server URL</Label>
+                  <Label htmlFor="url">
+                    Server URL
+                    <DocTooltip content={
+                      <>
+                        <p className="font-medium mb-1">Server URL</p>
+                        <p className="text-muted-foreground">
+                          The HTTP(S) endpoint where the MCP server is listening.
+                        </p>
+                        <ul className="mt-1 space-y-0.5 text-muted-foreground list-disc pl-4">
+                          <li>Must be a valid URL with http:// or https://</li>
+                          <li>For local testing: <code
+                            className="bg-muted px-1 rounded">http://localhost:3001/sse</code></li>
+                          <li>For production: <code className="bg-muted px-1 rounded">https://mcp.example.com/sse</code>
+                          </li>
+                        </ul>
+                      </>
+                    }/>
+                  </Label>
                   <Input
                     id="url"
                     type="url"
@@ -444,15 +575,28 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
 
               <Tabs.Content value="headers" className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="headers">HTTP Headers (JSON Object)</Label>
-                  <Textarea
-                    id="headers"
-                    placeholder='{"Authorization": "Bearer token", "Content-Type": "application/json"}'
+                  <Label htmlFor="headers">
+                    HTTP Headers (JSON Object)
+                    <DocTooltip content={
+                      <>
+                        <p className="font-medium mb-1">HTTP Headers</p>
+                        <p className="text-muted-foreground">
+                          Custom HTTP headers to send with each request. Useful for authentication.
+                        </p>
+                        <pre className="mt-1.5 bg-muted p-1.5 rounded text-[10px] overflow-x-auto">
+                          {`{\n  "Authorization": "Bearer YOUR_TOKEN",\n  "X-API-Key": "your-key"\n}`}
+                        </pre>
+                      </>
+                    }/>
+                  </Label>
+                  <CodeEditor
+                    heightClass="h-[150px]"
+                    language="json"
                     value={headers}
-                    onChange={(e) => setHeaders(e.target.value)}
-                    rows={4}
-                    className="font-mono text-sm"
-                  />
+                    onChange={setHeaders}
+                    editorProps={{
+                      placeholder: '{"Authorization": "Bearer token", "Content-Type": "application/json"}',
+                    }}/>
                   <p className="text-xs text-muted-foreground">
                     HTTP headers as a JSON object
                   </p>
@@ -467,7 +611,23 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="timeout">Timeout (ms)</Label>
+              <Label htmlFor="timeout">
+                Timeout (ms)
+                <DocTooltip content={
+                  <>
+                    <p className="font-medium mb-1">Timeout</p>
+                    <p className="text-muted-foreground">
+                      Maximum time in milliseconds to wait for a response from the server before timing out.
+                    </p>
+                    <ul className="mt-1 space-y-0.5 text-muted-foreground list-disc pl-4">
+                      <li>Default: <code className="bg-muted px-1 rounded">30000</code> (30 seconds)</li>
+                      <li>For slow operations (e.g., file processing), consider increasing to <code
+                        className="bg-muted px-1 rounded">60000</code></li>
+                      <li>Set to <code className="bg-muted px-1 rounded">0</code> for no timeout (not recommended)</li>
+                    </ul>
+                  </>
+                }/>
+              </Label>
               <Input
                 id="timeout"
                 type="number"
@@ -477,7 +637,22 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reconnectDelay">Reconnect Delay (ms)</Label>
+              <Label htmlFor="reconnectDelay">
+                Reconnect Delay (ms)
+                <DocTooltip content={
+                  <>
+                    <p className="font-medium mb-1">Reconnect Delay</p>
+                    <p className="text-muted-foreground">
+                      Time to wait before attempting to reconnect after a connection failure.
+                    </p>
+                    <ul className="mt-1 space-y-0.5 text-muted-foreground list-disc pl-4">
+                      <li>Default: <code className="bg-muted px-1 rounded">5000</code> (5 seconds)</li>
+                      <li>Shorter delays may cause rapid reconnect attempts</li>
+                      <li>Longer delays reduce server load during outages</li>
+                    </ul>
+                  </>
+                }/>
+              </Label>
               <Input
                 id="reconnectDelay"
                 type="number"
@@ -490,9 +665,19 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
           <div className="space-y-2">
             <Label htmlFor="maxReconnectAttempts">
               Max Reconnect Attempts
-              <Popover trigger={() => (<HelpCircle className="ml-1 h-3 w-3 inline cursor-help"/>)}>
-                <p className="text-sm">Set to -1 for unlimited reconnection attempts</p>
-              </Popover>
+              <DocTooltip content={
+                <>
+                  <p className="font-medium mb-1">Max Reconnect Attempts</p>
+                  <p className="text-muted-foreground">
+                    Maximum number of reconnection attempts before giving up.
+                  </p>
+                  <ul className="mt-1 space-y-0.5 text-muted-foreground list-disc pl-4">
+                    <li><code className="bg-muted px-1 rounded">-1</code> - Unlimited attempts (default)</li>
+                    <li><code className="bg-muted px-1 rounded">0</code> - No automatic reconnection</li>
+                    <li><code className="bg-muted px-1 rounded">3-5</code> - Reasonable for production</li>
+                  </ul>
+                </>
+              }/>
             </Label>
             <Input
               id="maxReconnectAttempts"
@@ -521,11 +706,40 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
               onChange={(e) => setEnabled(e.target.checked)}
               className="rounded border-gray-300"
             />
-            <Label htmlFor="enabled" className="cursor-pointer">Enable on save</Label>
+            <Label htmlFor="enabled" className="cursor-pointer">
+              Enable on save
+              <DocTooltip content={
+                <>
+                  <p className="font-medium mb-1">Enable on save</p>
+                  <p className="text-muted-foreground">
+                    If checked, the server will be automatically started and enabled after saving.
+                  </p>
+                  <p className="text-muted-foreground">
+                    Unchecked servers remain in a stopped state until manually started.
+                  </p>
+                </>
+              }/>
+            </Label>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="settings">Additional Settings (JSON Object)</Label>
+            <Label htmlFor="settings">
+              Additional Settings (JSON Object)
+              <DocTooltip content={
+                <>
+                  <p className="font-medium mb-1">Additional Settings</p>
+                  <p className="text-muted-foreground">
+                    Custom configuration options specific to your MCP server type.
+                  </p>
+                  <p className="text-muted-foreground mt-1">
+                    Common settings vary by server type. Check the server documentation for available options.
+                  </p>
+                  <pre className="mt-1.5 bg-muted p-1.5 rounded text-[10px] overflow-x-auto">
+                    {`{\n  "customOption": "value",\n  "retryCount": 3\n}`}
+                  </pre>
+                </>
+              }/>
+            </Label>
             <CodeEditor
               heightClass="h-[150px]"
               language="json"
