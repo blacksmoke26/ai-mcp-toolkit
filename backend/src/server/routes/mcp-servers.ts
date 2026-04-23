@@ -882,6 +882,12 @@ export const mcpServersRoutes: FastifyPluginAsync = async (fastify) => {
                   env: {type: 'object', additionalProperties: {type: 'string'}},
                   notes: {type: 'string'},
                   documentationUrl: {type: 'string'},
+                  category: {type: 'string'},
+                  icon: {type: 'string'},
+                  tags: {type: 'array', items: {type: 'string'}},
+                  runtime: {type: 'string'},
+                  homepage: {type: 'string'},
+                  variables: {type: 'array', items: {type: 'object', additionalProperties: true}},
                 },
               }, // Simplified for brevity
             },
