@@ -36,6 +36,7 @@ import {adminRoutes} from './routes/admin';
 import {metricsRoutes} from './routes/metrics';
 import {simulationRoutes} from './routes/simulation';
 import customToolsRoutes from './routes/custom-tools';
+import mcpServersRoutes from './routes/mcp-servers';
 import logger from '@/utils/logger';
 
 /**
@@ -82,6 +83,7 @@ export async function createServer() {
   await server.register(metricsRoutes);
   await server.register(simulationRoutes);
   await server.register(customToolsRoutes);
+  await server.register(mcpServersRoutes);
 
   // ─── Request Logging Hook ─────────────────────────────────────────────────
 
