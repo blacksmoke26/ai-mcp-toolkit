@@ -95,17 +95,38 @@ import type {
   MetricsSummary,
   StepResult,
   // Configuration
-  ApiConfig, CustomToolTemplatesResponse, ToggleCustomToolResponse, TestCustomToolResponse, TestCustomToolRequest,
-  DeleteCustomToolResponse, UpdateCustomToolRequest, CreateCustomToolRequest, CreateCustomToolResponse,
-  UpdateCustomToolResponse, CustomToolDetailResponse, CustomToolsListResponse,CustomTool, CustomToolSummary, ToggleCustomToolRequest,
-  CustomToolTemplate, CustomToolInputSchema,
+  ApiConfig,
+  CustomToolTemplatesResponse,
+  ToggleCustomToolResponse,
+  TestCustomToolResponse,
+  TestCustomToolRequest,
+  DeleteCustomToolResponse,
+  UpdateCustomToolRequest,
+  CreateCustomToolRequest,
+  CreateCustomToolResponse,
+  UpdateCustomToolResponse,
+  CustomToolDetailResponse,
+  CustomToolsListResponse,
+  CustomTool,
+  CustomToolSummary,
+  ToggleCustomToolRequest,
+  CustomToolTemplate,
+  CustomToolInputSchema,
   // MCP Servers
-  MCPServerResponse, MCPServersListResponse, CreateMCPServerRequest, UpdateMCPServerRequest,
-  MCPServerDeleteResponse, MCPServerStartResponse, MCPServerStopResponse, MCPServerRestartResponse,
-  MCPServerStatusResponse, MCPServerHealthResponse, MCPServerTestResponse, MCPServerTemplatesResponse,
-  MCPServerTemplate
-} from '../types/api.js';
-import {DEFAULT_API_CONFIG} from '../types/api.js';
+  MCPServerResponse,
+  MCPServersListResponse,
+  CreateMCPServerRequest,
+  UpdateMCPServerRequest,
+  MCPServerDeleteResponse,
+  MCPServerStartResponse,
+  MCPServerStopResponse,
+  MCPServerRestartResponse,
+  MCPServerStatusResponse,
+  MCPServerHealthResponse,
+  MCPServerTestResponse,
+  MCPServerTemplatesResponse,
+} from '../types/api';
+import {DEFAULT_API_CONFIG} from '../types/api';
 
 // ====== Configuration ======
 
@@ -137,19 +158,21 @@ async function request<T>(
   const timeoutValue = timeout ?? config.timeout;
   const controller = createTimeoutController(timeoutValue as number);
 
-  try {
-    const response = await fetch(`${config.baseUrl}${endpoint}`, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
+  const newOptions: RequestInit = {
+    ...options,
+    signal: controller.signal,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  };
 
-    if ( options?.method === 'DELETE' ) {
-      delete response.headers['Content-Type'];
-    }
+  if (newOptions?.method === 'DELETE') {
+    delete newOptions.headers['Content-Type'];
+  }
+
+  try {
+    const response = await fetch(`${config.baseUrl}${endpoint}`, newOptions);
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => '');
@@ -809,7 +832,7 @@ export async function toggleCustomTool(
 ): Promise<ToggleCustomToolResponse> {
   return request<ToggleCustomToolResponse>(`/api/custom-tools/${id}/toggle`, {
     method: 'POST',
-    body: JSON.stringify({ enabled }),
+    body: JSON.stringify({enabled}),
   });
 }
 
@@ -828,7 +851,11 @@ export async function getCustomToolTemplates(): Promise<CustomToolTemplatesRespo
  * @param status - Filter by status (optional)
  * @param search - Search query (optional)
  */
-export async function listMCPServers(params?: { enabled?: boolean; status?: string; search?: string }): Promise<MCPServersListResponse> {
+export async function listMCPServers(params?: {
+  enabled?: boolean;
+  status?: string;
+  search?: string
+}): Promise<MCPServersListResponse> {
   const queryParams = new URLSearchParams();
   if (params?.enabled !== undefined) queryParams.append('enabled', String(params.enabled));
   if (params?.status) queryParams.append('status', params.status);
@@ -888,7 +915,7 @@ export async function startMCPServer(id: number): Promise<MCPServerStartResponse
 export async function stopMCPServer(id: number, force: boolean = false): Promise<MCPServerStopResponse> {
   return request<MCPServerStopResponse>(`/api/mcp-servers/${id}/stop`, {
     method: 'POST',
-    body: JSON.stringify({ force }),
+    body: JSON.stringify({force}),
   });
 }
 
