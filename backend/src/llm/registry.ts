@@ -1,30 +1,36 @@
 /**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
+/**
  * @module llm/registry
  * @description LLM provider registry — manages provider instances and routing.
- * 
+ *
  * The registry allows you to:
- * 
+ *
  * - Register multiple LLM providers simultaneously
  * - Set a default provider for the agent loop
  * - Switch providers at runtime
  * - Load provider configurations from the database
- * 
+ *
  * ## Usage
- * 
+ *
  * ```typescript
  * import { llmRegistry } from '@/llm/registry';
  * import { OllamaProvider } from '@/llm/ollama';
- * 
+ *
  * // Register a provider
  * llmRegistry.register(new OllamaProvider({
  *   type: 'ollama',
  *   baseUrl: 'http://localhost:11434',
  *   defaultModel: 'llama3.1',
  * }));
- * 
+ *
  * // Get the default provider
  * const provider = llmRegistry.getDefault();
- * 
+ *
  * // Use it
  * const response = await provider.chat([
  *   { role: 'user', content: 'Hello!' },
@@ -32,13 +38,41 @@
  * ```
  */
 
-import type { LLMProvider, LLMProviderConfig } from './types.js';
-import { OllamaProvider } from './ollama.js';
-import { OpenAIProvider } from './openai.js';
+import type {LLMProvider, LLMProviderConfig} from './types.js';
+import {OllamaProvider} from './ollama.js';
+import {OpenAIProvider} from './openai.js';
 
+/**
+ * A registry for managing LLM provider instances.
+ *
+ * This class allows you to register, retrieve, and manage multiple LLM providers,
+ * as well as define a default provider for operations.
+ */
 class LLMRegistry {
+  /**
+   * A map of registered provider instances, keyed by their name.
+   */
   private providers: Map<string, LLMProvider> = new Map();
+
+  /**
+   * The name of the currently set default provider.
+   * Null if no default has been set.
+   */
   private defaultName: string | null = null;
+
+  /**
+   * Get the name of the current default provider.
+   */
+  get defaultProviderName(): string | null {
+    return this.defaultName;
+  }
+
+  /**
+   * Get the total number of registered providers.
+   */
+  get size(): number {
+    return this.providers.size;
+  }
 
   /**
    * Register an LLM provider.
@@ -97,24 +131,17 @@ class LLMRegistry {
   }
 
   /**
+   * List all registered provider instances.
+   */
+  list(): LLMProvider[] {
+    return Array.from(this.providers.values());
+  }
+
+  /**
    * List all registered provider names.
    */
   listProviders(): string[] {
     return Array.from(this.providers.keys());
-  }
-
-  /**
-   * Get the name of the current default provider.
-   */
-  get defaultProviderName(): string | null {
-    return this.defaultName;
-  }
-
-  /**
-   * Get the total number of registered providers.
-   */
-  get size(): number {
-    return this.providers.size;
   }
 
   /**
@@ -144,4 +171,5 @@ class LLMRegistry {
 
 /** Global singleton LLM provider registry */
 export const llmRegistry = new LLMRegistry();
+
 export default llmRegistry;
