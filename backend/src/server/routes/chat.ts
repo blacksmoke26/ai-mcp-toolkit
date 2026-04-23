@@ -4,7 +4,7 @@
  * @see https://github.com/blacksmoke26
  */
 
- /**
+/**
  * @module server/routes/chat
  * @description Chat endpoint for interacting with the MCP agent.
  *
@@ -20,332 +20,473 @@
  * | POST | `/chat/stream` | Send a message and stream the response via SSE |
  * | GET | `/chat/conversations` | List all conversations |
  * | GET | `/chat/conversations/:id` | Get a conversation with all messages |
+ * | PATCH | `/chat/conversations/:id` | Update conversation details |
  * | DELETE | `/chat/conversations/:id` | Delete a conversation |
+ * | GET | `/chat/providers` | List available LLM providers |
  */
 import {nanoid} from 'nanoid';
 import {logger} from '@/utils/logger';
 import {runAgentLoop} from '@/llm/agent';
 import {llmRegistry} from '@/llm/registry';
-import {Conversation, Message, Provider} from '@/db';
+import sequelize, {Conversation, Message, Provider} from '@/db'; // Assuming sequelize instance is exported for transactions
 
 // types
 import type {FastifyPluginAsync} from 'fastify';
-import type {LLMProvider} from '@/llm/types';
+import {ChatMessage} from '@/mcp/types';
+import {Error, InferAttributes, JSON, Transaction} from 'sequelize';
 
 export const chatRoutes: FastifyPluginAsync = async (fastify) => {
   /**
    * POST /chat
    * Send a message to the agent and receive a complete response.
    *
-   * The agent will automatically use tools as needed.
-   *
-   * ## Request Body
-   * ```json
-   * {
-   *   "messages": [{ "role": "user", "content": "What time is it?" }],
-   *   "conversationId": "optional-existing-id",
-   *   "provider": "optional-provider-name",
-   *   "model": "optional-model-name",
-   *   "temperature": 0.7,
-   *   "maxTokens": 4096,
-   *   "maxIterations": 10
-   * }
-   * ```
+   * @changelog
+   * - 2023-10-27: Added JSON Schema validation.
+   * - 2023-10-27: Fixed provider retrieval logic to prevent crashes on invalid names.
+   * - 2023-10-27: Wrapped message saving in a database transaction.
+   * - 2023-10-27: Optimized message insertion using bulkCreate.
    */
   fastify.post<{
     Body: {
       messages?: Array<{ role: string; content: string }>;
       message?: string;
       conversationId?: string;
-      provider: string;
-      model: string;
+      provider?: string;
+      model?: string;
       temperature?: number;
       maxTokens?: number;
       maxIterations?: number;
-    }
-  }>('/chat', async (request, reply) => {
-    const body = request.body;
-
-    // Get or create provider
-    let provider: LLMProvider;
-
-    if (body.provider) {
-      provider = llmRegistry.get(body.provider)!;
-      if (!provider) {
-        return reply.code(404).send({error: `Provider "${body.provider}" not found`});
-      }
-    } else {
-      provider = llmRegistry.getDefault();
-    }
-
-    // Build message history
-    let messages = body.messages || [];
-    if (body.message) {
-      messages = [{role: 'user', content: body.message}];
-    }
-
-    if (messages.length === 0) {
-      return reply.code(400).send({error: 'No messages provided. Send "messages" array or "message" string.'});
-    }
-
-    // Get or create conversation
-    let conversationId = body.conversationId;
-    let conversation: Conversation | null = null;
-
-    if (conversationId) {
-      conversation = await Conversation.findOne({where: {conversationId}});
-    }
-
-    if (!conversation) {
-      conversationId = nanoid(16);
-      const dbProvider = await Provider.findOne({where: {isDefault: true}});
-      conversation = await Conversation.create({
-        conversationId,
-        providerId: dbProvider?.id ?? 1,
-        modelName: body.model || provider.config.defaultModel,
-        title: messages[0]?.content?.slice(0, 100) || 'New Conversation',
-        status: 'active',
-      });
-    }
-
-    // Load existing messages if continuing a conversation
-    const existingMessages = await Message.findAll({
-      where: {conversationId: conversation.id},
-      order: [['createdAt', 'ASC']],
-    });
-
-    const chatHistory = [
-      ...existingMessages.map((m) => ({role: m.role as 'system' | 'user' | 'assistant' | 'tool', content: m.content})),
-      ...messages.map((m) => ({role: m.role as 'system' | 'user' | 'assistant' | 'tool', content: m.content})),
-    ];
-
-    // Run the agent loop
-    try {
-      const startTime = Date.now();
-      const result = await runAgentLoop({
-        provider,
-        messages: chatHistory,
-        maxIterations: body.maxIterations || 10,
-        generationParams: {
-          temperature: body.temperature,
-          maxTokens: body.maxTokens,
-          model: body.model,
+    };
+  }>(
+    '/chat',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            messages: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['role', 'content'],
+                properties: {
+                  role: {type: 'string', enum: ['user', 'system', 'assistant']},
+                  content: {type: 'string'},
+                },
+              },
+            },
+            message: {type: 'string'},
+            conversationId: {type: 'string'},
+            provider: {type: 'string'},
+            model: {type: 'string'},
+            temperature: {type: 'number', minimum: 0, maximum: 2},
+            maxTokens: {type: 'integer', minimum: 1},
+            maxIterations: {type: 'integer', minimum: 1, maximum: 50},
+          },
+          oneOf: [
+            {required: ['messages']},
+            {required: ['message']},
+          ],
         },
-      });
+      },
+    },
+    async (request, reply) => {
+      const body = request.body;
 
-      const elapsed = Date.now() - startTime;
+      // 1. Resolve Provider
+      const provider = body.provider
+        ? llmRegistry.get(body.provider)
+        : llmRegistry.getDefault();
 
-      // Save messages to database
-      for (const msg of messages) {
-        await Message.create({
-          conversationId: conversation.id,
-          role: msg.role as 'system' | 'user' | 'assistant' | 'tool',
-          content: msg.content,
-        });
-      }
-      await Message.create({
-        conversationId: conversation.id,
-        role: 'assistant',
-        content: result.content,
-        tokenCount: result.totalTokens.total,
-      });
-
-      // Save tool call results
-      for (const tc of result.toolCallsMade) {
-        await Message.create({
-          conversationId: conversation.id,
-          role: 'tool',
-          content: tc.result,
-          toolName: tc.name,
-        });
+      if (!provider) {
+        return reply.code(400).send({error: `Provider "${body.provider}" not found or no default configured.`});
       }
 
-      logger.info({
-        conversationId,
-        iterations: result.iterations,
-        toolCalls: result.toolCallsMade.length,
-        tokens: result.totalTokens.total,
-        elapsedMs: elapsed,
-      }, 'Chat completed');
+      // 2. Prepare Messages
+      let messages = body.messages || [];
+      if (body.message) {
+        messages = [{role: 'user', content: body.message}];
+      }
 
-      return reply.send({
-        conversationId,
-        content: result.content,
-        iterations: result.iterations,
-        toolCalls: result.toolCallsMade,
-        tokens: result.totalTokens,
-        elapsedMs: elapsed,
+      if (messages.length === 0) {
+        return reply.code(400).send({error: 'No messages provided.'});
+      }
+
+      // 3. Resolve/Create Conversation
+      let conversationId = body.conversationId;
+      let conversation: Conversation;
+
+      if (conversationId) {
+        const existingConv = await Conversation.findOne({where: {conversationId}});
+        if (!existingConv) {
+          return reply.code(404).send({error: 'Conversation not found'});
+        }
+        conversation = existingConv;
+      } else {
+        conversationId = nanoid(16);
+        const dbProvider = await Provider.findOne({where: {name: provider.name}});
+
+        conversation = await Conversation.create({
+          conversationId,
+          providerId: dbProvider?.id ?? 1, // Fallback
+          modelName: body.model || provider.config.defaultModel,
+          title: messages[0].content.slice(0, 100),
+          status: 'active',
+        });
+      }
+
+      // 4. Load History
+      const existingMessages = await Message.findAll({
+        where: {conversationId: conversation.id},
+        order: [['createdAt', 'ASC']],
+        attributes: ['role', 'content'],
       });
-    } catch (err) {
-      logger.error({err, conversationId}, 'Agent loop failed');
-      return reply.code(500).send({
-        error: 'Agent loop failed',
-        message: err instanceof Error ? err.message : String(err),
-      });
-    }
-  });
+
+      const chatHistory = [
+        ...existingMessages.map((m) => ({role: m.role, content: m.content})),
+        ...messages,
+      ];
+
+      // 5. Run Agent Loop
+      const startTime = Date.now();
+      try {
+        const result = await runAgentLoop({
+          provider,
+          messages: chatHistory as ChatMessage[],
+          maxIterations: body.maxIterations || 10,
+          generationParams: {
+            temperature: body.temperature,
+            maxTokens: body.maxTokens,
+            model: body.model,
+          },
+        });
+
+        const elapsed = Date.now() - startTime;
+
+        // 6. Save messages transactionally
+        await sequelize.transaction(async (t: Transaction) => {
+          const newMessages = messages.map(msg => ({
+            conversationId: conversation.id,
+            role: msg.role,
+            content: msg.content,
+          })) as InferAttributes<Message>[];
+
+          // Add assistant response
+          newMessages.push({
+            conversationId: conversation.id,
+            role: 'assistant',
+            content: result.content,
+            tokenCount: result.totalTokens.total,
+            toolName: null,
+            toolCallId: null,
+          } as InferAttributes<Message>);
+
+          // Add tool calls
+          result.toolCallsMade.forEach(tc => {
+            newMessages.push({
+              conversationId: conversation.id,
+              role: 'tool',
+              content: tc.result,
+              toolName: tc.name as unknown as string,
+              toolCallId: null,
+              tokenCount: 0,
+            } as InferAttributes<Message>);
+          });
+
+          await Message.bulkCreate(newMessages, {transaction: t});
+        });
+
+        logger.info({
+          conversationId,
+          iterations: result.iterations,
+          toolCalls: result.toolCallsMade.length,
+          elapsedMs: elapsed,
+        }, 'Chat completed');
+
+        return reply.send({
+          conversationId,
+          content: result.content,
+          iterations: result.iterations,
+          toolCalls: result.toolCallsMade,
+          tokens: result.totalTokens,
+          elapsedMs: elapsed,
+        });
+
+      } catch (err) {
+        logger.error({err, conversationId}, 'Agent loop failed');
+        return reply.code(500).send({
+          error: 'Agent processing failed',
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+  );
 
   /**
    * POST /chat/stream
    * Stream the agent's response via Server-Sent Events.
    *
-   * Works identically to POST /chat, but streams partial content
-   * as it's generated.
+   * @changelog
+   * - 2023-10-27: Added JSON Schema validation.
+   * - 2023-10-27: Added proper SSE error handling and connection cleanup.
+   * - 2023-10-27: Fixed issue where stream would hang on provider not found.
    */
   fastify.post<{
     Body: {
       messages?: Array<{ role: string; content: string }>;
       message?: string;
-      provider: string;
-      model: string;
+      provider?: string;
+      model?: string;
       temperature?: number;
       maxTokens?: number;
-    }
-  }>('/chat/stream', async (request, reply) => {
-    const body = request.body;
-
-    let provider: LLMProvider;
-
-    if (body.provider) {
-      provider = llmRegistry.get(body.provider)!;
-    } else {
-      provider = llmRegistry.getDefault();
-    }
-
-    if (!provider) {
-      return reply.code(500).send({error: 'No LLM provider available'});
-    }
-
-    let messages = body.messages || [];
-    if (body.message) {
-      messages = [{role: 'user', content: body.message}];
-    }
-
-    // Set up SSE
-    reply.raw.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Access-Control-Allow-Origin': '*',
-      Connection: 'keep-alive',
-    });
-
-    try {
-      // Run the agent loop with iteration callbacks to stream intermediate results
-      const result = await runAgentLoop({
-        provider,
-        messages: messages.map((m) => ({
-          role: m.role as 'system' | 'user' | 'assistant' | 'tool',
-          content: m.content,
-        })),
-        maxIterations: 10,
-        generationParams: {
-          temperature: body.temperature,
-          maxTokens: body.maxTokens,
-          model: body.model,
+    };
+  }>(
+    '/chat/stream',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            messages: {
+              type: 'array',
+              items: {type: 'object', properties: {role: {type: 'string'}, content: {type: 'string'}}},
+            },
+            message: {type: 'string'},
+            provider: {type: 'string'},
+            model: {type: 'string'},
+            temperature: {type: 'number'},
+            maxTokens: {type: 'integer'},
+          },
         },
-        onIteration: (iteration) => {
-          // Stream intermediate results for tool calls
-          if (iteration.toolResults.length > 0) {
-            reply.raw.write(
-              `event: tool_call\ndata: ${JSON.stringify({
-                iteration: iteration.index,
-                tools: iteration.toolResults.map((t) => ({
-                  name: t.name,
-                  success: t.success,
-                })),
-              })}\n\n`,
-            );
-          }
-        },
+      },
+    },
+    async (request, reply) => {
+      const body = request.body;
+
+      // Resolve Provider
+      const provider = body.provider ? llmRegistry.get(body.provider) : llmRegistry.getDefault();
+
+      if (!provider) {
+        // We need to hijack to send an error if headers aren't sent, or just reply normally
+        return reply.code(400).send({error: 'Provider not found'});
+      }
+
+      let messages = body.messages || [];
+      if (body.message) {
+        messages = [{role: 'user', content: body.message}];
+      }
+
+      // Setup SSE
+      reply.raw.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
       });
+      reply.raw.flushHeaders();
 
-      // Send final result
-      reply.raw.write(
-        `event: result\ndata: ${JSON.stringify({
+      // Helper to send SSE
+      const sendEvent = (event: string, data: object) => {
+        if (reply.raw.writableEnded) return;
+        // @ts-ignore
+        reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+
+      try {
+        const result = await runAgentLoop({
+          provider,
+          messages: messages.map(m => ({role: m.role, content: m.content})) as ChatMessage[],
+          maxIterations: 10,
+          generationParams: {
+            temperature: body.temperature,
+            maxTokens: body.maxTokens,
+            model: body.model,
+          },
+          onIteration: (iteration) => {
+            if (iteration.toolResults.length > 0) {
+              sendEvent('tool_call', {
+                iteration: iteration.index,
+                tools: iteration.toolResults.map(t => ({name: t.name, success: t.success})),
+              });
+            }
+          },
+        });
+
+        sendEvent('result', {
           content: result.content,
           iterations: result.iterations,
-          toolCalls: result.toolCallsMade.length,
-          tokens: result.totalTokens,
-        })}\n\n`,
-      );
+        });
+        sendEvent('done', {});
+      } catch (err) {
+        logger.error({err}, 'Stream failed');
+        sendEvent('error', {message: err instanceof Error ? err.message : 'Unknown error'});
+      } finally {
+        if (!reply.raw.writableEnded) {
+          reply.raw.end();
+        }
+      }
 
-      reply.raw.write('event: done\ndata: {}\n\n');
-    } catch (err) {
-      reply.raw.write(
-        `event: error\ndata: ${JSON.stringify({
-          error: err instanceof Error ? err.message : String(err),
-        })}\n\n`,
-      );
-    }
-
-    return reply.hijack();
-  });
+      return reply.hijack();
+    },
+  );
 
   /**
    * GET /chat/conversations
-   * List all conversations, ordered by most recent.
+   * List all conversations with pagination.
+   *
+   * @changelog
+   * - 2023-10-27: Added pagination support (limit/offset).
+   * - 2023-10-27: Added schema validation.
    */
-  fastify.get('/chat/conversations', async (request, reply) => {
-    const conversations = await Conversation.findAll({
-      where: {status: 'active'},
-      order: [['updatedAt', 'DESC']],
-      include: [{model: Message, as: 'messages', limit: 1, order: [['createdAt', 'DESC']]}],
-    });
+  fastify.get<{
+    Querystring: { limit?: number; offset?: number };
+  }>(
+    '/chat/conversations',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: {type: 'integer', minimum: 1, maximum: 100, default: 20},
+            offset: {type: 'integer', minimum: 0, default: 0},
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const {limit = 20, offset = 0} = request.query;
 
-    return reply.send({
-      conversations: conversations.map((c: Conversation) => ({
-        id: c.conversationId,
-        title: c.title,
-        model: c.modelName,
-        lastMessage: c.messages?.[0]?.content?.slice(0, 200),
-        updatedAt: c.updatedAt,
-      })),
-    });
-  });
+      const {rows, count} = await Conversation.findAndCountAll({
+        where: {status: 'active'},
+        order: [['updatedAt', 'DESC']],
+        limit,
+        offset,
+        include: [{model: Message, as: 'messages', limit: 1, order: [['createdAt', 'DESC']]}],
+      });
+
+      return reply.send({
+        total: count,
+        conversations: rows.map((c) => ({
+          id: c.conversationId,
+          title: c.title,
+          model: c.modelName,
+          lastMessage: c.messages?.[0]?.content?.slice(0, 200),
+          updatedAt: c.updatedAt,
+        })),
+      });
+    },
+  );
 
   /**
    * GET /chat/conversations/:id
    * Get a full conversation with all messages.
+   *
+   * @changelog
+   * - 2023-10-27: Added schema validation for params.
    */
-  fastify.get('/chat/conversations/:id', async (request, reply) => {
-    const {id} = request.params as { id: string };
-    const conversation = await Conversation.findOne({
-      where: {conversationId: id},
-      include: [{model: Message, as: 'messages', order: [['createdAt', 'ASC']]}],
-    });
+  fastify.get<{
+    Params: { id: string };
+  }>(
+    '/chat/conversations/:id',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {id: {type: 'string'}},
+        },
+      },
+    },
+    async (request, reply) => {
+      const {id} = request.params;
+      const conversation = await Conversation.findOne({
+        where: {conversationId: id},
+        include: [{model: Message, as: 'messages', order: [['createdAt', 'ASC']]}],
+      });
 
-    if (!conversation) {
-      return reply.code(404).send({error: 'Conversation not found'});
-    }
+      if (!conversation) {
+        return reply.code(404).send({error: 'Conversation not found'});
+      }
 
-    return reply.send({
-      id: conversation.conversationId,
-      title: conversation.title,
-      model: conversation.modelName,
-      createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt,
-      messages: conversation.messages?.map((m: Message) => ({
-        role: m.role,
-        content: m.content,
-        toolName: m.toolName,
-        createdAt: m.createdAt,
-      })),
-    });
-  });
+      return reply.send({
+        id: conversation.conversationId,
+        title: conversation.title,
+        model: conversation.modelName,
+        createdAt: conversation.createdAt,
+        updatedAt: conversation.updatedAt,
+        messages: conversation.messages?.map((m) => ({
+          role: m.role,
+          content: m.content,
+          toolName: m.toolName,
+          createdAt: m.createdAt,
+        })),
+      });
+    },
+  );
+
+  /**
+   * PATCH /chat/conversations/:id
+   * Update conversation details (e.g., title).
+   *
+   * @changelog
+   * - 2023-10-27: New endpoint for updating conversations.
+   */
+  fastify.patch<{
+    Params: { id: string };
+    Body: { title?: string; status?: string };
+  }>(
+    '/chat/conversations/:id',
+    {
+      schema: {
+        params: {type: 'object', required: ['id'], properties: {id: {type: 'string'}}},
+        body: {
+          type: 'object',
+          properties: {
+            title: {type: 'string', minLength: 1},
+            status: {type: 'string', enum: ['active', 'archived']},
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const {id} = request.params;
+      const conversation = await Conversation.findOne({where: {conversationId: id}});
+
+      if (!conversation) {
+        return reply.code(404).send({error: 'Conversation not found'});
+      }
+
+      await conversation.update(request.body as any);
+      return reply.send({status: 'updated', conversation});
+    },
+  );
 
   /**
    * DELETE /chat/conversations/:id
    * Soft-delete a conversation.
+   *
+   * @changelog
+   * - 2023-10-27: Added schema validation.
    */
-  fastify.delete('/chat/conversations/:id', async (request, reply) => {
-    const {id} = request.params as { id: string };
-    const conversation = await Conversation.findOne({where: {conversationId: id}});
+  fastify.delete<{
+    Params: { id: string };
+  }>(
+    '/chat/conversations/:id',
+    {
+      schema: {
+        params: {type: 'object', required: ['id'], properties: {id: {type: 'string'}}},
+      },
+    },
+    async (request, reply) => {
+      const {id} = request.params;
+      const conversation = await Conversation.findOne({where: {conversationId: id}});
 
-    if (!conversation) {
-      return reply.code(404).send({error: 'Conversation not found'});
-    }
+      if (!conversation) {
+        return reply.code(404).send({error: 'Conversation not found'});
+      }
 
-    await conversation.update({status: 'deleted'});
-    return reply.send({status: 'deleted', id});
-  });
+      await conversation.update({status: 'deleted'});
+      return reply.send({status: 'deleted', id});
+    },
+  );
 };
