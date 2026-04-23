@@ -221,40 +221,6 @@ const mcpServerTemplates: MCPServerTemplate[] = [
     variables: [] // No env vars typically required for basic setup
   },
   {
-    id: 'slack',
-    name: 'slack',
-    displayName: 'Slack',
-    description: 'Send and receive Slack messages, manage channels, and interact with workspace.',
-    type: 'stdio',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-slack'],
-    env: {
-      SLACK_BOT_TOKEN: 'your-bot-token',
-      SLACK_SIGNING_SECRET: 'your-signing-secret',
-    },
-    notes: 'Create a Slack app and obtain bot token and signing secret from Slack API.',
-    documentationUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/slack',
-    category: 'Communication',
-    icon: '💬',
-    tags: ['messaging', 'team', 'api'],
-    runtime: 'node',
-    homepage: 'https://github.com/modelcontextprotocol/servers',
-    variables: [
-      {
-        key: 'SLACK_BOT_TOKEN',
-        description: 'Bot User OAuth Token starting with xoxb-.',
-        required: true,
-        example: '1234567890-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx'
-      },
-      {
-        key: 'SLACK_SIGNING_SECRET',
-        description: 'Signing Secret used to verify requests from Slack.',
-        required: true,
-        example: 'a1b2c3d4e5f6g7h8i9j0'
-      }
-    ]
-  },
-  {
     id: 'aws-s3',
     name: 'aws-s3',
     displayName: 'AWS S3',
