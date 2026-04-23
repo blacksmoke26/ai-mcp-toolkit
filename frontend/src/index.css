@@ -9,6 +9,22 @@
 @tailwind utilities;
 
 @layer base {
+  ::-webkit-scrollbar {
+    @apply w-2 h-2 bg-transparent;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
@@ -120,17 +136,12 @@
   }
 }
 
-* {
-    scrollbar-width: thin;
-    scrollbar-color: #888 #e2e8f0; /* thumb color | track color */
-}
-
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  
+
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
