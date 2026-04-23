@@ -229,7 +229,7 @@ const mcpServerTemplates: MCPServerTemplate[] = [
     command: 'npx',
     args: ['-y', '@modelcontextprotocol/server-slack'],
     env: {
-      SLACK_BOT_TOKEN: 'xoxb-your-bot-token',
+      SLACK_BOT_TOKEN: 'your-bot-token',
       SLACK_SIGNING_SECRET: 'your-signing-secret',
     },
     notes: 'Create a Slack app and obtain bot token and signing secret from Slack API.',
@@ -243,7 +243,8 @@ const mcpServerTemplates: MCPServerTemplate[] = [
       {
         key: 'SLACK_BOT_TOKEN',
         description: 'Bot User OAuth Token starting with xoxb-.',
-        required: true
+        required: true,
+        example: '1234567890-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx'
       },
       {
         key: 'SLACK_SIGNING_SECRET',
