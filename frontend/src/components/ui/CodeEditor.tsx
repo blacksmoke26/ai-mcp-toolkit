@@ -4,11 +4,12 @@
  * @see https://github.com/blacksmoke26
  */
 
-import React, {useState, useCallback, useEffect, forwardRef, useImperativeHandle, useRef} from 'react';
+import React, {useState, useCallback, useEffect, forwardRef, useImperativeHandle, useRef, useMemo} from 'react';
 import {monokaiDimmed} from '@uiw/codemirror-theme-monokai-dimmed';
 import {javascript} from '@codemirror/lang-javascript';
 import {json} from '@codemirror/lang-json';
 import {EditorView} from '@codemirror/view';
+import {EditorState} from '@codemirror/state';
 import Editor, {type ReactCodeMirrorProps, type Extension} from '@uiw/react-codemirror';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
@@ -71,6 +72,11 @@ const Icons = {
         fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path>
     </svg>
   ),
+  ChevronRight: (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-3 h-3">
+      <path d="M6.1584 3.13508C6.35985 2.94621 6.67617 2.95642 6.86504 3.15788L10.2246 6.71531C10.4076 6.91005 10.4076 7.21726 10.2246 7.412L6.86504 10.9694C6.67617 11.1709 6.35985 11.1811 6.1584 10.9922C5.95694 10.8034 5.94673 10.487 6.1356 10.2856L9.18432 7.06365L6.1356 3.84172C5.94673 3.64026 5.95694 3.32394 6.1584 3.13508Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path>
+    </svg>
+  )
 };
 
 /**
@@ -281,15 +287,16 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
       onFullscreenChange,
     } = props;
 
-    // Internal state for uncontrolled mode or UI state
     const editorInstance = useRef<EditorView | null>(null);
     const [internalValue, setInternalValue] = useState(defaultValue);
     const [copied, setCopied] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(isFullscreenProp);
 
-    // Editor Settings State
+    // --- Customization State ---
     const [lineNumbers, setLineNumbers] = useState(true);
     const [lineWrap, setLineWrap] = useState(false);
+    const [fontSize, setFontSize] = useState(14); // Default font size
+    const [tabSize, setTabSize] = useState(2); // Default tab size
 
     // Determine if component is controlled
     const value = controlledValue !== undefined ? controlledValue : internalValue;
@@ -305,7 +312,6 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
       onFullscreenChange?.(nextState);
     };
 
-    // --- Ref API ---
     useImperativeHandle(ref, () => ({
       getValue: () => value,
       setValue: (val) => {
@@ -316,8 +322,6 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
       },
       focus: () => editorInstance.current?.focus(),
     }));
-
-    // --- Handlers ---
 
     const handleChange = useCallback((val: string) => {
       if (controlledValue === undefined) {
@@ -356,21 +360,20 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
         formattedValue = onFormat(value);
       } else if (language === 'json') {
         try {
-          formattedValue = JSON.stringify(JSON.parse(value), null, 2);
+          formattedValue = JSON.stringify(JSON.parse(value), null, tabSize);
         } catch (e) {
           console.warn('Invalid JSON');
           return;
         }
       } else {
-        return; // No default formatting for JS
+        return;
       }
 
       if (formattedValue !== value) {
         handleChange(formattedValue);
       }
-    }, [value, language, onFormat, readOnly, handleChange]);
+    }, [value, language, onFormat, readOnly, handleChange, tabSize]);
 
-    // --- Cursor Position & Status Calculation ---
     // Note: We use a simple listener on selection changes to update status bar
     const [cursorPos, setCursorPos] = useState({line: 0, col: 0, selected: 0});
 
@@ -385,17 +388,19 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
       editorInstance.current = editor;
     }, []);
 
-    // --- Dynamic Extensions ---
-    const extensions = [
+    // --- Dynamic Extensions with Customization ---
+    const extensions = useMemo(() => [
       LANGUAGES[language],
       lineWrap ? EditorView.lineWrapping : [],
-    ].filter(Boolean) as Extension[];
+      EditorState.tabSize.of(tabSize),
+      EditorView.theme({
+        "&": { fontSize: `${fontSize}px` },
+      }),
+    ].filter(Boolean) as Extension[], [language, lineWrap, fontSize, tabSize]);
 
-    // --- UI Logic ---
     const containerClasses = isFullscreen
-      ? 'fixed inset-0 z-50 flex flex-col bg-[#272822]' // Monokai bg color
+      ? 'fixed inset-0 z-50 flex flex-col bg-[#272822]'
       : `flex flex-col rounded-lg overflow-hidden border border-neutral-700 bg-[#272822] shadow-lg w-full`;
-
 
     return (
       <div className={containerClasses}>
@@ -433,6 +438,10 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
               setLineNumbers={setLineNumbers}
               lineWrap={lineWrap}
               setLineWrap={setLineWrap}
+              fontSize={fontSize}
+              setFontSize={setFontSize}
+              tabSize={tabSize}
+              setTabSize={setTabSize}
             />
 
             <ActionButton title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'} onClick={toggleFullscreen}>
@@ -473,7 +482,7 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
             }}
             onCreateEditor={handleEditorSelection}
             {...editorProps}
-            style={{height: '100%', fontSize: 13}}
+            style={{height: '100%'}} // Font size is handled via extension
             width="100%"
           />
         </div>
@@ -486,7 +495,7 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
             {cursorPos.selected > 0 && <span className="text-blue-300">Selected: {cursorPos.selected}</span>}
           </div>
           <div className="flex gap-3">
-            <span>{value.length} chars</span>
+            <span>Spaces: {tabSize}</span>
             <span>UTF-8</span>
           </div>
         </div>
@@ -497,7 +506,7 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
 
 CodeEditor.displayName = 'CodeEditor';
 
-// --- Sub-Components for Cleanliness ---
+// --- Sub-Components ---
 
 const ActionButton: React.FC<{
   title: string;
@@ -531,42 +540,131 @@ const ActionButton: React.FC<{
 
 const Separator = () => <div className="w-px h-4 bg-neutral-600 mx-1"/>;
 
-const SettingsMenu: React.FC<{
+// --- Enhanced Settings Menu ---
+
+interface SettingsMenuProps {
   lineNumbers: boolean;
   setLineNumbers: (v: boolean) => void;
   lineWrap: boolean;
   setLineWrap: (v: boolean) => void;
-}> = ({lineNumbers, setLineNumbers, lineWrap, setLineWrap}) => (
-  <DropdownMenu.Root>
-    <DropdownMenu.Trigger asChild>
-      <button
-        className="p-1.5 rounded hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors focus:outline-none">
-        {Icons.Settings}
-      </button>
-    </DropdownMenu.Trigger>
+  fontSize: number;
+  setFontSize: (v: number) => void;
+  tabSize: number;
+  setTabSize: (v: number) => void;
+}
 
-    <DropdownMenu.Portal>
-      <DropdownMenu.Content
-        className="min-w-[180px] bg-neutral-800 rounded-md p-1.5 shadow-lg border border-neutral-700 text-neutral-300 text-xs z-50"
-        sideOffset={5}
-      >
-        <DropdownMenu.Item
-          onSelect={() => setLineNumbers(!lineNumbers)}
-          className={`flex items-center justify-between px-2 py-1.5 rounded hover:bg-neutral-700 hover:text-white outline-none cursor-pointer ${lineNumbers ? 'text-white' : ''}`}
+const SettingsMenu: React.FC<SettingsMenuProps> = ({
+                                                     lineNumbers, setLineNumbers,
+                                                     lineWrap, setLineWrap,
+                                                     fontSize, setFontSize,
+                                                     tabSize, setTabSize
+                                                   }) => {
+  const fontSizes = [10, 11, 12, 13, 14, 16, 18, 20, 24];
+  const tabSizes = [2, 4, 8];
+
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          className="p-1.5 rounded hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors focus:outline-none">
+          {Icons.Settings}
+        </button>
+      </DropdownMenu.Trigger>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          className="min-w-[180px] bg-neutral-800 rounded-md p-1 shadow-lg border border-neutral-700 text-neutral-300 text-xs z-50"
+          sideOffset={5}
         >
-          <span>Line Numbers</span>
-          {lineNumbers && <span>✓</span>}
-        </DropdownMenu.Item>
-        <DropdownMenu.Item
-          onSelect={() => setLineWrap(!lineWrap)}
-          className={`flex items-center justify-between px-2 py-1.5 rounded hover:bg-neutral-700 hover:text-white outline-none cursor-pointer ${lineWrap ? 'text-white' : ''}`}
-        >
-          <span>Word Wrap</span>
-          {lineWrap && <span>✓</span>}
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Portal>
-  </DropdownMenu.Root>
-);
+          {/* View Section */}
+          <DropdownMenu.Label className="px-2 py-1 text-[10px] text-neutral-500 uppercase tracking-wider">
+            View
+          </DropdownMenu.Label>
+
+          <DropdownMenu.Item
+            onSelect={() => setLineNumbers(!lineNumbers)}
+            className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-neutral-700 hover:text-white outline-none cursor-pointer"
+          >
+            <span>Line Numbers</span>
+            {lineNumbers && <span className="text-blue-400">✓</span>}
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            onSelect={() => setLineWrap(!lineWrap)}
+            className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-neutral-700 hover:text-white outline-none cursor-pointer"
+          >
+            <span>Word Wrap</span>
+            {lineWrap && <span className="text-blue-400">✓</span>}
+          </DropdownMenu.Item>
+
+          <DropdownMenu.Separator className="h-px bg-neutral-700 my-1"/>
+
+          {/* Editor Section */}
+          <DropdownMenu.Label className="px-2 py-1 text-[10px] text-neutral-500 uppercase tracking-wider">
+            Editor
+          </DropdownMenu.Label>
+
+          {/* Font Size Submenu */}
+          <DropdownMenu.Sub>
+            <DropdownMenu.SubTrigger className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-neutral-700 hover:text-white outline-none cursor-pointer w-full">
+              <span>Font Size</span>
+              <div className="flex items-center gap-1">
+                <span className="text-neutral-400">{fontSize}px</span>
+                {Icons.ChevronRight}
+              </div>
+            </DropdownMenu.SubTrigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.SubContent
+                className="min-w-[100px] bg-neutral-800 rounded-md p-1 shadow-lg border border-neutral-700 text-neutral-300 text-xs z-50"
+                sideOffset={2}
+                alignOffset={-5}
+              >
+                {fontSizes.map((size) => (
+                  <DropdownMenu.Item
+                    key={size}
+                    onSelect={() => setFontSize(size)}
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-neutral-700 hover:text-white outline-none cursor-pointer"
+                  >
+                    <span>{size}px</span>
+                    {fontSize === size && <span className="text-blue-400">✓</span>}
+                  </DropdownMenu.Item>
+                ))}
+              </DropdownMenu.SubContent>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Sub>
+
+          {/* Tab Size Submenu */}
+          <DropdownMenu.Sub>
+            <DropdownMenu.SubTrigger className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-neutral-700 hover:text-white outline-none cursor-pointer w-full">
+              <span>Tab Size</span>
+              <div className="flex items-center gap-1">
+                <span className="text-neutral-400">{tabSize} spaces</span>
+                {Icons.ChevronRight}
+              </div>
+            </DropdownMenu.SubTrigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.SubContent
+                className="min-w-[120px] bg-neutral-800 rounded-md p-1 shadow-lg border border-neutral-700 text-neutral-300 text-xs z-50"
+                sideOffset={2}
+                alignOffset={-5}
+              >
+                {tabSizes.map((size) => (
+                  <DropdownMenu.Item
+                    key={size}
+                    onSelect={() => setTabSize(size)}
+                    className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-neutral-700 hover:text-white outline-none cursor-pointer"
+                  >
+                    <span>{size} Spaces</span>
+                    {tabSize === size && <span className="text-blue-400">✓</span>}
+                  </DropdownMenu.Item>
+                ))}
+              </DropdownMenu.SubContent>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Sub>
+
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+};
 
 export default CodeEditor;
