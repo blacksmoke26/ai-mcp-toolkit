@@ -14,8 +14,9 @@ The core MCP server implementing the Model Context Protocol specification. Featu
 - **Multi-Provider LLM** — Supports Ollama, OpenAI, and any OpenAI-compatible API
 - **Autonomous Agent** — LLM-driven tool orchestration with configurable iteration limits
 - **Tool Registry** — Register, enable, and categorize custom tools at runtime
+- **MCP Server Management** — Add, configure, and monitor external MCP servers (filesystem, databases, APIs)
 - **SQLite Persistence** — Zero-config database for providers, conversations, and configurations
-- **REST Admin API** — Full CRUD operations for providers and tools
+- **REST Admin API** — Full CRUD operations for providers, tools, and MCP servers
 
 Built with **Fastify**, **Sequelize**, and **TypeScript**.
 
@@ -24,7 +25,8 @@ A React-based testing and simulation interface for the MCP server. Features:
 - **Dashboard** — Real-time server status and health monitoring
 - **MCP Tools Testing** — Browse, execute, and debug MCP tools via UI
 - **Chat Interface** — Interact with the LLM agent and view tool usage
-- **Admin Panel** — Manage providers and tools through a graphical interface
+- **Admin Panel** — Manage providers, tools, and external MCP servers through a graphical interface
+- **MCP Server Manager** — Visual interface for managing external MCP server connections with templates
 
 Built with **React**, **TypeScript**, **Tailwind CSS**, and **Vite**.
 
@@ -42,6 +44,7 @@ Built with **React**, **TypeScript**, **Tailwind CSS**, and **Vite**.
 
 - [Backend Documentation](./backend/README.md) — Full API reference, architecture, and development guide
 - [Frontend Documentation](./frontend/README.md) — UI features, components, and usage guide
+- [MCP Server Management](./docs/mcp-servers.md) — Complete guide to external MCP server management
 
 ---
 
