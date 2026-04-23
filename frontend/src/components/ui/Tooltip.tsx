@@ -7,6 +7,7 @@
 import * as React from 'react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import {cn} from '@/lib/utils';
+import {HelpCircle} from 'lucide-react';
 
 /**
  * TooltipProvider wraps the application to provide tooltip context.
@@ -58,4 +59,26 @@ TooltipContent.displayName = TooltipPrimitive.Content.displayName;
  */
 const TooltipPortal = TooltipPrimitive.Portal;
 
-export {Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TooltipPortal};
+/**
+ * Helper component for documentation tooltips with proper popover handling.
+ */
+const DocTooltip: React.FC<{
+  content: React.ReactNode;
+  side?: 'top' | 'right' | 'bottom' | 'left';
+}> = ({content, side = 'right'}) => {
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <HelpCircle className="ml-1 h-3 w-3 inline cursor-help text-muted-foreground hover:text-foreground transition-colors"/>
+        </TooltipTrigger>
+        <TooltipContent side={side} className="max-w-xs p-3 text-xs leading-relaxed">
+          {content}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
+
+export {Tooltip, TooltipTrigger, TooltipContent, TooltipProvider, TooltipPortal, DocTooltip};
