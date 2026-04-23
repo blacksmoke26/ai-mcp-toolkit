@@ -1,4 +1,10 @@
 /**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
+ /**
  * @module db
  * @description Sequelize database connection and initialization.
  *
@@ -146,7 +152,9 @@ export class ToolConfig extends Model<InferAttributes<ToolConfig>, InferCreation
   declare category: CreationOptional<string | null>;
   /** Extra configuration JSON */
   declare settings: CreationOptional<string | null>;
+  /** Timestamp when the server was created */
   declare createdAt: CreationOptional<Date>;
+  /** Timestamp when the server was last updated */
   declare updatedAt: CreationOptional<Date>;
 }
 
@@ -181,7 +189,95 @@ export class CustomTool extends Model<InferAttributes<CustomTool>, InferCreation
   declare lastTestArgs: CreationOptional<string | null>;
   /** Last test result for feedback */
   declare lastTestResult: CreationOptional<string | null>;
+  /** Timestamp when the server was created */
   declare createdAt: CreationOptional<Date>;
+  /** Timestamp when the server was last updated */
+  declare updatedAt: CreationOptional<Date>;
+}
+
+/**
+ * @model MCPServer
+ * @description Stores external MCP server configurations and connection details.
+ *
+ * MCPServer allows the system to connect to and manage multiple external
+ * Model Context Protocol (MCP) servers. Each server can provide its own
+ * set of tools, resources, and prompts that can be used by the LLM.
+ *
+ * ## Server Types
+ *
+ * - `stdio`: Local process-based servers (most common for MCP)
+ * - `sse`: Server-Sent Events over HTTP
+ * - `streamable-http`: HTTP with streaming support
+ *
+ * ## Usage Example
+ *
+ * ```typescript
+ * import { MCPServer } from '@/db';
+ *
+ * // Create a new MCP server
+ * const server = await MCPServer.create({
+ *   name: 'filesystem-server',
+ *   displayName: 'File System Access',
+ *   description: 'Provides read/write access to the local filesystem',
+ *   type: 'stdio',
+ *   command: 'npx',
+ *   args: ['-y', '@modelcontextprotocol/server-filesystem', '/path/to/dir'],
+ *   enabled: true,
+ *   timeout: 30000,
+ *   settings: JSON.stringify({ readOnly: false }),
+ * });
+ * ```
+ */
+export class MCPServer extends Model<InferAttributes<MCPServer>, InferCreationAttributes<MCPServer>> {
+  /** Auto-incrementing primary key */
+  declare id: CreationOptional<number>;
+  /** Unique server identifier/name (e.g., 'filesystem', 'postgres') */
+  declare name: string;
+  /** Human-readable display name for the UI */
+  declare displayName: string;
+  /** Detailed description of what the server provides */
+  declare description: string;
+  /** Connection type: stdio, sse, or streamable-http */
+  declare type: 'stdio' | 'sse' | 'streamable-http';
+  /** For stdio: The command to execute (e.g., 'npx', 'node', '/usr/bin/python3') */
+  declare command: CreationOptional<string | null>;
+  /** For stdio: JSON-encoded array of command arguments */
+  declare args: CreationOptional<string | null>;
+  /** For stdio: JSON-encoded environment variables object */
+  declare env: CreationOptional<string | null>;
+  /** For sse/streamable-http: The server URL endpoint */
+  declare url: CreationOptional<string | null>;
+  /** For sse/streamable-http: JSON-encoded HTTP headers object */
+  declare headers: CreationOptional<string | null>;
+  /** Whether this server is currently enabled and active */
+  declare enabled: boolean;
+  /** Current connection status: disconnected, connecting, connected, error */
+  declare status: 'disconnected' | 'connecting' | 'connected' | 'error';
+  /** Last known error message (if status is 'error') */
+  declare lastError: CreationOptional<string | null>;
+  /** Connection timeout in milliseconds */
+  declare timeout: CreationOptional<number>;
+  /** Auto-reconnect after disconnection */
+  declare autoReconnect: CreationOptional<boolean>;
+  /** Maximum number of reconnection attempts (-1 for unlimited) */
+  declare maxReconnectAttempts: CreationOptional<number>;
+  /** Reconnection delay in milliseconds */
+  declare reconnectDelay: CreationOptional<number>;
+  /** JSON-encoded additional configuration settings */
+  declare settings: CreationOptional<string | null>;
+  /** Server version string (if provided by the server) */
+  declare version: CreationOptional<string | null>;
+  /** Timestamp when the server was last successfully connected */
+  declare lastConnectedAt: CreationOptional<Date | null>;
+  /** Timestamp when the server was last disconnected */
+  declare lastDisconnectedAt: CreationOptional<Date | null>;
+  /** Total number of successful connections */
+  declare connectionCount: CreationOptional<number>;
+  /** Total number of connection failures */
+  declare failureCount: CreationOptional<number>;
+  /** Timestamp when the server was created */
+  declare createdAt: CreationOptional<Date>;
+  /** Timestamp when the server was last updated */
   declare updatedAt: CreationOptional<Date>;
 }
 
@@ -265,6 +361,37 @@ CustomTool.init(
     updatedAt: { type: DataTypes.DATE, allowNull: false },
   },
   { sequelize: db, tableName: 'custom_tools' },
+);
+
+MCPServer.init(
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    name: { type: DataTypes.STRING, allowNull: false, unique: true },
+    displayName: { type: DataTypes.STRING, allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: false },
+    type: { type: DataTypes.STRING, allowNull: false, defaultValue: 'stdio' },
+    command: { type: DataTypes.STRING, allowNull: true },
+    args: { type: DataTypes.TEXT, allowNull: true },
+    env: { type: DataTypes.TEXT, allowNull: true },
+    url: { type: DataTypes.TEXT, allowNull: true },
+    headers: { type: DataTypes.TEXT, allowNull: true },
+    enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'disconnected' },
+    lastError: { type: DataTypes.TEXT, allowNull: true },
+    timeout: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 30000 },
+    autoReconnect: { type: DataTypes.BOOLEAN, allowNull: true, defaultValue: true },
+    maxReconnectAttempts: { type: DataTypes.INTEGER, allowNull: true, defaultValue: -1 },
+    reconnectDelay: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 5000 },
+    settings: { type: DataTypes.TEXT, allowNull: true },
+    version: { type: DataTypes.STRING, allowNull: true },
+    lastConnectedAt: { type: DataTypes.DATE, allowNull: true },
+    lastDisconnectedAt: { type: DataTypes.DATE, allowNull: true },
+    connectionCount: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 0 },
+    failureCount: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 0 },
+    createdAt: { type: DataTypes.DATE, allowNull: false },
+    updatedAt: { type: DataTypes.DATE, allowNull: false },
+  },
+  { sequelize: db, tableName: 'mcp_servers' },
 );
 
 // ─── Associations ─────────────────────────────────────────────────────────────
