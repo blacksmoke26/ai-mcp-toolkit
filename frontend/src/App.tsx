@@ -8,7 +8,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 
 // components
-import Layout from './components/Layout';
+import Layout from '@/components/Layout';
 
 // pages
 import Dashboard from '@/pages/Dashboard';
@@ -30,6 +30,7 @@ import MCPInfo from '@/pages/MCPInfo';
 import ModelsList from '@/pages/ModelsList';
 import ToolDetail from '@/pages/ToolDetail';
 import CustomTools from '@/pages/CustomTools';
+import AdminMCPServers from '@/pages/AdminMCPServers';
 
 /**
  * Component displayed when a user navigates to a route that does not exist.
@@ -81,6 +82,7 @@ const App: React.FC = () => (
         <Route path="/admin/models" element={<ModelsList/>}/>
         <Route path="/admin/tools/:name" element={<ToolDetail/>}/>
         <Route path="/admin/custom-tools" element={<CustomTools/>}/>
+        <Route path="/admin/mcp-servers" element={<AdminMCPServers/>}/>
 
         {/* Simulation & Testing */}
         <Route path="/simulate" element={<ToolSimulator/>}/>

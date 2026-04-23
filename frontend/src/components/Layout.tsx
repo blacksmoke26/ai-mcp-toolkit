@@ -21,7 +21,7 @@ import {
   Zap,
   Info,
   LayoutList,
-  Blocks, PocketKnife,
+  Blocks, PocketKnife, ServerCrash,
 } from 'lucide-react';
 import {cn} from '@/lib/utils';
 import {Button} from './ui/Button';
@@ -177,6 +177,12 @@ const navSections: {
         href: '/admin/custom-tools',
         icon: PocketKnife,
         description: 'Custom tools management',
+      },
+      {
+        label: 'MCP Servers',
+        href: '/admin/mcp-servers',
+        icon: ServerCrash,
+        description: 'Manage external MCP servers',
       },
     ],
   },

@@ -1137,3 +1137,278 @@ export interface CustomToolTemplatesResponse {
   /** Template list */
   templates: CustomToolTemplate[];
 }
+
+// ─── MCP Server Management Types ─────────────────────────────────────────────────
+
+/** Transport type for MCP servers */
+export type MCPServerType = 'stdio' | 'sse' | 'streamable-http';
+
+/** Connection status for MCP servers */
+export type MCPServerStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+
+/** MCP server response from list endpoint */
+export interface MCPServerResponse {
+  /** Database ID */
+  id: number;
+  /** Server name */
+  name: string;
+  /** Display name */
+  displayName: string;
+  /** Description */
+  description: string;
+  /** Transport type */
+  type: MCPServerType;
+  /** URL (for HTTP-based types) */
+  url?: string;
+  /** Whether enabled */
+  enabled: boolean;
+  /** Current status */
+  status: MCPServerStatus;
+  /** Last error message */
+  lastError?: string;
+  /** Timeout in milliseconds */
+  timeout: number;
+  /** Auto-reconnect flag */
+  autoReconnect: boolean;
+  /** Max reconnection attempts (-1 for unlimited) */
+  maxReconnectAttempts: number;
+  /** Reconnection delay in milliseconds */
+  reconnectDelay: number;
+  /** Server version */
+  version?: string;
+  /** Last connected timestamp */
+  lastConnectedAt?: Date;
+  /** Connection count */
+  connectionCount: number;
+  /** Failure count */
+  failureCount: number;
+  /** Creation timestamp */
+  createdAt: Date;
+  /** Update timestamp */
+  updatedAt: Date;
+}
+
+/** Response from listing MCP servers */
+export interface MCPServersListResponse {
+  /** Total count */
+  total: number;
+  /** Server list */
+  servers: MCPServerResponse[];
+}
+
+/** Request body for creating an MCP server */
+export interface CreateMCPServerRequest {
+  /** Unique server name */
+  name: string;
+  /** Display name */
+  displayName: string;
+  /** Description */
+  description: string;
+  /** Transport type */
+  type: MCPServerType;
+  /** Command (for stdio) */
+  command?: string;
+  /** Arguments as array (for stdio) */
+  args?: string[];
+  /** Environment variables (for stdio) */
+  env?: Record<string, string>;
+  /** URL (for sse/streamable-http) */
+  url?: string;
+  /** Headers (for sse/streamable-http) */
+  headers?: Record<string, string>;
+  /** Whether to enable immediately */
+  enabled?: boolean;
+  /** Timeout in milliseconds */
+  timeout?: number;
+  /** Auto-reconnect flag */
+  autoReconnect?: boolean;
+  /** Max reconnection attempts */
+  maxReconnectAttempts?: number;
+  /** Reconnection delay */
+  reconnectDelay?: number;
+  /** Additional settings */
+  settings?: Record<string, unknown>;
+}
+
+/** Request body for updating an MCP server */
+export interface UpdateMCPServerRequest {
+  /** Display name */
+  name: string;
+  /** Display name */
+  displayName?: string;
+  /** Description */
+  description?: string;
+  /** Transport type */
+  type?: MCPServerType;
+  /** Command */
+  command?: string;
+  /** Arguments */
+  args?: string[];
+  /** Environment variables */
+  env?: Record<string, string>;
+  /** URL */
+  url?: string;
+  /** Headers */
+  headers?: Record<string, string>;
+  /** Timeout */
+  timeout?: number;
+  /** Auto-reconnect */
+  autoReconnect?: boolean;
+  /** Max reconnection attempts */
+  maxReconnectAttempts?: number;
+  /** Reconnection delay */
+  reconnectDelay?: number;
+  /** Additional settings */
+  settings?: Record<string, unknown>;
+  enabled?: boolean;
+}
+
+/** Response from deleting an MCP server */
+export interface MCPServerDeleteResponse {
+  /** Status */
+  status: 'deleted';
+  /** Server name */
+  server: string;
+}
+
+/** Response from starting an MCP server */
+export interface MCPServerStartResponse {
+  /** Status */
+  status: 'started';
+  /** Server info */
+  server: {
+    id: number;
+    name: string;
+    displayName: string;
+  };
+}
+
+/** Response from stopping an MCP server */
+export interface MCPServerStopResponse {
+  /** Status */
+  status: 'stopped';
+  /** Server info */
+  server: {
+    id: number;
+    name: string;
+    displayName: string;
+  };
+}
+
+/** Response from restarting an MCP server */
+export interface MCPServerRestartResponse {
+  /** Status */
+  status: 'restarted';
+  /** Server info */
+  server: {
+    id: number;
+    name: string;
+    displayName: string;
+  };
+}
+
+/** Response from getting server status */
+export interface MCPServerStatusResponse {
+  /** ID */
+  id: number;
+  /** Name */
+  name: string;
+  /** Display name */
+  displayName: string;
+  /** Type */
+  type: MCPServerType;
+  /** Status */
+  status: MCPServerStatus;
+  /** Last error */
+  lastError?: string;
+  /** Version */
+  version?: string;
+  /** Connected at */
+  connectedAt?: Date;
+  /** Connection count */
+  connectionCount: number;
+  /** Failure count */
+  failureCount: number;
+}
+
+/** Response from health check */
+export interface MCPServerHealthResponse {
+  /** ID */
+  id: number;
+  /** Name */
+  name: string;
+  /** Health status */
+  status: 'healthy' | 'unhealthy' | 'unknown';
+  /** Connection status */
+  connectionStatus: MCPServerStatus;
+  /** Uptime in seconds */
+  uptime?: number;
+  /** Last error */
+  lastError?: string;
+  /** Checked at */
+  checkedAt: Date;
+}
+
+/** Response from testing server connection */
+export interface MCPServerTestResponse {
+  /** Whether test was successful */
+  success: boolean;
+  /** Status */
+  status: string;
+  /** Message */
+  message: string;
+  /** Last error */
+  lastError?: string;
+}
+
+/** MCP server template */
+export interface MCPServerTemplate {
+  /** Template ID */
+  id: string;
+  /** Template name */
+  name: string;
+  /** Display name */
+  displayName: string;
+  /** Description */
+  description: string;
+  /** Transport type */
+  type: MCPServerType;
+  /** Example command */
+  command?: string;
+  /** Example arguments */
+  args?: string[];
+  /** Example URL */
+  url?: string;
+  /** Example environment variables */
+  env?: Record<string, string>;
+  /** Example headers */
+  headers?: Record<string, string>;
+  /** Additional notes */
+  notes?: string;
+  /** Documentation URL */
+  documentationUrl?: string;
+  /** Template category */
+  category?: string;
+  /** Template icon (emoji) */
+  icon?: string;
+  /** Template tags */
+  tags?: string[];
+  /** Required runtime */
+  runtime?: string;
+  /** Homepage URL */
+  homepage?: string;
+  /** Template variables */
+  variables?: Array<{
+    key: string;
+    description?: string;
+    required?: boolean;
+    default?: string;
+    example?: string;
+  }>;
+}
+
+/** Response from getting server templates */
+export interface MCPServerTemplatesResponse {
+  /** Template list */
+  templates: MCPServerTemplate[];
+}

@@ -12,6 +12,14 @@
  *
  * Provides a unified interface for all API endpoints with proper error handling
  * and type safety.
+ *
+ * ## MCP Server Management
+ *
+ * Includes comprehensive endpoints for managing external MCP servers:
+ * - List, create, update, and delete MCP servers
+ * - Start, stop, and restart server connections
+ * - Test connectivity and health checks
+ * - Get server templates for quick setup
  */
 
 import type {
@@ -90,7 +98,12 @@ import type {
   ApiConfig, CustomToolTemplatesResponse, ToggleCustomToolResponse, TestCustomToolResponse, TestCustomToolRequest,
   DeleteCustomToolResponse, UpdateCustomToolRequest, CreateCustomToolRequest, CreateCustomToolResponse,
   UpdateCustomToolResponse, CustomToolDetailResponse, CustomToolsListResponse,CustomTool, CustomToolSummary, ToggleCustomToolRequest,
-  CustomToolTemplate, CustomToolInputSchema
+  CustomToolTemplate, CustomToolInputSchema,
+  // MCP Servers
+  MCPServerResponse, MCPServersListResponse, CreateMCPServerRequest, UpdateMCPServerRequest,
+  MCPServerDeleteResponse, MCPServerStartResponse, MCPServerStopResponse, MCPServerRestartResponse,
+  MCPServerStatusResponse, MCPServerHealthResponse, MCPServerTestResponse, MCPServerTemplatesResponse,
+  MCPServerTemplate
 } from '../types/api.js';
 import {DEFAULT_API_CONFIG} from '../types/api.js';
 
@@ -805,4 +818,115 @@ export async function toggleCustomTool(
  */
 export async function getCustomToolTemplates(): Promise<CustomToolTemplatesResponse> {
   return request<CustomToolTemplatesResponse>('/api/custom-tools/templates');
+}
+
+// ─── MCP Server Management ────────────────────────────────────────────────────────
+
+/**
+ * GET /api/mcp-servers - List all MCP servers
+ * @param enabled - Filter by enabled status (optional)
+ * @param status - Filter by status (optional)
+ * @param search - Search query (optional)
+ */
+export async function listMCPServers(params?: { enabled?: boolean; status?: string; search?: string }): Promise<MCPServersListResponse> {
+  const queryParams = new URLSearchParams();
+  if (params?.enabled !== undefined) queryParams.append('enabled', String(params.enabled));
+  if (params?.status) queryParams.append('status', params.status);
+  if (params?.search) queryParams.append('search', params.search);
+  const endpoint = `${queryParams.toString() ? '?' : ''}${queryParams.toString()}`;
+  return request<MCPServersListResponse>(`/api/mcp-servers${endpoint}`);
+}
+
+/**
+ * GET /api/mcp-servers/:id - Get a specific MCP server
+ */
+export async function getMCPServer(id: number): Promise<MCPServerResponse> {
+  return request<MCPServerResponse>(`/api/mcp-servers/${id}`);
+}
+
+/**
+ * POST /api/mcp-servers - Create a new MCP server
+ */
+export async function createMCPServer(data: CreateMCPServerRequest): Promise<CreateCustomToolResponse> {
+  return request<CreateCustomToolResponse>('/api/mcp-servers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * PUT /api/mcp-servers/:id - Update an MCP server
+ */
+export async function updateMCPServer(id: number, data: UpdateMCPServerRequest): Promise<UpdateCustomToolResponse> {
+  return request<UpdateCustomToolResponse>(`/api/mcp-servers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * DELETE /api/mcp-servers/:id - Delete an MCP server
+ */
+export async function deleteMCPServer(id: number): Promise<MCPServerDeleteResponse> {
+  return request<MCPServerDeleteResponse>(`/api/mcp-servers/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * POST /api/mcp-servers/:id/start - Start an MCP server
+ */
+export async function startMCPServer(id: number): Promise<MCPServerStartResponse> {
+  return request<MCPServerStartResponse>(`/api/mcp-servers/${id}/start`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * POST /api/mcp-servers/:id/stop - Stop an MCP server
+ */
+export async function stopMCPServer(id: number, force: boolean = false): Promise<MCPServerStopResponse> {
+  return request<MCPServerStopResponse>(`/api/mcp-servers/${id}/stop`, {
+    method: 'POST',
+    body: JSON.stringify({ force }),
+  });
+}
+
+/**
+ * POST /api/mcp-servers/:id/restart - Restart an MCP server
+ */
+export async function restartMCPServer(id: number): Promise<MCPServerRestartResponse> {
+  return request<MCPServerRestartResponse>(`/api/mcp-servers/${id}/restart`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * GET /api/mcp-servers/:id/status - Get server status
+ */
+export async function getMCPServerStatus(id: number): Promise<MCPServerStatusResponse> {
+  return request<MCPServerStatusResponse>(`/api/mcp-servers/${id}/status`);
+}
+
+/**
+ * GET /api/mcp-servers/:id/health - Health check
+ */
+export async function getMCPServerHealth(id: number): Promise<MCPServerHealthResponse> {
+  return request<MCPServerHealthResponse>(`/api/mcp-servers/${id}/health`);
+}
+
+/**
+ * POST /api/mcp-servers/:id/test - Test connectivity
+ */
+export async function testMCPServerConnection(id: number): Promise<MCPServerTestResponse> {
+  return request<MCPServerTestResponse>(`/api/mcp-servers/${id}/test`, {
+    method: 'POST',
+  });
+}
+
+/**
+ * GET /api/mcp-servers/templates - Get server templates
+ */
+export async function getMCPServerTemplates(): Promise<MCPServerTemplatesResponse> {
+  return request<MCPServerTemplatesResponse>('/api/mcp-servers/templates');
 }
