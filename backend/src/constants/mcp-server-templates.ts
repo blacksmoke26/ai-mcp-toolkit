@@ -244,7 +244,7 @@ const mcpServerTemplates: MCPServerTemplate[] = [
         key: 'SLACK_BOT_TOKEN',
         description: 'Bot User OAuth Token starting with xoxb-.',
         required: true,
-        example: 'xoxb-1234567890-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx'
+        example: '1234567890-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx'
       },
       {
         key: 'SLACK_SIGNING_SECRET',
