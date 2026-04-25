@@ -113,6 +113,10 @@ import type {
   ToggleCustomToolRequest,
   CustomToolTemplate,
   CustomToolInputSchema,
+  BulkToggleCustomToolRequest,
+  BulkToggleCustomToolResponse,
+  ValidateToolRequest,
+  ValidateToolResponse,
   // MCP Servers
   MCPServerResponse,
   MCPServersListResponse,
@@ -125,7 +129,8 @@ import type {
   MCPServerStatusResponse,
   MCPServerHealthResponse,
   MCPServerTestResponse,
-  MCPServerTemplatesResponse,
+  MCPServerTemplatesResponse, ProviderTestResponse, BatchToolUpdateRequest, BatchToolUpdateResponse,
+  McpHealthResponse,
 } from '../types/api';
 import {DEFAULT_API_CONFIG} from '../types/api';
 
@@ -294,6 +299,73 @@ export function getMcpSSE(): EventSource {
   });
 }
 
+// ====== MCP Health Endpoint ======
+
+/**
+ * GET /mcp/health - Check MCP server health status
+ */
+export async function getMcpHealth(): Promise<McpHealthResponse> {
+  return request('/mcp/health');
+}
+
+/**
+ * Re-export for convenience
+ */
+export type { McpHealthResponse } from '../types/api';
+
+// ====== MCP Debug Endpoint ======
+
+/**
+ * POST /mcp/debug/echo - Debug endpoint for testing MCP structures
+ * Echoes back the request payload wrapped in a valid JSON-RPC response
+ */
+export async function debugEcho(body: Record<string, unknown>): Promise<{
+  jsonrpc: string;
+  result: {
+    echoed: Record<string, unknown>;
+    meta: {
+      receivedAt: string;
+      clientIp: string;
+    };
+  };
+  id: string;
+}> {
+  return request('/mcp/debug/echo', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+// ====== MCP Batch Request Helper ======
+
+/**
+ * Send a batch of JSON-RPC requests and return all responses
+ * Handles individual request errors gracefully (per-item error handling)
+ */
+export async function sendMcpBatchRequests(
+  rpcRequests: JsonRpcRequest[],
+): Promise<Array<{ error?: { code: number; message: string; data?: unknown } | null; result?: unknown; id: number | string | null }>> {
+  const responses = await request<JsonRpcResponse[]>('/mcp', {
+    method: 'POST',
+    body: JSON.stringify(rpcRequests),
+  });
+
+  return responses.map((resp) => {
+    if (resp.error) {
+      return {
+        id: resp.id,
+        error: resp.error,
+        result: null,
+      };
+    }
+    return {
+      id: resp.id,
+      result: resp.result,
+      error: null,
+    };
+  });
+}
+
 /**
  * List all available tools via MCP protocol
  */
@@ -426,6 +498,15 @@ export async function listProviderModels(name: string): Promise<ModelsListRespon
   return request<ModelsListResponse>(`/admin/providers/${encodeURIComponent(name)}/models`);
 }
 
+/**
+ * POST /admin/providers/:name/test - Test connectivity to a provider
+ */
+export async function testProviderConnection(name: string): Promise<ProviderTestResponse> {
+  return request<ProviderTestResponse>(`/admin/providers/${encodeURIComponent(name)}/test`, {
+    method: 'POST',
+  });
+}
+
 // ====== Admin - Tool Endpoints ======
 
 /**
@@ -451,6 +532,18 @@ export async function updateTool(
 ): Promise<UpdateToolResponse> {
   return request<UpdateToolResponse>(`/admin/tools/${encodeURIComponent(name)}`, {
     method: 'PATCH',
+    body: JSON.stringify(update),
+  });
+}
+
+/**
+ * POST /admin/tools/batch - Batch update tools status
+ */
+export async function batchUpdateTools(
+  update: BatchToolUpdateRequest,
+): Promise<BatchToolUpdateResponse> {
+  return request<BatchToolUpdateResponse>('/admin/tools/batch', {
+    method: 'POST',
     body: JSON.stringify(update),
   });
 }
@@ -573,6 +666,10 @@ export type {
   TestCustomToolResponse,
   ToggleCustomToolRequest,
   ToggleCustomToolResponse,
+  BulkToggleCustomToolRequest,
+  BulkToggleCustomToolResponse,
+  ValidateToolRequest,
+  ValidateToolResponse,
   CustomToolTemplate,
   CustomToolTemplatesResponse,
   CustomToolInputSchema,
@@ -878,6 +975,32 @@ export async function toggleCustomTool(
  */
 export async function getCustomToolTemplates(): Promise<CustomToolTemplatesResponse> {
   return request<CustomToolTemplatesResponse>('/api/custom-tools/templates');
+}
+
+/**
+ * POST /api/custom-tools/bulk/toggle - Bulk enable/disable multiple custom tools
+ */
+export async function bulkToggleCustomTool(
+  ids: number[],
+  enabled: boolean,
+): Promise<BulkToggleCustomToolResponse> {
+  return request<BulkToggleCustomToolResponse>('/api/custom-tools/bulk/toggle', {
+    method: 'POST',
+    body: JSON.stringify({ids, enabled}),
+  });
+}
+
+/**
+ * POST /api/custom-tools/validate - Validate tool code and schema without saving
+ */
+export async function validateCustomTool(
+  inputSchema?: string,
+  handlerCode?: string,
+): Promise<ValidateToolResponse> {
+  return request<ValidateToolResponse>('/api/custom-tools/validate', {
+    method: 'POST',
+    body: JSON.stringify({inputSchema, handlerCode}),
+  });
 }
 
 // ─── MCP Server Management ────────────────────────────────────────────────────────
