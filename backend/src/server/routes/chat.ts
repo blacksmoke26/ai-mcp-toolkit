@@ -418,6 +418,7 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
           role: m.role,
           content: m.content,
           toolName: m.toolName,
+          tokenCount: m.tokenCount,
           createdAt: m.createdAt,
         })),
       });
