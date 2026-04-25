@@ -416,6 +416,7 @@ export const adminRoutes: FastifyPluginAsync = async (fastify) => {
           category: t.category,
           hasInputSchema: !!t.inputSchema,
         })),
+        enabled: tools.filter((t) => t.enabled).length,
       });
     },
   );
