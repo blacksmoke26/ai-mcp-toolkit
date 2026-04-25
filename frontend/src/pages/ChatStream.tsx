@@ -27,8 +27,6 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import {Badge} from '@/components/ui/Badge';
 import {Button} from '@/components/ui/Button';
 import {Popover} from '@/components/ui/Popover';
@@ -39,6 +37,7 @@ import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from '@/components/ui/Tooltip';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
 import {config, listProviderModels, listProviders, type Model, type Provider} from '@/lib/api';
+import MarkdownViewer from '@/components/ui/MarkdownViewer';
 
 // Types
 interface StreamMessage {
@@ -463,42 +462,7 @@ const MessageBubble: React.FC<{
           </div>
 
           <div className="prose prose-sm dark:prose-invert max-w-none break-words text-sm">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                code: ({node, className, children, ...props}) => {
-                  const match = /language-(\w+)/.exec(className || '');
-                  // @ts-expect-error ignore it
-                  const isInline = !node || !node.type || node.type !== 'code';
-                  return !isInline && match ? (
-                    <pre className="bg-muted/50 rounded-lg p-4 overflow-x-auto my-2 border border-border/50">
-                      <code className={className}>{children}</code>
-                    </pre>
-                  ) : (
-                    <code className="bg-muted/50 px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
-                      {children}
-                    </code>
-                  );
-                },
-                p: ({children}) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
-                h1: ({children}) => <h1 className="text-base font-semibold mt-4 mb-2">{children}</h1>,
-                h2: ({children}) => <h2 className="text-sm font-semibold mt-3 mb-1.5">{children}</h2>,
-                ul: ({children}) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
-                ol: ({children}) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
-                a: ({children, href}) => (
-                  <a
-                    href={href}
-                    className="text-primary hover:underline cursor-pointer"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {children}
-                  </a>
-                ),
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
+            <MarkdownViewer content={message.content}/>
             {message.isStreaming && (
               <span className="inline-block w-2 h-4 bg-current ml-1 animate-pulse align-middle"/>
             )}
@@ -780,6 +744,7 @@ const ChatStream: React.FC = () => {
                   }));
 
                   if (data.tools && data.tools.length > 0) {
+                    const toolNames = data.tools.map((t: {name: string}) => t.name).join(', ');
                     setMessages((prev) => {
                       if (prev.length === 0) return prev;
                       const updated = [...prev];
@@ -788,7 +753,7 @@ const ChatStream: React.FC = () => {
                       if (msg && !msg.content.includes('[Calling tools...]')) {
                         updated[lastMsgIndex] = {
                           ...msg,
-                          content: msg.content + '\n🔧 Calling tools...',
+                          content: msg.content + `\n🔧 Calling tools: ${toolNames}`,
                         };
                       }
                       return updated;

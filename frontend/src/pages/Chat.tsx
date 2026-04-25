@@ -265,8 +265,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = (props) => {
           <div className="rounded-2xl border-2 border-purple-500/20 bg-purple-500/5 p-4 shadow-sm backdrop-blur-sm">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
+                {message.toolName && (
+                  <Badge variant="secondary" className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 font-mono">
+                    <Wrench className="h-3 w-3 mr-1"/>
+                    {message.toolName}
+                  </Badge>
+                )}
                 <Badge variant="secondary" className="text-xs bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                  <Wrench className="h-3 w-3 mr-1"/>
                   Tool Execution
                 </Badge>
                 <span className="text-xs text-muted-foreground">{timeString}</span>
@@ -706,6 +711,7 @@ const Chat = () => {
               id: `tool-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
               role: 'tool',
               content: toolCall.result || '',
+              toolName: toolCall.name,
               timestamp: Date.now(),
             },
           ]);

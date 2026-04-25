@@ -1,3 +1,9 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
 import {useEffect, useState} from 'react';
 import {Archive, Bot, ChevronRight, Clock, MessageCircle, MessageSquare, Search, Trash2} from 'lucide-react';
@@ -11,6 +17,7 @@ import {Link} from 'react-router-dom';
 
 export function ConversationsList() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [totalConversations, setTotalConversations] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -22,6 +29,7 @@ export function ConversationsList() {
       setError(null);
       const response = await listConversations();
       setConversations(response.conversations || []);
+      setTotalConversations(response.total || 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch conversations');
     } finally {
@@ -137,7 +145,7 @@ export function ConversationsList() {
             <CardTitle className="text-sm font-medium">Total Conversations</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{conversations.length}</div>
+            <div className="text-2xl font-bold">{totalConversations}</div>
             <p className="text-xs text-muted-foreground">active conversations</p>
           </CardContent>
         </Card>

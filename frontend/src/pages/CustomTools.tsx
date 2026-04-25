@@ -24,6 +24,7 @@ import {
   AlertCircle,
   BookOpen,
   Check,
+  CheckSquare,
   Code,
   Copy,
   Download,
@@ -49,6 +50,7 @@ import type {
   UpdateCustomToolRequest,
 } from '@/lib/api.js';
 import {
+  bulkToggleCustomTool,
   createCustomTool,
   deleteCustomTool,
   getCustomTool,
@@ -687,7 +689,7 @@ const InfoDialog: React.FC<InfoDialogProps> = ({open, onOpenChange}) => {
             <Card>
               <CardHeader className="py-2">
                 <CardTitle className="text-xs flex items-center gap-2">
-                  <span className="text-orange-500">PATCH</span>
+                  <span className="text-orange-500">POST</span>
                   /api/custom-tools/{'{id}'}
                   /toggle
                 </CardTitle>
@@ -695,6 +697,32 @@ const InfoDialog: React.FC<InfoDialogProps> = ({open, onOpenChange}) => {
               <CardContent className="py-2">
                 <p className="text-xs text-muted-foreground">
                   Toggle a custom tool's enabled status.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <span className="text-purple-500">POST</span>
+                  /api/custom-tools/validate
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Validate tool schema and handler code without saving.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="py-2">
+                <CardTitle className="text-xs flex items-center gap-2">
+                  <span className="text-blue-500">POST</span>
+                  /api/custom-tools/bulk/toggle
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="py-2">
+                <p className="text-xs text-muted-foreground">
+                  Enable or disable multiple tools at once.
                 </p>
               </CardContent>
             </Card>
@@ -1238,6 +1266,7 @@ const CustomTools: React.FC = () => {
   const [selectedTool, setSelectedTool] = useState<CustomToolSummary | null>(null);
   const [editToolDetail, setEditToolDetail] = useState<CustomToolDetailResponse | null>(null);
   const [deletingTool, setDeletingTool] = useState<number | null>(null);
+  const [selectedToolIds, setSelectedToolIds] = useState<number[]>([]);
 
   // Fetch tools
   const fetchData = useCallback(async () => {
@@ -1286,6 +1315,16 @@ const CustomTools: React.FC = () => {
     const matchesDisabled = showDisabled || tool.enabled;
     return matchesSearch && matchesCategory && matchesDisabled;
   });
+
+  // Clear selected IDs that no longer exist in filtered tools
+  useEffect(() => {
+    if (selectedToolIds.length === 0) return;
+    const filteredIds = filteredTools.map((t) => t.id);
+    const kept = selectedToolIds.filter((id) => filteredIds.includes(id));
+    if (kept.length !== selectedToolIds.length) {
+      setSelectedToolIds(kept);
+    }
+  }, [filteredTools.map((t) => t.id).join(',')]);
 
   // Handlers
   const handleCreate = () => {
@@ -1369,6 +1408,38 @@ const CustomTools: React.FC = () => {
   const totalTools = tools.length;
   const enabledTools = tools.filter((t) => t.enabled).length;
   const disabledTools = tools.length - enabledTools;
+
+  // Bulk toggle handler
+  const handleBulkToggle = async (enabled: boolean) => {
+    if (selectedToolIds.length === 0) return;
+    try {
+      await bulkToggleCustomTool(selectedToolIds, enabled);
+      setTools((prev) => prev.map((t) => selectedToolIds.includes(t.id) ? {...t, enabled} : t));
+      setSelectedToolIds([]);
+      setSuccessMessage(`${selectedToolIds.length} tool(s) ${enabled ? 'enabled' : 'disabled'} successfully`);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to bulk toggle tools');
+    }
+  };
+
+  // Toggle individual tool selection
+  const toggleToolSelection = (toolId: number) => {
+    setSelectedToolIds((prev) =>
+      prev.includes(toolId) ? prev.filter((id) => id !== toolId) : [...prev, toolId],
+    );
+  };
+
+  // Select/deselect all filtered tools
+  const toggleSelectAll = () => {
+    const allIds = filteredTools.map((t) => t.id);
+    const allSelected = allIds.length > 0 && allIds.every((id) => selectedToolIds.includes(id));
+    if (allSelected) {
+      setSelectedToolIds([]);
+    } else {
+      setSelectedToolIds(allIds);
+    }
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -1551,6 +1622,47 @@ const CustomTools: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Bulk Action Bar */}
+      {selectedToolIds.length > 0 && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="pt-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-primary"/>
+                <span className="text-sm font-medium">
+                  {selectedToolIds.length} tool(s) selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => handleBulkToggle(true)}
+                >
+                  <ToggleRight className="h-4 w-4 mr-1"/>
+                  Enable Selected
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleBulkToggle(false)}
+                >
+                  <ToggleLeft className="h-4 w-4 mr-1"/>
+                  Disable Selected
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedToolIds([])}
+                >
+                  Clear Selection
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Tools List */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -1574,24 +1686,49 @@ const CustomTools: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-4">
+          {/* Select All Row */}
+          <div className="flex items-center justify-end gap-2 pr-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleSelectAll}
+              className="text-xs"
+            >
+              {selectedToolIds.length === filteredTools.length ? 'Deselect All' : 'Select All'}
+            </Button>
+          </div>
           {filteredTools.map((tool) => (
-            <Card key={tool.id}>
+            <Card key={tool.id} className={`transition-all ${selectedToolIds.includes(tool.id) ? 'border-primary ring-1 ring-primary/30' : ''}`}>
               <CardHeader className="py-4">
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl">{tool.icon}</span>
-                      <CardTitle className="text-lg">{tool.displayName}</CardTitle>
-                      <code className="text-sm font-mono bg-muted px-2 py-0.5 rounded">
-                        {tool.name}
-                      </code>
-                    </div>
-                    <CardDescription className="mt-1">{tool.description}</CardDescription>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Badge variant={tool.enabled ? 'default' : 'secondary'}>
-                        {tool.enabled ? 'Enabled' : 'Disabled'}
-                      </Badge>
-                      <Badge variant="outline">{tool.category}</Badge>
+                  <div className="flex items-start gap-3 flex-1">
+                    {/* Checkbox for selection */}
+                    <input
+                      type="checkbox"
+                      checked={selectedToolIds.includes(tool.id)}
+                      onChange={() => toggleToolSelection(tool.id)}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{tool.icon}</span>
+                        <CardTitle className="text-lg">{tool.displayName}</CardTitle>
+                        <code className="text-sm font-mono bg-muted px-2 py-0.5 rounded">
+                          {tool.name}
+                        </code>
+                      </div>
+                      <CardDescription className="mt-1">{tool.description}</CardDescription>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant={tool.enabled ? 'default' : 'secondary'}>
+                          {tool.enabled ? 'Enabled' : 'Disabled'}
+                        </Badge>
+                        <Badge variant="outline">{tool.category}</Badge>
+                        {tool.hasTestResult && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            Tested
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                   </div>
 

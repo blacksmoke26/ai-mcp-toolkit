@@ -1,5 +1,11 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
-import { useEffect, useState } from 'react';
+import {useEffect, useState} from 'react';
 import {
   BookOpen,
   Server,
@@ -16,15 +22,15 @@ import {
   Layers,
   Settings,
   RefreshCw,
+  TestTube2,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
-import { Button } from '@/components/ui/Button';
+import {Card, CardContent, CardHeader, CardTitle, CardDescription} from '@/components/ui/Card';
+import {Badge} from '@/components/ui/Badge';
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
+import {Button} from '@/components/ui/Button';
 import {
   getMcpInfo,
   listTools,
-  getServerInfo,
   type InfoResponse,
   type ToolDefinition,
 } from '@/lib/api';
@@ -104,6 +110,21 @@ export default function MCPInfo() {
       description: 'Keep-alive / heartbeat check',
       params: 'None',
     },
+    {
+      method: 'batch',
+      description: 'Send multiple JSON-RPC requests in a single HTTP call',
+      params: 'Array of JSON-RPC request objects',
+    },
+    {
+      method: 'mcp/health',
+      description: 'Check MCP server health status via GET endpoint',
+      params: 'None (GET request)',
+    },
+    {
+      method: 'mcp/debug/echo',
+      description: 'Debug endpoint that echoes back request payload',
+      params: 'Any JSON payload (POST request)',
+    },
   ];
 
   const codeExamples = {
@@ -142,13 +163,36 @@ export default function MCPInfo() {
     }
   }
 }'`,
+    batchRequest: `curl -X POST http://localhost:3100/mcp \\
+  -H "Content-Type: application/json" \\
+  -d '[
+  {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/list"
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "ping"
+  }
+]'`,
+    healthCheck: `curl -X GET http://localhost:3100/mcp/health`,
+    debugEcho: `curl -X POST http://localhost:3100/mcp/debug/echo \\
+  -H "Content-Type: application/json" \\
+  -d '{
+  "jsonrpc": "2.0",
+  "id": "debug-1",
+  "method": "ping",
+  "params": {}
+}'`,
   };
 
   if (loading) {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <RefreshCw className="h-6 w-6 animate-spin" />
+          <RefreshCw className="h-6 w-6 animate-spin"/>
           <h2 className="text-3xl font-bold tracking-tight">Loading MCP Info...</h2>
         </div>
       </div>
@@ -159,7 +203,7 @@ export default function MCPInfo() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <AlertCircle className="h-6 w-6 text-destructive" />
+          <AlertCircle className="h-6 w-6 text-destructive"/>
           <h2 className="text-3xl font-bold tracking-tight">Error Loading Info</h2>
         </div>
         <Alert variant="destructive">
@@ -182,7 +226,7 @@ export default function MCPInfo() {
           </p>
         </div>
         <Button onClick={fetchData} variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
+          <RefreshCw className="h-4 w-4 mr-2"/>
           Refresh
         </Button>
       </div>
@@ -192,7 +236,7 @@ export default function MCPInfo() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Server</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
+            <Server className="h-4 w-4 text-muted-foreground"/>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{info?.server.name}</div>
@@ -203,7 +247,7 @@ export default function MCPInfo() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Protocol</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
+            <BookOpen className="h-4 w-4 text-muted-foreground"/>
           </CardHeader>
           <CardContent>
             <div className="text-lg font-bold">{info?.server.protocol}</div>
@@ -214,7 +258,7 @@ export default function MCPInfo() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Providers</CardTitle>
-            <Layers className="h-4 w-4 text-muted-foreground" />
+            <Layers className="h-4 w-4 text-muted-foreground"/>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{info?.providers.available.length || 0}</div>
@@ -227,7 +271,7 @@ export default function MCPInfo() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Uptime</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <Activity className="h-4 w-4 text-muted-foreground"/>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{Math.floor(info?.uptime || 0)}s</div>
@@ -247,7 +291,7 @@ export default function MCPInfo() {
             {/* Tools */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Wrench className="h-5 w-5 text-blue-500" />
+                <Wrench className="h-5 w-5 text-blue-500"/>
                 <h3 className="font-semibold">Tools</h3>
                 <Badge variant="outline">{info?.tools.total || 0} total</Badge>
               </div>
@@ -272,7 +316,7 @@ export default function MCPInfo() {
             {/* Resources */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-green-500" />
+                <Database className="h-5 w-5 text-green-500"/>
                 <h3 className="font-semibold">Resources</h3>
                 <Badge variant="outline">{info?.resources || 0} available</Badge>
               </div>
@@ -284,7 +328,7 @@ export default function MCPInfo() {
             {/* Prompts */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-purple-500" />
+                <FileText className="h-5 w-5 text-purple-500"/>
                 <h3 className="font-semibold">Prompts</h3>
                 <Badge variant="outline">{info?.prompts || 0} available</Badge>
               </div>
@@ -306,22 +350,22 @@ export default function MCPInfo() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2 font-medium">Method</th>
-                  <th className="text-left p-2 font-medium">Description</th>
-                  <th className="text-left p-2 font-medium">Parameters</th>
-                </tr>
+              <tr className="border-b">
+                <th className="text-left p-2 font-medium">Method</th>
+                <th className="text-left p-2 font-medium">Description</th>
+                <th className="text-left p-2 font-medium">Parameters</th>
+              </tr>
               </thead>
               <tbody>
-                {mcpMethods.map((method) => (
-                  <tr key={method.method} className="border-b hover:bg-muted/50">
-                    <td className="p-2">
-                      <Badge variant="outline">{method.method}</Badge>
-                    </td>
-                    <td className="p-2 text-sm">{method.description}</td>
-                    <td className="p-2 text-sm text-muted-foreground">{method.params}</td>
-                  </tr>
-                ))}
+              {mcpMethods.map((method) => (
+                <tr key={method.method} className="border-b hover:bg-muted/50">
+                  <td className="p-2">
+                    <Badge variant="outline">{method.method}</Badge>
+                  </td>
+                  <td className="p-2 text-sm">{method.description}</td>
+                  <td className="p-2 text-sm text-muted-foreground">{method.params}</td>
+                </tr>
+              ))}
               </tbody>
             </table>
           </div>
@@ -339,7 +383,7 @@ export default function MCPInfo() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Code2 className="h-4 w-4 text-blue-500" />
+                <Code2 className="h-4 w-4 text-blue-500"/>
                 <h4 className="font-medium">List Tools</h4>
               </div>
               <Button
@@ -347,7 +391,7 @@ export default function MCPInfo() {
                 variant="ghost"
                 size="sm"
               >
-                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500"/> : <Copy className="h-4 w-4"/>}
                 {copied ? 'Copied!' : 'Copy'}
               </Button>
             </div>
@@ -360,7 +404,7 @@ export default function MCPInfo() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-yellow-500" />
+                <Zap className="h-4 w-4 text-yellow-500"/>
                 <h4 className="font-medium">Call Tool</h4>
               </div>
               <Button
@@ -368,7 +412,7 @@ export default function MCPInfo() {
                 variant="ghost"
                 size="sm"
               >
-                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500"/> : <Copy className="h-4 w-4"/>}
                 {copied ? 'Copied!' : 'Copy'}
               </Button>
             </div>
@@ -381,7 +425,7 @@ export default function MCPInfo() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <CheckCircle2 className="h-4 w-4 text-green-500"/>
                 <h4 className="font-medium">Initialize Session</h4>
               </div>
               <Button
@@ -389,12 +433,75 @@ export default function MCPInfo() {
                 variant="ghost"
                 size="sm"
               >
-                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500"/> : <Copy className="h-4 w-4"/>}
                 {copied ? 'Copied!' : 'Copy'}
               </Button>
             </div>
             <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm">
               <code>{codeExamples.initialize}</code>
+            </pre>
+          </div>
+
+          {/* Batch Request Example */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="h-4 w-4 text-blue-500"/>
+                <h4 className="font-medium">Batch Request</h4>
+              </div>
+              <Button
+                onClick={() => copyToClipboard(codeExamples.batchRequest)}
+                variant="ghost"
+                size="sm"
+              >
+                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500"/> : <Copy className="h-4 w-4"/>}
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
+            <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm">
+              <code>{codeExamples.batchRequest}</code>
+            </pre>
+          </div>
+
+          {/* Health Check Example */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-500"/>
+                <h4 className="font-medium">Health Check</h4>
+              </div>
+              <Button
+                onClick={() => copyToClipboard(codeExamples.healthCheck)}
+                variant="ghost"
+                size="sm"
+              >
+                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500"/> : <Copy className="h-4 w-4"/>}
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
+            <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm">
+              <code>{codeExamples.healthCheck}</code>
+            </pre>
+          </div>
+
+          {/* Debug Echo Example */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TestTube2 className="h-4 w-4 text-purple-500"/>
+                <h4 className="font-medium">Debug Echo</h4>
+              </div>
+              <Button
+                onClick={() => copyToClipboard(codeExamples.debugEcho)}
+                variant="ghost"
+                size="sm"
+              >
+                {copied ? <CheckCircle2 className="h-4 w-4 text-green-500"/> : <Copy className="h-4 w-4"/>}
+                {copied ? 'Copied!' : 'Copy'}
+              </Button>
+            </div>
+            <pre className="bg-muted p-4 rounded-md overflow-x-auto text-sm">
+              <code>{codeExamples.debugEcho}</code>
             </pre>
           </div>
         </CardContent>
@@ -457,25 +564,25 @@ export default function MCPInfo() {
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Button variant="outline" className="justify-start" asChild>
               <a href="/mcp/tools">
-                <Wrench className="h-4 w-4 mr-2" />
+                <Wrench className="h-4 w-4 mr-2"/>
                 Browse Tools
               </a>
             </Button>
             <Button variant="outline" className="justify-start" asChild>
               <a href="/mcp/call">
-                <Zap className="h-4 w-4 mr-2" />
+                <Zap className="h-4 w-4 mr-2"/>
                 Call Tool
               </a>
             </Button>
             <Button variant="outline" className="justify-start" asChild>
               <a href="/admin/tools">
-                <Settings className="h-4 w-4 mr-2" />
+                <Settings className="h-4 w-4 mr-2"/>
                 Admin Tools
               </a>
             </Button>
             <Button variant="outline" className="justify-start" asChild>
               <a href="/simulate">
-                <Activity className="h-4 w-4 mr-2" />
+                <Activity className="h-4 w-4 mr-2"/>
                 Simulator
               </a>
             </Button>
@@ -496,7 +603,7 @@ export default function MCPInfo() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <ExternalLink className="h-4 w-4 mr-2" />
+              <ExternalLink className="h-4 w-4 mr-2"/>
               MCP Specification (modelcontextprotocol.io)
             </a>
           </Button>

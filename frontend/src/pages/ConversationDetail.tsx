@@ -1,3 +1,9 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
 import {useEffect, useState} from 'react';
 import {
@@ -20,6 +26,7 @@ import {Badge} from '@/components/ui/Badge';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {useNavigate, useParams} from 'react-router-dom';
 import {type ConversationWithMessages, deleteConversation, getConversation} from '@/lib/api';
+import MarkdownViewer from '@/components/ui/MarkdownViewer';
 
 export function ConversationDetail() {
   const { id } = useParams<{ id: string }>();
@@ -329,12 +336,12 @@ export function ConversationDetail() {
                       <div className="space-y-2">
                         <div className="text-sm font-medium mb-2">Tool Output</div>
                         <pre className="text-sm whitespace-pre-wrap break-words bg-background/50 p-2 rounded overflow-x-auto">
-                          {msg.content}
+                          <MarkdownViewer content={msg.content}/>
                         </pre>
                       </div>
                     ) : (
                       <div className="text-sm whitespace-pre-wrap break-words">
-                        {msg.content}
+                        <MarkdownViewer content={msg.content}/>
                       </div>
                     )}
 

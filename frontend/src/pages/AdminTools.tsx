@@ -1,9 +1,15 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
 import {useEffect, useState} from 'react';
 import {
   AlertCircle,
   BookOpen,
-  CheckCircle2,
+  CheckCircle2, CheckSquare,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -22,7 +28,14 @@ import {Button} from '@/components/ui/Button';
 import {Input} from '@/components/ui/Input';
 import {Badge} from '@/components/ui/Badge';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
-import {getToolDetails, listAdminTools, type ToolDetailResponse, type ToolSummary, updateTool} from '@/lib/api';
+import {
+  batchUpdateTools,
+  getToolDetails,
+  listAdminTools,
+  type ToolDetailResponse,
+  type ToolSummary,
+  updateTool,
+} from '@/lib/api';
 
 /**
  * AdminTools component displays a list of tools with filtering and search capabilities.
@@ -40,6 +53,8 @@ export function AdminTools() {
   const [selectedTool, setSelectedTool] = useState<ToolDetailResponse | null>(null);
   const [expandedTool, setExpandedTool] = useState<string | null>(null);
   const [updateLoading, setUpdateLoading] = useState<string | null>(null);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set());
   const categoryScrollRef = React.useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
@@ -66,6 +81,89 @@ export function AdminTools() {
   const categoryList = React.useMemo(() => {
     return ['all', ...Object.keys(categories)];
   }, [categories]);
+
+  // Toggle tool selection for batch operations
+  const toggleToolSelection = (toolName: string) => {
+    setSelectedTools((prev) => {
+      const next = new Set(prev);
+      if (next.has(toolName)) {
+        next.delete(toolName);
+      } else {
+        next.add(toolName);
+      }
+      return next;
+    });
+  };
+
+  // Select all visible tools
+  const selectAllTools = () => {
+    setSelectedTools(new Set(filteredTools.map((t) => t.name)));
+  };
+
+  // Deselect all tools
+  const deselectAllTools = () => {
+    setSelectedTools(new Set());
+  };
+
+  // Handle batch update (enable/disable selected tools)
+  const handleBatchUpdate = async (enabled: boolean) => {
+    if (selectedTools.size === 0) {
+      setError('Please select at least one tool to update');
+      return;
+    }
+
+    try {
+      setBatchLoading(true);
+      setError(null);
+      setSuccessMessage(null);
+
+      const result = await batchUpdateTools({
+        names: Array.from(selectedTools),
+        enabled,
+      });
+
+      if (result.updated.length > 0) {
+        setSuccessMessage(
+          `Successfully ${enabled ? 'enabled' : 'disabled'} ${result.updated.length} tool(s)` +
+          (result.notFound.length > 0 ? `, ${result.notFound.length} not found` : ''),
+        );
+        // Update local state for updated tools
+        setTools((prev) =>
+          prev.map((t) => (result.updated.includes(t.name) ? {...t, enabled} : t)),
+        );
+        // Update enabled count: add if enabling, subtract if disabling tools that were enabled
+        setEnabledTools((prev) => {
+          const currentlyEnabled = result.updated.filter((n) => {
+            const tool = tools.find((t) => t.name === n);
+            return tool?.enabled === true;
+          }).length;
+          if (enabled) {
+            // Enabling: add the ones that weren't already enabled
+            return prev + (result.updated.length - currentlyEnabled);
+          } else {
+            // Disabling: subtract the ones that were enabled
+            return prev - currentlyEnabled;
+          }
+        });
+      }
+
+      if (result.notFound.length > 0) {
+        setError(`Tools not found: ${result.notFound.join(', ')}`);
+      }
+
+      // Clear selection
+      setSelectedTools(new Set());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to batch update tools');
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  // Batch operation text
+  const batchOperationText = selectedTools.size > 0
+    ? `${selectedTools.size} selected`
+    : '';
 
   // Filter tools based on search and category
   const filteredTools = React.useMemo(() => {
@@ -96,12 +194,12 @@ export function AdminTools() {
       setError(null);
       setSuccessMessage(null);
 
-      await updateTool(toolName, { enabled: !currentEnabled });
+      await updateTool(toolName, {enabled: !currentEnabled});
       setSuccessMessage(`Tool "${toolName}" ${!currentEnabled ? 'enabled' : 'disabled'} successfully`);
 
       // Update local state
       setTools((prev) =>
-        prev.map((t) => (t.name === toolName ? { ...t, enabled: !currentEnabled } : t)),
+        prev.map((t) => (t.name === toolName ? {...t, enabled: !currentEnabled} : t)),
       );
 
       // Update enabled count
@@ -109,7 +207,7 @@ export function AdminTools() {
 
       // Update selected tool if it's the one being toggled
       if (selectedTool?.name === toolName) {
-        setSelectedTool((prev) => (prev ? { ...prev, enabled: !currentEnabled } : null));
+        setSelectedTool((prev) => (prev ? {...prev, enabled: !currentEnabled} : null));
       }
 
       await fetchData();
@@ -145,7 +243,7 @@ export function AdminTools() {
       direction === 'left'
         ? container.scrollLeft - scrollAmount
         : container.scrollLeft + scrollAmount;
-    container.scrollTo({ left: newScrollLeft, behavior: 'smooth' });
+    container.scrollTo({left: newScrollLeft, behavior: 'smooth'});
   };
 
   return (
@@ -160,7 +258,7 @@ export function AdminTools() {
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={fetchData} variant="outline" disabled={loading}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw className="mr-2 h-4 w-4"/>
             Refresh
           </Button>
         </div>
@@ -169,7 +267,7 @@ export function AdminTools() {
       {/* Error/Success Alerts */}
       {error && (
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
+          <AlertCircle className="h-4 w-4"/>
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -177,7 +275,7 @@ export function AdminTools() {
 
       {successMessage && (
         <Alert variant="success">
-          <CheckCircle2 className="h-4 w-4" />
+          <CheckCircle2 className="h-4 w-4"/>
           <AlertTitle>Success</AlertTitle>
           <AlertDescription>{successMessage}</AlertDescription>
         </Alert>
@@ -188,7 +286,7 @@ export function AdminTools() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Tools</CardTitle>
-            <Wrench className="h-4 w-4 text-muted-foreground" />
+            <Wrench className="h-4 w-4 text-muted-foreground"/>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalTools}</div>
@@ -198,7 +296,7 @@ export function AdminTools() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Enabled</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <CheckCircle2 className="h-4 w-4 text-green-600"/>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{enabledTools}</div>
@@ -208,7 +306,7 @@ export function AdminTools() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Disabled</CardTitle>
-            <XCircle className="h-4 w-4 text-red-600" />
+            <XCircle className="h-4 w-4 text-red-600"/>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{totalTools - enabledTools}</div>
@@ -218,7 +316,7 @@ export function AdminTools() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Categories</CardTitle>
-            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Filter className="h-4 w-4 text-muted-foreground"/>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{Object.keys(categories).length}</div>
@@ -231,7 +329,7 @@ export function AdminTools() {
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
               <Input
                 placeholder="Search tools by name or description..."
                 value={searchQuery}
@@ -246,14 +344,14 @@ export function AdminTools() {
                 onClick={() => scrollCategories('left')}
                 className="h-7 w-7 flex-shrink-0"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4"/>
               </Button>
               <div
                 ref={categoryScrollRef}
                 className="flex items-center gap-2 overflow-x-auto flex-1"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}
               >
-                <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0"/>
                 {categoryList.map((category) => (
                   <Badge
                     key={category}
@@ -276,22 +374,92 @@ export function AdminTools() {
                 onClick={() => scrollCategories('right')}
                 className="h-7 w-7 flex-shrink-0"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4"/>
               </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Batch Operation Bar */}
+      {selectedTools.size > 0 && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">{selectedTools.size} tools selected</span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleBatchUpdate(true)}
+                    disabled={batchLoading}
+                  >
+                    <ToggleRight className="mr-2 h-4 w-4"/>
+                    Enable Selected
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleBatchUpdate(false)}
+                    disabled={batchLoading}
+                  >
+                    <ToggleLeft className="mr-2 h-4 w-4"/>
+                    Disable Selected
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={deselectAllTools}
+                    disabled={batchLoading}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Tools List */}
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Available Tools</CardTitle>
-              <CardDescription>
-                {filteredTools.length} of {tools.length} tools shown
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Available Tools</CardTitle>
+                  <CardDescription>
+                    {filteredTools.length} of {tools.length} tools shown
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {filteredTools.length > 0 && (
+                    <>
+                      {selectedTools.size === filteredTools.length ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={deselectAllTools}
+                        >
+                          <XCircle className="mr-2 h-4 w-4"/>
+                          Deselect All
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={selectAllTools}
+                        >
+                          <CheckSquare className="mr-2 h-4 w-4"/>
+                          Select All
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="max-h-[calc(100vh-400px)] overflow-y-auto">
@@ -306,7 +474,7 @@ export function AdminTools() {
                   </div>
                 ) : filteredTools.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
-                    <Wrench className="mx-auto h-12 w-12 opacity-20 mb-4" />
+                    <Wrench className="mx-auto h-12 w-12 opacity-20 mb-4"/>
                     <p>No tools found</p>
                   </div>
                 ) : (
@@ -314,6 +482,7 @@ export function AdminTools() {
                     {filteredTools.map((tool) => {
                       const isSelected = selectedTool?.name === tool.name;
                       const isExpanded = expandedTool === tool.name;
+                      const isChecked = selectedTools.has(tool.name);
 
                       return (
                         <div
@@ -336,6 +505,17 @@ export function AdminTools() {
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
+                                {/* Selection Checkbox */}
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    toggleToolSelection(tool.name);
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                />
                                 <h3 className="font-medium truncate">{tool.name}</h3>
                                 {tool.category && (
                                   <Badge variant="secondary" className="text-xs">
@@ -381,9 +561,9 @@ export function AdminTools() {
                                 }}
                               >
                                 {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                  <ChevronDown className="h-4 w-4 text-muted-foreground"/>
                                 ) : (
-                                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                  <ChevronRight className="h-4 w-4 text-muted-foreground"/>
                                 )}
                               </button>
                             </div>
@@ -392,7 +572,7 @@ export function AdminTools() {
                           {isExpanded && (
                             <div className="mt-4 pl-4 border-l-2 border-primary">
                               <div className="flex items-center gap-2 mb-2">
-                                <Info className="h-4 w-4 text-muted-foreground" />
+                                <Info className="h-4 w-4 text-muted-foreground"/>
                                 <p className="text-xs text-muted-foreground">
                                   Tool information
                                 </p>
@@ -430,7 +610,7 @@ export function AdminTools() {
                   {/* Tool Info */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <Wrench className="h-5 w-5 text-primary" />
+                      <Wrench className="h-5 w-5 text-primary"/>
                       <h3 className="font-medium text-lg">{selectedTool.name}</h3>
                     </div>
 
@@ -462,11 +642,11 @@ export function AdminTools() {
                         disabled={updateLoading === selectedTool.name}
                       >
                         {updateLoading === selectedTool.name ? (
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin"/>
                         ) : selectedTool.enabled ? (
-                          <ToggleLeft className="h-4 w-4 mr-2" />
+                          <ToggleLeft className="h-4 w-4 mr-2"/>
                         ) : (
-                          <ToggleRight className="h-4 w-4 mr-2" />
+                          <ToggleRight className="h-4 w-4 mr-2"/>
                         )}
                         {selectedTool.enabled ? 'Disable Tool' : 'Enable Tool'}
                       </Button>
@@ -477,7 +657,7 @@ export function AdminTools() {
                   {selectedTool.inputSchema && (
                     <div className="space-y-3 pt-3 border-t">
                       <div className="flex items-center gap-2">
-                        <Code className="h-4 w-4 text-muted-foreground" />
+                        <Code className="h-4 w-4 text-muted-foreground"/>
                         <h4 className="font-medium text-sm">Input Schema</h4>
                       </div>
 
@@ -535,7 +715,7 @@ export function AdminTools() {
                   {!selectedTool.inputSchema && (
                     <div className="pt-3 border-t">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Info className="h-4 w-4" />
+                        <Info className="h-4 w-4"/>
                         <span>This tool does not require any input parameters</span>
                       </div>
                     </div>
@@ -543,7 +723,7 @@ export function AdminTools() {
                 </>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Wrench className="mx-auto h-12 w-12 opacity-20 mb-4" />
+                  <Wrench className="mx-auto h-12 w-12 opacity-20 mb-4"/>
                   <p className="text-sm">
                     Select a tool from the list to view details
                   </p>
@@ -569,7 +749,7 @@ export function AdminTools() {
                     className="flex items-center justify-between rounded-lg border p-3"
                   >
                     <div className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4 text-muted-foreground" />
+                      <BookOpen className="h-4 w-4 text-muted-foreground"/>
                       <span className="font-medium text-sm">{category}</span>
                     </div>
                     <Badge variant="secondary">{toolNames.length}</Badge>

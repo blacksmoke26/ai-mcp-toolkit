@@ -6,7 +6,19 @@
 
 import * as React from 'react';
 import {useEffect, useState} from 'react';
-import {AlertCircle, CheckCircle2, Code, Database, Key, Plus, RefreshCw, Server, Sparkles, Trash2} from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  Code,
+  Database,
+  Key,
+  Plus,
+  RefreshCw,
+  Server,
+  Sparkles,
+  Trash2,
+  Wifi,
+} from 'lucide-react';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Button} from '@/components/ui/Button';
 import {Input} from '@/components/ui/Input';
@@ -20,7 +32,9 @@ import {
   type Model,
   type Provider,
   removeProvider,
+  testProviderConnection,
 } from '@/lib/api';
+import type {ProviderTestResponse} from '@/types/api.ts';
 
 /**
  * AdminProviders Component
@@ -52,6 +66,8 @@ const AdminProviders: React.FC = () => {
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [models, setModels] = useState<Model[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [testingConnection, setTestingConnection] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, ProviderTestResponse>>({});
 
   // Form state
   const [formName, setFormName] = useState('');
@@ -165,13 +181,41 @@ const AdminProviders: React.FC = () => {
     try {
       setError(null);
       setLoading(true);
-      await setDefaultProvider(name);
+      setDefaultProvider(name);
       setSuccessMessage(`Provider "${name}" set as default`);
       await fetchData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to set default provider');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle testing provider connection
+  const handleTestConnection = async (name: string) => {
+    try {
+      setTestingConnection(name);
+      setError(null);
+      const result = await testProviderConnection(name);
+      setTestResults((prev) => ({...prev, [name]: result}));
+      if (result.status === 'ok') {
+        setSuccessMessage(`Provider "${name}" connection successful (${result.latencyMs}ms)`);
+      } else {
+        setError(`Provider "${name}" connection failed: ${result.message || result.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to test connection');
+      setTestResults((prev) => ({
+        ...prev,
+        [name]: {
+          provider: name,
+          status: 'error',
+          error: 'Connection test failed',
+          message: err instanceof Error ? err.message : String(err),
+        },
+      }));
+    } finally {
+      setTestingConnection(null);
     }
   };
 
@@ -433,6 +477,22 @@ const AdminProviders: React.FC = () => {
                               size="icon"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                handleTestConnection(provider.name);
+                              }}
+                              title="Test connection"
+                              disabled={testingConnection === provider.name}
+                            >
+                              {testingConnection === provider.name ? (
+                                <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
+                              ) : (
+                                <Wifi className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 handleRemoveProvider(provider.name);
                               }}
                               title="Remove provider"
@@ -443,22 +503,38 @@ const AdminProviders: React.FC = () => {
                         </div>
 
                         <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                          {provider.apiKey && (
-                            <span className="flex items-center gap-1">
-                              <Key className="h-3 w-3" />
-                              API Key configured
-                            </span>
-                          )}
-                          {provider.temperature !== undefined && (
-                            <span>Temp: {provider.temperature}</span>
-                          )}
-                          {provider.maxTokens !== undefined && (
-                            <span>Tokens: {provider.maxTokens}</span>
+                            {provider.apiKey && (
+                              <span className="flex items-center gap-1">
+                                <Key className="h-3 w-3" />
+                                API Key configured
+                              </span>
+                            )}
+                            {provider.temperature !== undefined && (
+                              <span>Temp: {provider.temperature}</span>
+                            )}
+                            {provider.maxTokens !== undefined && (
+                              <span>Tokens: {provider.maxTokens}</span>
+                            )}
+                          </div>
+                          {/* Test Connection Result */}
+                          {testResults[provider.name] && (
+                            <div className="mt-2">
+                              {testResults[provider.name].status === 'ok' ? (
+                                <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                                  <CheckCircle2 className="h-3 w-3" />
+                                  Connected ({testResults[provider.name].latencyMs}ms)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs text-red-600" title={testResults[provider.name].message || testResults[provider.name].error}>
+                                  <AlertCircle className="h-3 w-3" />
+                                  Connection failed
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               )}
             </CardContent>
