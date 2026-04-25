@@ -96,6 +96,7 @@ export const customToolsRoutes: FastifyPluginAsync = async (fastify) => {
                 },
               },
             },
+            additionalProperties: true,
           },
         },
       },
@@ -177,8 +178,45 @@ export const customToolsRoutes: FastifyPluginAsync = async (fastify) => {
             properties: {
               id: {type: 'number'},
               name: {type: 'string'},
-              // ... other fields defined loosely as they are dynamic
+              displayName: {type: 'string'},
+              description: {type: 'string'},
+              inputSchema: {type: 'string'},
+              operation: {type: 'string'},
+              handlerCode: {type: 'string'},
+              enabled: {type: 'boolean'},
+              category: {type: 'string'},
+              icon: {type: 'string'},
+              lastTestArgs: {
+                type: 'object',
+                additionalProperties: true,
+              },
+              lastTestResult: {
+                type: 'object',
+                properties: {
+                  content: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        type: {type: 'string'},
+                        text: {type: 'string'},
+                      },
+                      additionalProperties: true,
+                    },
+                  },
+                },
+                additionalProperties: true,
+              },
+              settings: {
+                oneOf: [
+                  {type: 'null'},
+                  {type: 'object', additionalProperties: true},
+                ],
+              },
+              createdAt: {type: 'string'},
+              updatedAt: {type: 'string'},
             },
+            additionalProperties: true,
           },
           404: {
             type: 'object',
@@ -627,7 +665,11 @@ export const customToolsRoutes: FastifyPluginAsync = async (fastify) => {
         params: {
           type: 'object',
           required: ['id'],
-          properties: {id: {type: 'string', pattern: '^[0-9]+$'}},
+          properties: {
+            id: {
+              type: 'string', pattern: '^[0-9]+$',
+            },
+          },
         },
         body: {type: 'object'},
       },
@@ -756,7 +798,12 @@ export const customToolsRoutes: FastifyPluginAsync = async (fastify) => {
           200: {
             type: 'object',
             properties: {
-              templates: {type: 'array'},
+              templates: {
+                type: 'array', items: {
+                  type: 'object',
+                  additionalProperties: true,
+                },
+              },
             },
           },
         },
