@@ -119,6 +119,13 @@ const navSections: {
         badge: 'Streaming',
       },
       {
+        label: 'MCP Health',
+        href: '/mcp/health',
+        icon: Activity,
+        description: 'Monitor MCP server health & debug',
+        badge: 'Health',
+      },
+      {
         label: 'MCP Info',
         href: '/mcp/info',
         icon: Info,

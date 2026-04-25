@@ -27,6 +27,7 @@ import ConversationsList from '@/pages/ConversationsList';
 import ConversationDetail from '@/pages/ConversationDetail';
 import ChatStream from '@/pages/ChatStream';
 import MCPInfo from '@/pages/MCPInfo';
+import MCPHealth from '@/pages/MCPHealth';
 import ModelsList from '@/pages/ModelsList';
 import ToolDetail from '@/pages/ToolDetail';
 import CustomTools from '@/pages/CustomTools';
@@ -66,6 +67,7 @@ const App: React.FC = () => (
         <Route path="/mcp/call" element={<MCPCallTool/>}/>
         <Route path="/mcp/sse" element={<MCPSSE/>}/>
         <Route path="/mcp/info" element={<MCPInfo/>}/>
+        <Route path="/mcp/health" element={<MCPHealth/>}/>
 
         {/* Performance & Monitoring */}
         <Route path="/performance" element={<PerformanceDashboard/>}/>
