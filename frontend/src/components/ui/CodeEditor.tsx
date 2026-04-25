@@ -5,7 +5,6 @@
  */
 
 import React, {useState, useCallback, useEffect, forwardRef, useImperativeHandle, useRef, useMemo} from 'react';
-import {githubDark, githubLight} from '@uiw/codemirror-theme-github';
 import {xcodeDark, xcodeLight} from '@uiw/codemirror-theme-xcode';
 import {javascript} from '@codemirror/lang-javascript';
 import {json} from '@codemirror/lang-json';
@@ -14,7 +13,7 @@ import {EditorState} from '@codemirror/state';
 import Editor, {type ReactCodeMirrorProps, type Extension} from '@uiw/react-codemirror';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import {useTheme} from '@/context/ThemeContext.tsx';
+import {useTheme} from '@/context/ThemeContext';
 
 // --- Icons (SVGs) ---
 const Icons = {
