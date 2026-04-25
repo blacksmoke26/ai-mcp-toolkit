@@ -69,7 +69,8 @@ import type {
   SimulationStatus,
   MocksListResponse,
   ScenariosListResponse,
-  HealthCheck,
+  HealthCheckResult,
+  HealthChecks,
   SSEEventType,
   ToolMetric,
   RegisteredTool,
@@ -220,6 +221,41 @@ export async function getServerInfo(): Promise<InfoResponse> {
  */
 export async function getMcpInfo(): Promise<InfoResponse> {
   return request<InfoResponse>('/info');
+}
+
+// ====== Diagnostics Endpoints ======
+
+/**
+ * GET /diagnostics/stats - Get real-time server statistics
+ */
+export async function getDiagnosticsStats(): Promise<{
+  uptime: number;
+  cpu: { user: number; system: number };
+  memory: { rss: number; heapTotal: number; heapUsed: number; external: number };
+  activeHandles: number;
+}> {
+  return request('/diagnostics/stats');
+}
+
+/**
+ * POST /diagnostics/toggle - Toggle simulation states for testing
+ */
+export async function toggleDiagnostics(body?: {
+  failDatabase?: boolean;
+  failProvider?: string | null;
+  addLatency?: number;
+}): Promise<{
+  message: string;
+  currentState: {
+    failDatabase: boolean;
+    failProvider: string | null;
+    latencyMs: number;
+  };
+}> {
+  return request('/diagnostics/toggle', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
 }
 
 // ====== MCP Protocol Endpoints ======
@@ -456,7 +492,8 @@ export type {
   ToolsCallRequest,
   CallToolResult,
   ToolDefinition,
-  HealthCheck,
+  HealthCheckResult,
+  HealthChecks,
   // Chat
   ChatRequest,
   ChatResponse,

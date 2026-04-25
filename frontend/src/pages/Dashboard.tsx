@@ -216,6 +216,18 @@ export function Dashboard() {
               <span className="font-mono">{health?.uptime?.toFixed(1) || '0'}s</span>
             </div>
             <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Heap Used:</span>
+              <span className="font-mono">
+                {health?.memory ? `${(health.memory.heapUsed / 1024 / 1024).toFixed(1)} MB` : '-'}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Heap Total:</span>
+              <span className="font-mono">
+                {health?.memory ? `${(health.memory.heapTotal / 1024 / 1024).toFixed(1)} MB` : '-'}
+              </span>
+            </div>
+            <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Last Check:</span>
               <span className="font-mono">
                 {health?.timestamp ? new Date(health.timestamp).toLocaleTimeString() : '-'}

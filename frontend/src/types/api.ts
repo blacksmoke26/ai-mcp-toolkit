@@ -37,11 +37,17 @@ export interface HealthResponse {
   timestamp: string;
   /** Server uptime in seconds */
   uptime: number;
+  /** Memory usage information */
+  memory: {
+    /** Used heap memory in bytes */
+    heapUsed: number;
+    /** Total heap memory in bytes */
+    heapTotal: number;
+  };
 }
 
-export interface HealthCheck {
-  /** Database health check */
-  database: HealthCheck;
+/** Represents a single health check result (e.g., database, provider:name) */
+export interface HealthCheckResult {
   /** Check status */
   status: 'ok' | 'error';
   /** Latency in milliseconds */
@@ -50,18 +56,21 @@ export interface HealthCheck {
   error?: string;
 }
 
+/** Map of health check results */
+export interface HealthChecks {
+  /** Database check result */
+  database: HealthCheckResult;
+  /** Provider-specific checks (e.g., provider:openai) */
+  [key: `provider:${string}`]: HealthCheckResult;
+}
+
 export interface HealthReadyResponse {
   /** Readiness status */
   status: 'ready' | 'degraded';
   /** ISO timestamp */
   timestamp: string;
   /** Map of health checks */
-  checks: {
-    /** Database check */
-    database: HealthCheck;
-    /** Provider-specific checks */
-    [key: `provider:${string}`]: HealthCheck;
-  };
+  checks: HealthChecks;
 }
 
 export interface ServerInfo {
@@ -71,6 +80,8 @@ export interface ServerInfo {
   version: string;
   /** Protocol version */
   protocol: string;
+  /** Node.js runtime version */
+  node: string;
 }
 
 export interface ProviderInfo {
@@ -102,6 +113,8 @@ export interface InfoResponse {
   prompts: number;
   /** Server uptime in seconds */
   uptime: number;
+  /** Runtime environment (e.g., production, development) */
+  env: string;
 }
 
 // ============================================================================

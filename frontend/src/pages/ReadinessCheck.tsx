@@ -5,7 +5,8 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/compo
 import {Badge} from '@/components/ui/Badge';
 import {Button} from '@/components/ui/Button';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
-import {getHealthReady, type HealthCheck, type HealthReadyResponse} from '@/lib/api';
+import {getHealthReady} from '@/lib/api';
+import type {HealthCheckResult, HealthChecks, HealthReadyResponse} from '@/types/api';
 
 export function ReadinessCheck() {
   const [readiness, setReadiness] = useState<HealthReadyResponse | null>(null);
@@ -83,8 +84,8 @@ export function ReadinessCheck() {
   }
 
   const isReady = readiness?.status === 'ready';
-  const allChecks = (readiness?.checks || {}) as HealthCheck;
-  const checkEntries = Object.entries(allChecks);
+  const allChecks = (readiness?.checks || {}) as HealthChecks;
+  const checkEntries = Object.entries(allChecks) as [string, HealthCheckResult][];
   const failedChecks = checkEntries.filter(([, check]) => check.status === 'error');
   const passedChecks = checkEntries.filter(([, check]) => check.status === 'ok');
 
@@ -350,7 +351,7 @@ export function ReadinessCheck() {
 interface CheckItemProps {
   icon: React.ElementType;
   title: string;
-  check: HealthCheck;
+  check: HealthCheckResult;
 }
 
 function CheckItem({ icon: Icon, title, check }: CheckItemProps) {

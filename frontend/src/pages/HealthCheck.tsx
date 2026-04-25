@@ -8,12 +8,14 @@ import {
   Server,
   TrendingUp,
   RefreshCw,
+  HardDrive,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
 import { getHealth, type HealthResponse } from '@/lib/api';
+import { formatBytes } from '@/lib/utils';
 
 export function HealthCheck() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -215,6 +217,40 @@ export function HealthCheck() {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {isHealthy ? 'All systems operational' : 'Issues detected'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardDescription className="flex items-center gap-1">
+                    <HardDrive className="h-4 w-4" />
+                    Heap Used
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {health?.memory ? formatBytes(health.memory.heapUsed) : '-'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {health?.memory ? `${(health.memory.heapUsed / 1024 / 1024).toFixed(1)} MB` : '-'}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardDescription className="flex items-center gap-1">
+                    <HardDrive className="h-4 w-4" />
+                    Heap Total
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {health?.memory ? formatBytes(health.memory.heapTotal) : '-'}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {health?.memory ? `${(health.memory.heapTotal / 1024 / 1024).toFixed(1)} MB` : '-'}
                   </p>
                 </CardContent>
               </Card>

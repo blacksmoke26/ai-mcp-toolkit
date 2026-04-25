@@ -12,6 +12,7 @@ import {
   Package,
   Settings,
   TrendingUp,
+  Terminal,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -143,6 +144,20 @@ export function ServerInfo() {
                     Enabled Tools
                   </div>
                   <div className="font-semibold">{info.tools.enabled}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Terminal className="h-4 w-4" />
+                    Node.js
+                  </div>
+                  <div className="font-semibold">{info.server.node}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Settings className="h-4 w-4" />
+                    Environment
+                  </div>
+                  <Badge variant={info.env === 'production' ? 'success' : 'default'}>{info.env}</Badge>
                 </div>
               </div>
             </CardContent>
