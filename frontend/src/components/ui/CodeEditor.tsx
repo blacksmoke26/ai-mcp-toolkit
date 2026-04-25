@@ -5,7 +5,8 @@
  */
 
 import React, {useState, useCallback, useEffect, forwardRef, useImperativeHandle, useRef, useMemo} from 'react';
-import {monokaiDimmed} from '@uiw/codemirror-theme-monokai-dimmed';
+import {githubDark, githubLight} from '@uiw/codemirror-theme-github';
+import {xcodeDark, xcodeLight} from '@uiw/codemirror-theme-xcode';
 import {javascript} from '@codemirror/lang-javascript';
 import {json} from '@codemirror/lang-json';
 import {EditorView} from '@codemirror/view';
@@ -13,6 +14,7 @@ import {EditorState} from '@codemirror/state';
 import Editor, {type ReactCodeMirrorProps, type Extension} from '@uiw/react-codemirror';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import {useTheme} from '@/context/ThemeContext.tsx';
 
 // --- Icons (SVGs) ---
 const Icons = {
@@ -272,6 +274,8 @@ const LANGUAGES: Record<string, Extension> = {
  */
 const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
   (props, ref) => {
+    const {theme} = useTheme();
+
     const {
       value: controlledValue,
       defaultValue = '',
@@ -406,11 +410,11 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
       <div className={containerClasses}>
         {/* Toolbar */}
         <div
-          className="flex items-center justify-between px-3 py-2 bg-neutral-800 border-b border-neutral-700 shrink-0">
+          className="flex items-center justify-between px-3 py-2 bg-neutral-700 border-b border-neutral-700 shrink-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-neutral-100">{title}</span>
             <span
-              className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-700 text-neutral-300 uppercase font-bold tracking-wider">
+              className="text-[10px] px-1.5 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase font-bold tracking-wider">
               {language}
             </span>
             {readOnly && (
@@ -467,7 +471,7 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
         <div className={`relative flex-grow ${isFullscreen ? '' : heightClass}`}>
           <Editor
             height="100%"
-            theme={monokaiDimmed}
+            theme={theme ==='dark' ? xcodeDark : xcodeLight}
             extensions={extensions}
             value={value}
             onChange={handleChange}
@@ -489,7 +493,7 @@ const CodeEditor = forwardRef<EditorRef, CodeEditorProps>(
 
         {/* Status Bar */}
         <div
-          className="flex items-center justify-between px-3 py-1 bg-neutral-800 border-t border-neutral-700 text-[10px] text-neutral-400 shrink-0">
+          className="flex items-center justify-between px-3 py-1 bg-neutral-700 border-t border-neutral-700 text-[10px] text-neutral-300 shrink-0">
           <div className="flex gap-3">
             <span>Ln {cursorPos.line}, Col {cursorPos.col}</span>
             {cursorPos.selected > 0 && <span className="text-blue-300">Selected: {cursorPos.selected}</span>}
@@ -553,12 +557,14 @@ interface SettingsMenuProps {
   setTabSize: (v: number) => void;
 }
 
-const SettingsMenu: React.FC<SettingsMenuProps> = ({
-                                                     lineNumbers, setLineNumbers,
-                                                     lineWrap, setLineWrap,
-                                                     fontSize, setFontSize,
-                                                     tabSize, setTabSize
-                                                   }) => {
+const SettingsMenu: React.FC<SettingsMenuProps> = (props) => {
+  const {
+    lineNumbers, setLineNumbers,
+    lineWrap, setLineWrap,
+    fontSize, setFontSize,
+    tabSize, setTabSize
+  } = props;
+
   const fontSizes = [10, 11, 12, 13, 14, 16, 18, 20, 24];
   const tabSizes = [2, 4, 8];
 
