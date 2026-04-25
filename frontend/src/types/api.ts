@@ -73,6 +73,14 @@ export interface HealthReadyResponse {
   checks: HealthChecks;
 }
 
+/** MCP server health response from /mcp/health */
+export interface McpHealthResponse {
+  /** Health status */
+  status: string;
+  /** ISO timestamp */
+  timestamp: string;
+}
+
 export interface ServerInfo {
   /** Server name */
   name: string;
@@ -227,6 +235,8 @@ export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   /** Message content */
   content: string;
+  /** Tool name if applicable (for tool role messages) */
+  toolName?: string;
   /** Message timestamp */
   timestamp?: number;
 }
@@ -321,6 +331,8 @@ export interface ConversationWithMessages extends Conversation {
 }
 
 export interface ConversationsListResponse {
+  /** Total number of conversations */
+  total: number;
   /** List of conversations */
   conversations: Conversation[];
 }
@@ -487,6 +499,41 @@ export interface UpdateToolResponse {
   /** Tool name */
   tool: string;
   /** Enabled flag */
+  enabled: boolean;
+}
+
+// ====== Provider Test Connection ======
+
+export interface ProviderTestResponse {
+  /** Provider name */
+  provider: string;
+  /** Connection status */
+  status: 'ok' | 'error';
+  /** Connection latency in milliseconds (only on success) */
+  latencyMs?: number;
+  /** Error message (only on failure) */
+  error?: string;
+  /** Detailed error message (only on failure) */
+  message?: string;
+}
+
+// ====== Batch Tool Update ======
+
+export interface BatchToolUpdateRequest {
+  /** List of tool names to update */
+  names: string[];
+  /** Whether to enable or disable the tools */
+  enabled: boolean;
+}
+
+export interface BatchToolUpdateResponse {
+  /** Response status */
+  status: string;
+  /** List of tools that were successfully updated */
+  updated: string[];
+  /** List of tools that were not found */
+  notFound: string[];
+  /** The enabled state that was applied */
   enabled: boolean;
 }
 
@@ -971,6 +1018,8 @@ export interface CustomTool {
   description: string;
   /** Input schema JSON */
   inputSchema: string;
+  /** Operation type (e.g., 'call', 'stream') */
+  operation?: string;
   /** Handler code */
   handlerCode: string;
   /** Enabled flag */
@@ -1149,6 +1198,34 @@ export interface CustomToolTemplate {
 export interface CustomToolTemplatesResponse {
   /** Template list */
   templates: CustomToolTemplate[];
+}
+
+export interface BulkToggleCustomToolRequest {
+  /** Tool IDs to toggle */
+  ids: number[];
+  /** Enabled flag */
+  enabled: boolean;
+}
+
+export interface BulkToggleCustomToolResponse {
+  /** Response status */
+  status: string;
+  /** Number of tools updated */
+  updated: number;
+}
+
+export interface ValidateToolRequest {
+  /** Input schema JSON */
+  inputSchema?: string;
+  /** Handler code */
+  handlerCode?: string;
+}
+
+export interface ValidateToolResponse {
+  /** Validation result */
+  valid: boolean;
+  /** Validation errors */
+  errors?: string[];
 }
 
 // ─── MCP Server Management Types ─────────────────────────────────────────────────
