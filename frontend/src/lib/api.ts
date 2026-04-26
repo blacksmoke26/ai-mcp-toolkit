@@ -59,6 +59,9 @@ import type {
   // Metrics
   MetricsResponse,
   SystemMetricsResponse,
+  MetricsTrendsResponse,
+  MetricsAnomaliesResponse,
+  DeepHealthCheckResponse,
 
   // Simulation
   MockResponse,
@@ -156,7 +159,7 @@ function createTimeoutController(timeout: number): AbortController {
 /**
  * Performs an HTTP request with error handling
  */
-async function request<T>(
+export async function request<T>(
   endpoint: string,
   options: RequestInit & {noContentType?: boolean} = {},
   timeout?: number,
@@ -757,6 +760,58 @@ export async function getSystemMetrics(): Promise<SystemMetricsResponse> {
   return request<SystemMetricsResponse>('/metrics/system');
 }
 
+// ============================================
+// Metrics Trends API Functions
+// ============================================
+
+/**
+ * GET /metrics/trends - Compare metrics between current and previous periods
+ */
+export async function getMetricsTrends(hours?: number): Promise<MetricsTrendsResponse> {
+  const query = hours ? `?hours=${hours}` : '';
+  return request<MetricsTrendsResponse>(`/metrics/trends${query}`);
+}
+
+// ============================================
+// Metrics Anomalies API Functions
+// ============================================
+
+/**
+ * GET /metrics/anomalies - Detect anomalies based on standard deviation
+ */
+export async function getMetricsAnomalies(
+  hours?: number,
+  threshold?: number,
+): Promise<MetricsAnomaliesResponse> {
+  const params = new URLSearchParams();
+  if (hours) params.set('hours', hours.toString());
+  if (threshold) params.set('threshold', threshold.toString());
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request<MetricsAnomaliesResponse>(`/metrics/anomalies${query}`);
+}
+
+// ============================================
+// Deep Health Check API Functions
+// ============================================
+
+/**
+ * GET /metrics/health/deep - Deep health check with score
+ */
+export async function getDeepHealthCheck(): Promise<DeepHealthCheckResponse> {
+  return request<DeepHealthCheckResponse>('/metrics/health/deep');
+}
+
+// ============================================
+// Metrics Clear API Functions
+// ============================================
+
+/**
+ * DELETE /metrics/clear - Clear all metrics (dev only)
+ */
+export async function clearMetrics(): Promise<{ status: string; timestamp: string }> {
+  return request('/metrics/clear?confirm=yes', { method: 'DELETE' });
+}
+
 // ====== Simulation Endpoints ======
 
 /**
@@ -783,6 +838,16 @@ export async function runScenario(name: string, options?: { useMocks?: boolean }
   return request(`/simulate/scenarios/${encodeURIComponent(name)}/run`, {
     method: 'POST',
     body: JSON.stringify(options || {}),
+  });
+}
+
+/**
+ * POST /simulate/scenarios - Register a new scenario
+ */
+export async function setScenario(scenario: Scenario): Promise<{ status: string; name: string }> {
+  return request('/simulate/scenarios', {
+    method: 'POST',
+    body: JSON.stringify(scenario),
   });
 }
 
@@ -1008,9 +1073,12 @@ export async function validateCustomTool(
 
 /**
  * GET /api/mcp-servers - List all MCP servers
- * @param enabled - Filter by enabled status (optional)
- * @param status - Filter by status (optional)
- * @param search - Search query (optional)
+ * @param [params] - Filter by enabled status (optional)
+ * @param [params.enabled] - Filter by enabled status (optional)
+ * @param [params.status] - Filter by status (optional)
+ * @param [params.search] - Search query (optional)
+ * @param [params.page] - The page no (optional)
+ * @param [params.limit] - No. of records per page (optional)
  */
 export async function listMCPServers(params?: {
   enabled?: boolean;

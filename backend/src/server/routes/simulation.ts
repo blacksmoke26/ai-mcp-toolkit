@@ -36,10 +36,10 @@
  */
 
 import type {FastifyPluginAsync} from 'fastify';
-import {simulator} from '@/simulation/simulator';
-import {toolRegistry} from '@/mcp/tools/registry';
-import {logger} from '@/utils/logger';
-import type {MockResponse, LoadConfig} from '@/simulation/simulator';
+import simulator from '@/simulation/simulator';
+import toolRegistry from '@/mcp/tools/registry';
+import logger from '@/utils/logger';
+import type {MockResponse, LoadConfig, Scenario} from '@/simulation/simulator';
 
 export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
   // ─── Scenario Management ────
@@ -68,10 +68,12 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
                   description: {type: 'string'},
                   steps: {type: 'integer'},
                   hasMocks: {type: 'boolean'},
+                  additionalProperties: true,
                 },
                 required: ['name', 'steps', 'hasMocks'],
               },
             },
+            additionalProperties: true,
           },
           required: ['total', 'scenarios'],
         },
@@ -117,6 +119,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
         type: 'object',
         properties: {
           name: {type: 'string', minLength: 1},
+          additionalProperties: true,
         },
         required: ['name'],
       },
@@ -141,6 +144,91 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   /**
+   * POST /simulate/scenarios
+   * Register a new custom scenario.
+   *
+   * @changelog
+   * - 2025-01-01: Added support for creating custom scenarios from UI.
+   */
+  fastify.post<{ Body: Scenario }>(
+    '/simulate/scenarios',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['name', 'steps'],
+          properties: {
+            name: {type: 'string', minLength: 1},
+            description: {type: 'string'},
+            steps: {
+              type: 'array',
+              items: {
+                type: 'object',
+                required: ['name', 'tool'],
+                properties: {
+                  name: {type: 'string'},
+                  tool: {type: 'string'},
+                  args: {type: 'object'},
+                  expects: {
+                    type: 'object',
+                    properties: {
+                      contains: {type: 'string'},
+                      notContains: {type: 'string'},
+                      hasError: {type: 'boolean'},
+                    },
+                  },
+                  description: {type: 'string'},
+                },
+              },
+              minItems: 1,
+            },
+            setupMocks: {type: 'object'},
+            cleanupMocks: {type: 'boolean'},
+          },
+        },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              status: {type: 'string'},
+              name: {type: 'string'},
+            },
+            required: ['status', 'name'],
+          },
+          400: {
+            type: 'object',
+            properties: {error: {type: 'string'}},
+            required: ['error'],
+          },
+          409: {
+            type: 'object',
+            properties: {error: {type: 'string'}},
+            required: ['error'],
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const scenario = request.body;
+
+      // Validate required fields
+      if (!scenario.name || !scenario.steps || scenario.steps.length === 0) {
+        return reply.code(400).send({error: 'Scenario name and at least one step are required'});
+      }
+
+      try {
+        simulator.registerScenario(scenario);
+        return reply.code(201).send({status: 'Scenario registered successfully', name: scenario.name});
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('already registered')) {
+          return reply.code(409).send({error: error.message});
+        }
+        return reply.code(500).send({error: 'Failed to register scenario'});
+      }
+    }
+  );
+
+  /**
    * POST /simulate/scenarios/:name/run
    * Execute a registered scenario and return results.
    *
@@ -155,8 +243,9 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
     schema: {
       params: {
         type: 'object',
-        properties: {name: {type: 'string'}},
+        properties: {name: {type: 'string'}, additionalProperties: true},
         required: ['name'],
+        additionalProperties: true,
       },
       body: {
         type: 'object',
@@ -219,7 +308,9 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
             total: {type: 'integer'},
             mockModeEnabled: {type: 'boolean'},
             mocks: {type: 'object'},
+            additionalProperties: true,
           },
+          additionalProperties: true,
           required: ['total', 'mockModeEnabled', 'mocks'],
         },
       },
@@ -281,6 +372,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
             status: {type: 'string'},
             tool: {type: 'string'},
             warning: {type: 'string'},
+            additionalProperties: true,
           },
           required: ['status', 'tool'],
         },
@@ -391,8 +483,12 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
         required: ['tool'],
       },
       response: {
-        200: {type: 'object', properties: {status: {type: 'string'}, tool: {type: 'string'}}},
-        404: {type: 'object', properties: {error: {type: 'string'}}},
+        200: {
+          type: 'object',
+          properties: {status: {type: 'string'}, tool: {type: 'string'}, additionalProperties: true},
+          additionalProperties: true,
+        },
+        404: {type: 'object', properties: {error: {type: 'string'}}, additionalProperties: true},
       },
     },
   }, async (request, reply) => {
@@ -424,6 +520,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
             status: {type: 'string'},
             clearedCount: {type: 'integer'},
           },
+          additionalProperties: true,
           required: ['status', 'clearedCount'],
         },
       },
@@ -454,6 +551,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
           type: 'object',
           properties: {mockModeEnabled: {type: 'boolean'}},
           required: ['mockModeEnabled'],
+          additionalProperties: true,
         },
       },
     },
@@ -489,6 +587,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
             mockModeEnabled: {type: 'boolean'},
           },
           required: ['status', 'mockModeEnabled'],
+          additionalProperties: true,
         },
       },
     },
@@ -534,6 +633,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
           requestsPerSecond: {type: 'number', minimum: 0.1},
           argsTemplates: {type: 'object'},
           useMocks: {type: 'boolean'},
+          additionalProperties: true,
         },
       },
       response: {
@@ -635,8 +735,8 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
       response: {
-        200: {type: 'object'},
-        404: {type: 'object'},
+        200: {type: 'object', additionalProperties: true},
+        404: {type: 'object', additionalProperties: true},
       },
     },
   }, async (request, reply) => {
@@ -816,6 +916,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
             availableTools: {type: 'array', items: {type: 'string'}},
             mockModeDescription: {type: 'string'},
             system: {type: 'object'},
+            additionalProperties: true,
           },
         },
       },
