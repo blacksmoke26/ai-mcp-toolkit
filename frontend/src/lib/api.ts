@@ -158,13 +158,14 @@ function createTimeoutController(timeout: number): AbortController {
  */
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {},
+  options: RequestInit & {noContentType?: boolean} = {},
   timeout?: number,
 ): Promise<T> {
   const timeoutValue = timeout ?? config.timeout;
   const controller = createTimeoutController(timeoutValue as number);
 
-  const newOptions: RequestInit = {
+  const newOptions: RequestInit & {noContentType?: boolean} = {
+    noContentType: false,
     ...options,
     signal: controller.signal,
     headers: {
@@ -173,7 +174,7 @@ async function request<T>(
     },
   };
 
-  if (newOptions?.method === 'DELETE') {
+  if (newOptions?.method === 'DELETE' || newOptions?.noContentType) {
     delete newOptions.headers['Content-Type'];
   }
 
@@ -1014,12 +1015,16 @@ export async function validateCustomTool(
 export async function listMCPServers(params?: {
   enabled?: boolean;
   status?: string;
-  search?: string
+  search?: string;
+  page?: number;
+  limit?: number;
 }): Promise<MCPServersListResponse> {
   const queryParams = new URLSearchParams();
   if (params?.enabled !== undefined) queryParams.append('enabled', String(params.enabled));
   if (params?.status) queryParams.append('status', params.status);
   if (params?.search) queryParams.append('search', params.search);
+  if (params?.page) queryParams.append('page', String(params.page));
+  if (params?.limit) queryParams.append('limit', String(params.limit));
   const endpoint = `${queryParams.toString() ? '?' : ''}${queryParams.toString()}`;
   return request<MCPServersListResponse>(`/api/mcp-servers${endpoint}`);
 }
@@ -1108,6 +1113,7 @@ export async function getMCPServerHealth(id: number): Promise<MCPServerHealthRes
 export async function testMCPServerConnection(id: number): Promise<MCPServerTestResponse> {
   return request<MCPServerTestResponse>(`/api/mcp-servers/${id}/test`, {
     method: 'POST',
+    noContentType: true,
   });
 }
 
