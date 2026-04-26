@@ -189,6 +189,7 @@ export interface ToolDefinition {
     /** Required properties */
     required?: string[];
   };
+  annotations: Record<string, any>;
 }
 
 // MCP Call Tool Result
@@ -205,6 +206,7 @@ export interface CallToolResult {
     mimeType?: string;
     /** Resource URI */
     uri?: string;
+    resource: Record<string, any>;
   }>;
   /** Error flag */
   isError?: boolean;
@@ -1248,8 +1250,16 @@ export interface MCPServerResponse {
   description: string;
   /** Transport type */
   type: MCPServerType;
+  /** Command (for stdio type) */
+  command?: string;
+  /** Arguments (for stdio type) */
+  args?: string[];
+  /** Environment variables (for stdio type) */
+  env?: Record<string, string>;
   /** URL (for HTTP-based types) */
   url?: string;
+  /** Headers (for HTTP-based types) */
+  headers?: Record<string, string>;
   /** Whether enabled */
   enabled: boolean;
   /** Current status */
@@ -1280,8 +1290,17 @@ export interface MCPServerResponse {
 
 /** Response from listing MCP servers */
 export interface MCPServersListResponse {
-  /** Total count */
-  total: number;
+  /** Pagination info */
+  pagination: {
+    /** Total number of servers */
+    total: number;
+    /** Current page number */
+    page: number;
+    /** Items per page */
+    limit: number;
+    /** Total number of pages */
+    totalPages: number;
+  };
   /** Server list */
   servers: MCPServerResponse[];
 }
