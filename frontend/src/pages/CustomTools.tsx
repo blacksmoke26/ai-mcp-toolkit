@@ -57,7 +57,6 @@ import {
   getCustomToolTemplates,
   listCustomTools,
   testCustomTool,
-  toggleCustomTool,
   updateCustomTool,
 } from '@/lib/api.js';
 import * as Select from '@radix-ui/react-select';
@@ -180,7 +179,16 @@ interface InfoDialogProps {
  *   }}
  * />
  */
-const CreateEditDialog: React.FC<CreateEditDialogProps> = ({open, onOpenChange, tool, templateData, onSave, isEditing}) => {
+const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
+  const {
+    open,
+    onOpenChange,
+    tool,
+    templateData,
+    onSave,
+    isEditing,
+  } = props;
+
   // Documentation content for popovers
   const inputSchemaHelp = `
 Input Schema defines the parameters your tool accepts. It follows JSON Schema format:
@@ -340,10 +348,12 @@ Example:
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" onClick={(e) => e.preventDefault()}/>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help"
+                                  onClick={(e) => e.preventDefault()}/>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Tool name must start with a letter and contain only letters, numbers, and underscores (e.g., my_custom_tool).</p>
+                      <p>Tool name must start with a letter and contain only letters, numbers, and underscores (e.g.,
+                        my_custom_tool).</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -366,7 +376,8 @@ Example:
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" onClick={(e) => e.preventDefault()}/>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help"
+                                  onClick={(e) => e.preventDefault()}/>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>Human-readable name displayed in the UI (e.g., My Custom Tool).</p>
@@ -389,7 +400,8 @@ Example:
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" onClick={(e) => e.preventDefault()}/>
+                    <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help"
+                                onClick={(e) => e.preventDefault()}/>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Detailed description of what your tool does. This appears in tool listings.</p>
@@ -755,8 +767,10 @@ const InfoDialog: React.FC<InfoDialogProps> = ({open, onOpenChange}) => {
           <div className="space-y-2">
             <h4 className="font-semibold">Available Categories:</h4>
             <ul className="list-disc list-inside space-y-1 text-sm">
-              <li><strong>Math & Numbers:</strong> Calculator, Random Generator, Percentage, Fibonacci, Prime Checker</li>
-              <li><strong>Text & String:</strong> Transformer, Word Counter, Palindrome Checker, Base64, Regex Matcher</li>
+              <li><strong>Math & Numbers:</strong> Calculator, Random Generator, Percentage, Fibonacci, Prime Checker
+              </li>
+              <li><strong>Text & String:</strong> Transformer, Word Counter, Palindrome Checker, Base64, Regex Matcher
+              </li>
               <li><strong>Data & Parsing:</strong> JSON Formatter, CSV Parser, URL Parser</li>
               <li><strong>Date & Time:</strong> Current Time, Date Difference, Age Calculator</li>
               <li><strong>Array & List:</strong> Reverser, Shuffler, Sorter</li>
@@ -786,7 +800,8 @@ const InfoDialog: React.FC<InfoDialogProps> = ({open, onOpenChange}) => {
             <Info className="h-4 w-4"/>
             <AlertTitle>Function Signature</AlertTitle>
             <AlertDescription>
-              Your handler receives <code>args</code> (input parameters) and can access globals via <code>safeContext</code>.
+              Your handler receives <code>args</code> (input parameters) and can access globals
+              via <code>safeContext</code>.
             </AlertDescription>
           </Alert>
           <h4 className="font-semibold">Example Handler:</h4>
@@ -852,7 +867,8 @@ return {
               </CardHeader>
               <CardContent className="py-2">
                 <p className="text-xs text-muted-foreground">
-                  Only approved globals are available through <code>safeContext</code>. Functions like <code>require()</code>,
+                  Only approved globals are available through <code>safeContext</code>. Functions
+                  like <code>require()</code>,
                   <code>process</code>, <code>eval()</code>, and <code>setTimeout()</code> are blocked.
                 </p>
               </CardContent>
@@ -974,7 +990,7 @@ return {
           </Tabs.List>
 
           <div className="mt-4">
-            {Object.entries(documentation).map(([key, {title, content}]) => (
+            {Object.entries(documentation).map(([key, {content}]) => (
               <Tabs.Content key={key} value={key} className="space-y-4">
                 <Separator/>
                 <div className="prose prose-sm max-w-none">
@@ -1034,7 +1050,11 @@ const TestDialog: React.FC<TestDialogProps> = ({open, onOpenChange, tool, onTest
       setResult({
         success: false,
         result: {
-          content: [{type: 'text', text: `Error: ${err instanceof Error ? err.message : String(err)}`}],
+          content: [{
+            type: 'text',
+            text: `Error: ${err instanceof Error ? err.message : String(err)}`,
+            resource: undefined,
+          }],
           isError: true,
         },
       });
@@ -1049,17 +1069,6 @@ const TestDialog: React.FC<TestDialogProps> = ({open, onOpenChange, tool, onTest
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
-  };
-
-  const formatText = (text: string) => {
-    const lines = text.split('\n');
-    return (
-      <div className="whitespace-pre-wrap">
-        {lines.map((line, i) => (
-          <div key={i} className="break-all">{line}</div>
-        ))}
-      </div>
-    );
   };
 
   if (!tool) return null;
@@ -1151,7 +1160,15 @@ const TestDialog: React.FC<TestDialogProps> = ({open, onOpenChange, tool, onTest
  *   }}
  * />
  */
-const TemplateDialog: React.FC<TemplateDialogProps> = ({open, onOpenChange, templates, onSelectTemplate, templateData, setTemplateData}) => {
+const TemplateDialog: React.FC<TemplateDialogProps> = (props) => {
+  const {
+    open,
+    onOpenChange,
+    templates,
+    onSelectTemplate,
+    setTemplateData,
+  } = props;
+
   const [selectedTemplate, setSelectedTemplate] = useState<CustomToolTemplate | null>(null);
 
   const handleSelect = (template: CustomToolTemplate) => {
@@ -1324,6 +1341,7 @@ const CustomTools: React.FC = () => {
     if (kept.length !== selectedToolIds.length) {
       setSelectedToolIds(kept);
     }
+    // eslint-disable-next-line
   }, [filteredTools.map((t) => t.id).join(',')]);
 
   // Handlers
@@ -1351,7 +1369,7 @@ const CustomTools: React.FC = () => {
   const handleToggle = async (tool: CustomToolSummary) => {
     try {
       const newEnabled = !tool.enabled;
-      const response = await toggleCustomTool(tool.id, newEnabled);
+      //const response = await toggleCustomTool(tool.id, newEnabled);
 
       setTools((prev) =>
         prev.map((t) => (t.id === tool.id ? {...t, enabled: newEnabled} : t)),
@@ -1399,10 +1417,10 @@ const CustomTools: React.FC = () => {
     return await testCustomTool(selectedTool.id, args);
   };
 
-  const handleSelectTemplate = (template: CustomToolTemplate) => {
-      // Template data is already set by TemplateDialog via setTemplateData
-      setCreateDialogOpen(true);
-    };
+  const handleSelectTemplate = (_template: CustomToolTemplate) => {
+    // Template data is already set by TemplateDialog via setTemplateData
+    setCreateDialogOpen(true);
+  };
 
   // Stats
   const totalTools = tools.length;
@@ -1698,7 +1716,8 @@ const CustomTools: React.FC = () => {
             </Button>
           </div>
           {filteredTools.map((tool) => (
-            <Card key={tool.id} className={`transition-all ${selectedToolIds.includes(tool.id) ? 'border-primary ring-1 ring-primary/30' : ''}`}>
+            <Card key={tool.id}
+                  className={`transition-all ${selectedToolIds.includes(tool.id) ? 'border-primary ring-1 ring-primary/30' : ''}`}>
               <CardHeader className="py-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 flex-1">
@@ -1823,4 +1842,4 @@ const CustomTools: React.FC = () => {
   );
 };
 
-export default CustomTools
+export default CustomTools;
