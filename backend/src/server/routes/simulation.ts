@@ -124,10 +124,10 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
         required: ['name'],
       },
       response: {
-        200: {type: 'object'}, // Detailed scenario object is dynamic
+        200: {type: 'object', additionalProperties: true}, // Detailed scenario object is dynamic
         404: {
           type: 'object',
-          properties: {error: {type: 'string'}},
+          properties: {error: {type: 'string'}, additionalProperties: true},
           required: ['error'],
         },
       },
@@ -192,6 +192,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
             properties: {
               status: {type: 'string'},
               name: {type: 'string'},
+              additionalProperties: true,
             },
             required: ['status', 'name'],
           },
@@ -199,11 +200,13 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
             type: 'object',
             properties: {error: {type: 'string'}},
             required: ['error'],
+            additionalProperties: true,
           },
           409: {
             type: 'object',
             properties: {error: {type: 'string'}},
             required: ['error'],
+            additionalProperties: true,
           },
         },
       },
@@ -225,7 +228,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
         }
         return reply.code(500).send({error: 'Failed to register scenario'});
       }
-    }
+    },
   );
 
   /**
@@ -243,7 +246,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
     schema: {
       params: {
         type: 'object',
-        properties: {name: {type: 'string'}, additionalProperties: true},
+        properties: {name: {type: 'string'}},
         required: ['name'],
         additionalProperties: true,
       },
@@ -255,9 +258,12 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
       response: {
-        200: {type: 'object'},
-        404: {type: 'object', properties: {error: {type: 'string'}}},
-        500: {type: 'object', properties: {error: {type: 'string'}, message: {type: 'string'}}},
+        200: {type: 'object', additionalProperties: true},
+        404: {type: 'object', properties: {error: {type: 'string'}, additionalProperties: true}},
+        500: {
+          type: 'object',
+          properties: {error: {type: 'string'}, message: {type: 'string'}, additionalProperties: true},
+        },
       },
     },
   }, async (request, reply) => {
@@ -519,8 +525,8 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
           properties: {
             status: {type: 'string'},
             clearedCount: {type: 'integer'},
+            additionalProperties: true,
           },
-          additionalProperties: true,
           required: ['status', 'clearedCount'],
         },
       },
@@ -585,6 +591,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
           properties: {
             status: {type: 'string'},
             mockModeEnabled: {type: 'boolean'},
+            additionalProperties: true,
           },
           required: ['status', 'mockModeEnabled'],
           additionalProperties: true,
@@ -637,13 +644,14 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
       response: {
-        200: {type: 'object'},
+        200: {type: 'object', additionalProperties: true},
         400: {
           type: 'object',
           properties: {
             error: {type: 'string'},
             invalidTools: {type: 'array', items: {type: 'string'}},
             availableTools: {type: 'array', items: {type: 'string'}},
+            additionalProperties: true,
           },
         },
       },

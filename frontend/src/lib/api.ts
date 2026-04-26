@@ -1158,6 +1158,7 @@ export async function stopMCPServer(id: number, force: boolean = false): Promise
 export async function restartMCPServer(id: number): Promise<MCPServerRestartResponse> {
   return request<MCPServerRestartResponse>(`/api/mcp-servers/${id}/restart`, {
     method: 'POST',
+    noContentType: true,
   });
 }
 

@@ -611,8 +611,8 @@ export function ToolSimulator() {
                     {toolResult.result?.content && (
                       <div className="space-y-2">
                         <Label>Response Content:</Label>
-                        <div className="bg-muted rounded-lg p-3 text-sm font-mono overflow-x-auto">
-                          <pre>{JSON.stringify(toolResult.result.content, null, 2)}</pre>
+                        <div className="bg-muted rounded-lg p-3 overflow-x-auto">
+                          <JsonViewer value={toolResult.result.content}/>
                         </div>
                       </div>
                     )}
@@ -1058,7 +1058,7 @@ export function ToolSimulator() {
         </TabsContent>
 
         {/* Load Test Tab */}
-        <TabsContent value="load-test">
+        <TabsContent value="scenarios">
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="md:col-span-2">
               <CardHeader>
@@ -1128,7 +1128,7 @@ export function ToolSimulator() {
 
           {/* Scenario Results */}
           {scenarioResult && (
-            <Card>
+            <Card className="mt-4">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>{scenarioResult.name}</span>
@@ -1193,7 +1193,7 @@ export function ToolSimulator() {
 
         {/* Load Test Tab */}
         <TabsContent value="load-test" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4">
             <Card className="md:col-span-2">
               <CardHeader>
                 <CardTitle>Load Test Configuration</CardTitle>
@@ -1337,6 +1337,115 @@ export function ToolSimulator() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Load Test Results */}
+          {loadResults && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Results Summary</CardTitle>
+                  <CardDescription>{loadResults.totalRequests} requests completed</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 bg-green-50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">{loadResults.successfulRequests}</div>
+                      <div className="text-xs text-green-600">Successful</div>
+                    </div>
+                    <div className="text-center p-3 bg-red-50 rounded-lg">
+                      <div className="text-2xl font-bold text-red-600">{loadResults.failedRequests}</div>
+                      <div className="text-xs text-red-600">Failed</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-sm text-muted-foreground">Success Rate</div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-green-500 transition-all"
+                          style={{ width: `${((loadResults.successfulRequests / loadResults.totalRequests) * 100) || 0}%` }}
+                        />
+                      </div>
+                      <span className="text-sm font-medium">
+                        {((loadResults.successfulRequests / loadResults.totalRequests) * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Latency Metrics</CardTitle>
+                  <CardDescription>Response time statistics</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-center">
+                    <div className="p-3 bg-blue-50 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600">{loadResults.p50LatencyMs}ms</div>
+                      <div className="text-xs text-blue-600">P50</div>
+                    </div>
+                    <div className="p-3 bg-yellow-50 rounded-lg">
+                      <div className="text-2xl font-bold text-yellow-600">{loadResults.p95LatencyMs}ms</div>
+                      <div className="text-xs text-yellow-600">P95</div>
+                    </div>
+                    <div className="p-3 bg-purple-50 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600">{loadResults.p99LatencyMs}ms</div>
+                      <div className="text-xs text-purple-600">P99</div>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600">{loadResults.rps}</div>
+                      <div className="text-xs text-green-600">RPS</div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {Object.keys(loadResults.byTool).length > 0 && (
+                <Card className="md:col-span-2">
+                  <CardHeader>
+                    <CardTitle>Performance by Tool</CardTitle>
+                    <CardDescription>Detailed breakdown for each tested tool</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {Object.entries(loadResults.byTool).map(([tool, stats]) => (
+                        <div
+                          key={tool}
+                          className="rounded-lg border p-3"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <Badge variant="secondary">{tool}</Badge>
+                            <div className="flex items-center gap-4 text-sm">
+                              <span>
+                                <span className="text-muted-foreground">Avg: </span>
+                                <span className="font-medium">{stats.avgLatencyMs}ms</span>
+                              </span>
+                              <span>
+                                <span className="text-muted-foreground">Calls: </span>
+                                <span className="font-medium">{stats.count}</span>
+                              </span>
+                              <span className={stats.errors > 0 ? 'text-red-500' : 'text-muted-foreground'}>
+                                <span className="text-muted-foreground">Errors: </span>
+                                <span className="font-medium">{stats.errors}</span>
+                              </span>
+                            </div>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-500"
+                              style={{ width: `${Math.min((stats.avgLatencyMs / loadResults.p99LatencyMs) * 100, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
 
         </TabsContent>
       </Tabs>

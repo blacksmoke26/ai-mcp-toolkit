@@ -323,7 +323,9 @@ export function MCPHealth() {
                       {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                     </Button>
                   </div>
-                  <JsonViewer value={debugResult} />
+                  <div className="bg-muted rounded-lg p-3 overflow-x-auto">
+                    <JsonViewer value={debugResult} />
+                  </div>
                 </div>
               )}
             </div>
