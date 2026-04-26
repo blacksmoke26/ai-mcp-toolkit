@@ -19,8 +19,9 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/compo
 import {Button} from '@/components/ui/Button';
 import {Badge} from '@/components/ui/Badge';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
-import {Textarea} from '@/components/ui/Textarea';
 import {getMcpSSE, type JsonRpcRequest, type JsonRpcResponse, sendMcpRequest} from '@/lib/api';
+import CodeEditor from '@/components/ui/CodeEditor';
+import JsonViewer from '@/components/ui/JsonViewer';
 
 export function MCPSSE() {
   const [isConnected, setIsConnected] = useState(false);
@@ -375,15 +376,9 @@ export function MCPSSE() {
                   <label htmlFor="request-body" className="text-sm font-medium mb-2 block">
                     Request Body
                   </label>
-                  <Textarea
-                    id="request-body"
-                    value={requestBody}
-                    onChange={(e) => setRequestBody(e.target.value)}
-                    className="font-mono text-sm min-h-[200px]"
-                    placeholder='{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
-                  />
+                  <CodeEditor language="json" onChange={setRequestBody} value={requestBody}
+                  editorProps={{placeholder:'{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'}}/>
                 </div>
-
                 <div className="flex items-center justify-between pt-2">
                   <Button
                     onClick={clearEvents}
@@ -423,7 +418,7 @@ export function MCPSSE() {
                       <Badge variant="secondary">JSON-RPC</Badge>
                     </div>
                     <pre className="text-xs bg-background p-2 rounded overflow-x-auto max-h-[200px] overflow-y-auto">
-                      {JSON.stringify(sendResponse, null, 2)}
+                      <JsonViewer value={sendResponse}/>
                     </pre>
                   </div>
                 )}

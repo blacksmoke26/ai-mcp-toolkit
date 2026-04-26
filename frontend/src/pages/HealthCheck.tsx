@@ -1,5 +1,11 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
-import { useEffect, useState } from 'react';
+import {useEffect, useState} from 'react';
 import {
   Activity,
   CheckCircle2,
@@ -10,12 +16,13 @@ import {
   RefreshCw,
   HardDrive,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/Alert';
-import { getHealth, type HealthResponse } from '@/lib/api';
-import { formatBytes } from '@/lib/utils';
+import {Card, CardContent, CardHeader, CardTitle, CardDescription} from '@/components/ui/Card';
+import {Badge} from '@/components/ui/Badge';
+import {Button} from '@/components/ui/Button';
+import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
+import {getHealth, type HealthResponse} from '@/lib/api';
+import {formatBytes} from '@/lib/utils';
+import JsonViewer from '@/components/ui/JsonViewer';
 
 export function HealthCheck() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -83,12 +90,12 @@ export function HealthCheck() {
         <Card className="animate-pulse">
           <CardContent className="p-8">
             <div className="space-y-4">
-              <div className="h-8 w-48 bg-muted rounded" />
-              <div className="h-4 w-64 bg-muted rounded" />
+              <div className="h-8 w-48 bg-muted rounded"/>
+              <div className="h-4 w-64 bg-muted rounded"/>
               <div className="grid grid-cols-3 gap-4 mt-6">
-                <div className="h-12 bg-muted rounded" />
-                <div className="h-12 bg-muted rounded" />
-                <div className="h-12 bg-muted rounded" />
+                <div className="h-12 bg-muted rounded"/>
+                <div className="h-12 bg-muted rounded"/>
+                <div className="h-12 bg-muted rounded"/>
               </div>
             </div>
           </CardContent>
@@ -108,8 +115,8 @@ export function HealthCheck() {
           </p>
         </div>
         <Button onClick={fetchHealth} variant="outline" disabled={loading}>
-          {loading && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
-          <Activity className="mr-2 h-4 w-4" />
+          {loading && <RefreshCw className="mr-2 h-4 w-4 animate-spin"/>}
+          <Activity className="mr-2 h-4 w-4"/>
           Refresh
         </Button>
       </div>
@@ -117,7 +124,7 @@ export function HealthCheck() {
       {/* Status Alert */}
       {!isHealthy ? (
         <Alert variant="destructive">
-          <XCircle className="h-4 w-4" />
+          <XCircle className="h-4 w-4"/>
           <AlertTitle>Server is Unhealthy</AlertTitle>
           <AlertDescription>
             The server is experiencing issues. Please check the logs for more information.
@@ -125,7 +132,7 @@ export function HealthCheck() {
         </Alert>
       ) : (
         <Alert>
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <CheckCircle2 className="h-4 w-4 text-green-600"/>
           <AlertTitle className="text-green-800">Server is Healthy</AlertTitle>
           <AlertDescription>
             All systems are operational and running normally.
@@ -135,7 +142,7 @@ export function HealthCheck() {
 
       {error && (
         <Alert variant="destructive">
-          <XCircle className="h-4 w-4" />
+          <XCircle className="h-4 w-4"/>
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -146,9 +153,9 @@ export function HealthCheck() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             {isHealthy ? (
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
+              <CheckCircle2 className="h-6 w-6 text-green-600"/>
             ) : (
-              <XCircle className="h-6 w-6 text-red-600" />
+              <XCircle className="h-6 w-6 text-red-600"/>
             )}
             Server Status
           </CardTitle>
@@ -160,7 +167,7 @@ export function HealthCheck() {
           <div className="space-y-4">
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="flex items-center gap-3">
-                <Server className="h-8 w-8 text-primary" />
+                <Server className="h-8 w-8 text-primary"/>
                 <div>
                   <div className="text-sm font-medium text-muted-foreground">Current Status</div>
                   <div className="text-2xl font-bold capitalize">{health?.status || 'unknown'}</div>
@@ -176,7 +183,7 @@ export function HealthCheck() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardDescription className="flex items-center gap-1">
-                    <Clock className="h-4 w-4" />
+                    <Clock className="h-4 w-4"/>
                     Uptime
                   </CardDescription>
                 </CardHeader>
@@ -193,7 +200,7 @@ export function HealthCheck() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardDescription className="flex items-center gap-1">
-                    <Activity className="h-4 w-4" />
+                    <Activity className="h-4 w-4"/>
                     Last Check
                   </CardDescription>
                 </CardHeader>
@@ -207,7 +214,7 @@ export function HealthCheck() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardDescription className="flex items-center gap-1">
-                    <TrendingUp className="h-4 w-4" />
+                    <TrendingUp className="h-4 w-4"/>
                     Health Score
                   </CardDescription>
                 </CardHeader>
@@ -224,7 +231,7 @@ export function HealthCheck() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardDescription className="flex items-center gap-1">
-                    <HardDrive className="h-4 w-4" />
+                    <HardDrive className="h-4 w-4"/>
                     Heap Used
                   </CardDescription>
                 </CardHeader>
@@ -241,7 +248,7 @@ export function HealthCheck() {
               <Card>
                 <CardHeader className="pb-3">
                   <CardDescription className="flex items-center gap-1">
-                    <HardDrive className="h-4 w-4" />
+                    <HardDrive className="h-4 w-4"/>
                     Heap Total
                   </CardDescription>
                 </CardHeader>
@@ -306,15 +313,11 @@ export function HealthCheck() {
             <div className="rounded-lg border bg-muted/30 p-4">
               <h4 className="text-sm font-medium mb-2">Response Format</h4>
               <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
-                {JSON.stringify(
-                  {
-                    status: isHealthy ? 'ok' : 'error',
-                    timestamp: new Date().toISOString(),
-                    uptime: health?.uptime || 0,
-                  },
-                  null,
-                  2
-                )}
+                <JsonViewer value={{
+                  status: isHealthy ? 'ok' : 'error',
+                  timestamp: new Date().toISOString(),
+                  uptime: health?.uptime || 0,
+                }}/>
               </pre>
             </div>
           </div>

@@ -48,6 +48,7 @@ import type {
   ScenarioResult,
   LoadResults,
 } from '@/lib/api';
+import CodeEditor from '@/components/ui/CodeEditor';
 
 export function ToolSimulator() {
   const [activeTab, setActiveTab] = React.useState('tool-test');
@@ -345,13 +346,8 @@ export function ToolSimulator() {
 
                 <div className="space-y-2">
                   <Label htmlFor="tool-args">Arguments (JSON)</Label>
-                  <Textarea
-                    id="tool-args"
-                    value={toolArgs}
-                    onChange={(e) => setToolArgs(e.target.value)}
-                    placeholder='{"expression": "2 + 2"}'
-                    className="min-h-[100px] font-mono"
-                  />
+                  <CodeEditor language="json" onChange={setToolArgs} heightClass="h-[150px]"
+                    value={toolArgs} editorProps={{placeholder: '{"expression": "2 + 2"}'}}/>
                 </div>
 
                 <div className="flex items-center gap-2">

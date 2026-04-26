@@ -18,6 +18,7 @@ import {Badge} from '@/components/ui/Badge';
 import {Input} from '@/components/ui/Input';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {callTool, type CallToolResult, listTools, type ToolDefinition, type ToolsCallRequest} from '@/lib/api';
+import JsonViewer from '@/components/ui/JsonViewer';
 
 interface ToolInfo extends ToolDefinition {
   category?: string;
@@ -444,7 +445,7 @@ export function MCPTools() {
                       <Card className="border-dashed">
                         <CardContent className="p-4 bg-muted/30">
                           <pre className="text-xs font-mono overflow-x-auto">
-                            {formatJSON(selectedTool.inputSchema)}
+                            <JsonViewer value={selectedTool.inputSchema}/>
                           </pre>
                         </CardContent>
                       </Card>
@@ -561,7 +562,7 @@ export function MCPTools() {
                           <Card className="border-dashed">
                             <CardContent className="p-4 bg-muted/30">
                               <pre className="text-xs font-mono overflow-x-auto">
-                                {formatJSON(callResult)}
+                                <JsonViewer value={callResult}/>
                               </pre>
                             </CardContent>
                           </Card>

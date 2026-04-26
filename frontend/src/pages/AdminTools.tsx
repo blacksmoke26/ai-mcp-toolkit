@@ -36,6 +36,7 @@ import {
   type ToolSummary,
   updateTool,
 } from '@/lib/api';
+import JsonViewer from '@/components/ui/JsonViewer';
 
 /**
  * AdminTools component displays a list of tools with filtering and search capabilities.
@@ -664,7 +665,7 @@ export function AdminTools() {
                       <Card className="border-dashed bg-muted/30">
                         <CardContent className="p-4">
                           <pre className="text-xs font-mono overflow-x-auto max-h-64">
-                            {formatJSON(selectedTool.inputSchema)}
+                            <JsonViewer value={selectedTool.inputSchema}/>
                           </pre>
                         </CardContent>
                       </Card>

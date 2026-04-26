@@ -28,6 +28,7 @@ import {Card, CardContent, CardHeader, CardTitle, CardDescription} from '@/compo
 import {Badge} from '@/components/ui/Badge';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {Button} from '@/components/ui/Button';
+import JsonViewer from '@/components/ui/JsonViewer';
 import {
   getMcpInfo,
   listTools,
@@ -541,15 +542,13 @@ export default function MCPInfo() {
             </ul>
 
             <h4>Request/Response Format</h4>
-            <p>All MCP communication uses JSON-RPC 2.0 format:</p>
-            <pre className="bg-muted p-3 rounded-md overflow-x-auto">
-{`{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "tools/list",
-  "params": {}
-}`}
-            </pre>
+            <p className="mb-2">All MCP communication uses JSON-RPC 2.0 format:</p>
+            <JsonViewer value={{
+              'jsonrpc': '2.0',
+              'id': 1,
+              'method': 'tools/list',
+              'params': {},
+            }}/>
           </div>
         </CardContent>
       </Card>

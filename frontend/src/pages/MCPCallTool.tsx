@@ -18,6 +18,7 @@ import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {Input} from '@/components/ui/Input';
 import {Textarea} from '@/components/ui/Textarea';
 import {callTool, type CallToolResult, listTools, type ToolDefinition, type ToolsCallRequest} from '@/lib/api';
+import JsonViewer from '@/components/ui/JsonViewer';
 
 interface ToolInput {
   name: string;
@@ -146,10 +147,6 @@ export function MCPCallTool() {
     setCallError(null);
     setSelectedTool(null);
     setExpandedTool(null);
-  };
-
-  const formatJSON = (obj: unknown): string => {
-    return JSON.stringify(obj, null, 2);
   };
 
   const getToolCategoryIcon = (category?: string) => {
@@ -547,7 +544,7 @@ export function MCPCallTool() {
                             <Badge variant="secondary">JSON</Badge>
                           </div>
                           <pre className="text-xs bg-background p-3 rounded overflow-x-auto max-h-[300px] overflow-y-auto">
-                            {formatJSON(callResult)}
+                            <JsonViewer value={callResult}/>
                           </pre>
                         </div>
                       </div>
@@ -575,17 +572,15 @@ export function MCPCallTool() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-lg border bg-muted/30 p-4">
               <h4 className="text-sm font-medium mb-2">Request Format</h4>
-              <pre className="text-xs bg-background p-3 rounded overflow-x-auto">
-{`{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "tools/call",
-  "params": {
-    "name": "${selectedTool?.name || 'tool-name'}",
-    "arguments": {}
-  }
-}`}
-              </pre>
+              <JsonViewer value={{
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                  "name": "${selectedTool?.name || 'tool-name'}",
+                  "arguments": {}
+                }
+              }}/>
             </div>
 
             <div className="rounded-lg border bg-muted/30 p-4">
