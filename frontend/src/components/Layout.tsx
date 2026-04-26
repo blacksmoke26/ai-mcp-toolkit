@@ -21,7 +21,7 @@ import {
   Zap,
   Info,
   LayoutList,
-  Blocks, PocketKnife, ServerCrash,
+  Blocks, PocketKnife, ServerCrash, Gauge,
 } from 'lucide-react';
 import {cn} from '@/lib/utils';
 import {Button} from './ui/Button';
@@ -74,6 +74,12 @@ const navSections: {
         href: '/info',
         icon: Server,
         description: 'Server capabilities and configuration',
+      },
+      {
+        label: 'Performance',
+        href: '/performance',
+        icon: Gauge,
+        description: 'Real-time metrics and system monitoring',
       },
     ],
   },
