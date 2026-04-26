@@ -1521,3 +1521,102 @@ export interface MCPServerTemplatesResponse {
   /** Template list */
   templates: MCPServerTemplate[];
 }
+
+// ============================================
+// Metrics Trends API Types
+// ============================================
+
+export interface MetricsTrendsResponse {
+  /** Time period information */
+  period: {
+    /** Duration in hours */
+    lengthHours: number;
+    /** Current period timestamps */
+    current: {
+      start: string;
+      end: string;
+    };
+    /** Previous period timestamps */
+    previous: {
+      start: string;
+      end: string;
+    };
+  };
+  /** Comparison between current and previous periods */
+  comparison: {
+    requests: {
+      current: number;
+      previous: number;
+      changePercent: number;
+    };
+    errors: {
+      current: number;
+      previous: number;
+      changePercent: number;
+    };
+    latency: {
+      current: number;
+      previous: number;
+      changePercent: number;
+    };
+  };
+}
+
+// ============================================
+// Metrics Anomalies API Types
+// ============================================
+
+export interface MetricsAnomaliesResponse {
+  /** Analysis statistics */
+  analysis: {
+    /** Mean latency in milliseconds */
+    meanLatencyMs: number;
+    /** Standard deviation */
+    standardDeviation: number;
+    /** Z-score threshold used */
+    threshold: number;
+  };
+  /** Number of anomalies detected */
+  count: number;
+  /** List of detected anomalies */
+  anomalies: Array<{
+    /** Timestamp of the anomaly */
+    timestamp: string;
+    /** Request path */
+    path: string;
+    /** HTTP method */
+    method: string;
+    /** Latency in milliseconds */
+    latencyMs: number;
+    /** Z-score */
+    zScore: number;
+  }>;
+}
+
+// ============================================
+// Deep Health Check API Types
+// ============================================
+
+export interface DeepHealthCheckResponse {
+  /** Overall health status */
+  status: 'healthy' | 'degraded' | 'unhealthy';
+  /** Overall health score (0-100) */
+  score: number;
+  /** Score breakdown */
+  breakdown: {
+    system: {
+      score: number;
+      memUsagePercent: number;
+    };
+    providers: {
+      score: number;
+      total: number;
+    };
+    stability: {
+      score: number;
+      errorRate: number;
+    };
+  };
+  /** Timestamp of the check */
+  timestamp: string;
+}
