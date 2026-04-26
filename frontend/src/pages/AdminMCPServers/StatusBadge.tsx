@@ -7,12 +7,13 @@
 import React from 'react';
 import {AlertCircle, Check, Loader2, Square} from 'lucide-react';
 import {Badge} from '@/components/ui/Badge';
+import type {MCPServerStatus} from '@/types/api';
 /**
  * Props for the StatusBadge component.
  */
 export interface StatusBadgeProps {
   /** The connection status to display. */
-  status: 'connected' | 'connecting' | 'disconnected' | 'error';
+  status: MCPServerStatus;
 }
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({status}) => {

@@ -428,7 +428,18 @@ const TemplateDialog: React.FC<TemplateDialogProps> = (props) => {
         </div>
 
         {/* ── Footer ─────────────────────────────────────────────── */}
-        <DialogFooter className="pt-2">
+        <DialogFooter className="pt-2 flex justify-between">
+          <p>
+            <a
+              href="https://registry.modelcontextprotocol.io/"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-[13px] mt-2 mr-4 font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Browse more servers
+            </a>
+          </p>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Close
           </Button>

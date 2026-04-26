@@ -4,9 +4,9 @@
  * @see https://github.com/blacksmoke26
  */
 
-import type {MCPServerResponse} from '@/types/api.ts';
+import type {MCPServerResponse, MCPServerHealthResponse, MCPServerStatus} from '@/types/api.ts';
 import React, {useEffect, useState} from 'react';
-import {testMCPServerConnection} from '@/lib/api.ts';
+import {getMCPServerHealth} from '@/lib/api.ts';
 import {
   Dialog,
   DialogContent,
@@ -45,21 +45,24 @@ export interface HealthDialogProps {
 
 const HealthDialog: React.FC<HealthDialogProps> = ({open, onOpenChange, server}) => {
   const [checking, setChecking] = useState<boolean>(false);
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string; status?: string } | null>(null);
+  const [healthResult, setHealthResult] = useState<MCPServerHealthResponse | null>(null);
 
   const runHealthCheck = async () => {
     if (!server) return;
 
     setChecking(true);
-    setTestResult(null);
+    setHealthResult(null);
 
     try {
-      const result = await testMCPServerConnection(server.id);
-      setTestResult(result);
+      const result = await getMCPServerHealth(server.id);
+      setHealthResult(result);
     } catch (err) {
-      setTestResult({
-        success: false,
-        message: err instanceof Error ? err.message : 'Health check failed',
+      setHealthResult({
+        id: server.id,
+        name: server.name,
+        status: 'unknown',
+        connectionStatus: server.status,
+        checkedAt: new Date(),
       });
     } finally {
       setChecking(false);
@@ -75,6 +78,9 @@ const HealthDialog: React.FC<HealthDialogProps> = ({open, onOpenChange, server})
 
   if (!server) return null;
 
+  const healthStatus: string = healthResult?.status || 'unknown';
+  const healthColor = healthStatus === 'healthy' ? 'text-green-500' : healthStatus === 'unhealthy' ? 'text-red-500' : 'text-gray-500';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
@@ -84,7 +90,7 @@ const HealthDialog: React.FC<HealthDialogProps> = ({open, onOpenChange, server})
             Server Health Check
           </DialogTitle>
           <DialogDescription>
-            Testing connectivity for {server.displayName}
+            Health status for {server.displayName}
           </DialogDescription>
         </DialogHeader>
 
@@ -98,7 +104,9 @@ const HealthDialog: React.FC<HealthDialogProps> = ({open, onOpenChange, server})
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Status:</span>
-                  <div className="mt-1"><StatusBadge status={server.status}/></div>
+                  <div className="mt-1">
+                    <StatusBadge status={server.status}/>
+                  </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Connections:</span>
@@ -127,23 +135,56 @@ const HealthDialog: React.FC<HealthDialogProps> = ({open, onOpenChange, server})
             </Alert>
           )}
 
-          {testResult && (
-            <Alert variant={testResult.success ? 'default' : 'destructive'}>
-              {testResult.success ? (
-                <Check className="h-4 w-4"/>
-              ) : (
-                <AlertCircle className="h-4 w-4"/>
-              )}
-              <AlertTitle>{testResult.success ? 'Success' : 'Failed'}</AlertTitle>
-              <AlertDescription>
-                {testResult.message}
-                {testResult.status && (
-                  <div className="mt-2">
-                    <StatusBadge status={testResult.status}/>
-                  </div>
+          {healthResult && (
+            <>
+              <Alert variant={healthStatus === 'healthy' ? 'default' : healthStatus === 'unhealthy' ? 'destructive' : 'default'}>
+                {healthStatus === 'healthy' ? (
+                  <Check className="h-4 w-4"/>
+                ) : healthStatus === 'unhealthy' ? (
+                  <AlertCircle className="h-4 w-4"/>
+                ) : (
+                  <Activity className="h-4 w-4"/>
                 )}
-              </AlertDescription>
-            </Alert>
+                <AlertTitle className={healthColor}>{healthStatus.charAt(0).toUpperCase() + healthStatus.slice(1)}</AlertTitle>
+                <AlertDescription>
+                  {healthStatus === 'healthy' && 'Server is responding normally'}
+                  {healthStatus === 'unhealthy' && 'Server is experiencing issues'}
+                  {healthStatus === 'unknown' && 'Unable to determine health status'}
+                  {healthResult.lastError && (
+                    <div className="mt-2 text-destructive">{healthResult.lastError}</div>
+                  )}
+                  <div className="mt-2 flex items-center gap-4 text-xs">
+                    {healthResult.uptime && (
+                      <span>
+                        <strong>Uptime:</strong> {Math.floor(healthResult.uptime / 3600)}h {Math.floor((healthResult.uptime % 3600) / 60)}m {healthResult.uptime % 60}s
+                      </span>
+                    )}
+                    <span>
+                      <strong>Checked:</strong> {new Date(healthResult.checkedAt).toLocaleString()}
+                    </span>
+                  </div>
+                </AlertDescription>
+              </Alert>
+
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Connection Status:</span>
+                      <div className="mt-1">
+                        <StatusBadge status={healthResult.connectionStatus as MCPServerStatus}/>
+                      </div>
+                    </div>
+                    {healthResult.uptime && (
+                      <div>
+                        <span className="text-muted-foreground">Uptime:</span>
+                        <div className="mt-1 font-medium">{Math.floor(healthResult.uptime / 60)}m {healthResult.uptime % 60}s</div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
 
@@ -154,7 +195,7 @@ const HealthDialog: React.FC<HealthDialogProps> = ({open, onOpenChange, server})
           {!checking && (
             <Button onClick={runHealthCheck} variant="secondary">
               <RefreshCw className="w-4 h-4 mr-2"/>
-              Re-run Test
+              Refresh Health
             </Button>
           )}
         </DialogFooter>

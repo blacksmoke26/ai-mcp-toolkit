@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
-import {AlertCircle, Check, Loader2, Plus, Server, Wrench} from 'lucide-react';
+import {AlertCircle, ArrowDown, Check, Loader2, Plus, Server, Wrench} from 'lucide-react';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {Label} from '@/components/ui/Label';
 import {Input} from '@/components/ui/Input';
@@ -193,6 +193,22 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
       }
     }
 
+    // Validate minimum values
+    if (timedOut < 1000) {
+      setError('Timeout must be at least 1000ms');
+      return false;
+    }
+
+    if (reconnectDelay < 100) {
+      setError('Reconnect delay must be at least 100ms');
+      return false;
+    }
+
+    if (maxReconnectAttempts < -1) {
+      setError('Max reconnect attempts must be at least -1 (-1 means unlimited)');
+      return false;
+    }
+
     // Validate JSON fields
     try {
       JSON.parse(args);
@@ -242,10 +258,10 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
         description,
         type,
         command: type === 'stdio' ? command : undefined,
-        args: JSON.parse(args),
-        env: JSON.parse(env),
+        args: type === 'stdio' ? JSON.parse(args) : undefined,
+        env: type === 'stdio' ? JSON.parse(env) : undefined,
         url: type === 'sse' || type === 'streamable-http' ? url : undefined,
-        headers: JSON.parse(headers),
+        headers: type === 'sse' || type === 'streamable-http' ? JSON.parse(headers) : undefined,
         enabled,
         timeout: timedOut,
         autoReconnect,
@@ -387,6 +403,7 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
                 <span className="cursor-pointer">
                   Transport Type: <span
                   className="text-amber-700">{type === 'stdio' ? 'Stdio' : type === 'sse' ? 'SSE' : 'HTTP'}</span>
+                  <ArrowDown width="16" className="relative inline top-[-2px] ml-[2px]"/>
                 </span>
               )}
               side="bottom"

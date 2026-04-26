@@ -36,6 +36,9 @@ import {
   Server,
   ServerCrash,
   Square,
+  TestTube,
+  ChevronDown,
+  ChevronUp,
   ToggleLeft,
   ToggleRight,
   Trash2,
@@ -48,6 +51,7 @@ import {
   restartMCPServer,
   startMCPServer,
   stopMCPServer,
+  testMCPServerConnection,
   updateMCPServer,
 } from '@/lib/api';
 import * as Select from '@radix-ui/react-select';
@@ -62,236 +66,306 @@ import StatusBadge from './StatusBadge';
 import CreateEditDialog from './CreateEditDialog';
 import TemplateDialog from './TemplateDialog';
 import HealthDialog from './HealthDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
 
 /**
  * Main AdminMCPServers page component.
  */
- const AdminMCPServers: React.FC = () => {
-   /** List of all MCP servers */
-   const [servers, setServers] = useState<MCPServerResponse[]>([]);
-   /** Loading state for data fetching */
-   const [loading, setLoading] = useState<boolean>(true);
-   /** Error message string */
-   const [error, setError] = useState<string>('');
-   /** Success message string */
-   const [successMessage, setSuccessMessage] = useState<string>('');
+const AdminMCPServers: React.FC = () => {
+  /** Full API response containing pagination and servers */
+  const [listResponse, setListResponse] = useState<{
+    servers: MCPServerResponse[];
+    pagination?: { total: number; page: number; limit: number; totalPages: number }
+  } | null>(null);
+  /** Loading state for data fetching */
+  const [loading, setLoading] = useState<boolean>(true);
+  /** Error message string */
+  const [error, setError] = useState<string>('');
+  /** Success message string */
+  const [successMessage, setSuccessMessage] = useState<string>('');
 
-   // Search and filter
-   /** Current search query string */
-   const [searchQuery, setSearchQuery] = useState<string>('');
-   /** Current status filter value */
-   const [statusFilter, setStatusFilter] = useState<string>('all');
-   /** Current enabled/disabled filter value */
-   const [enabledFilter, setEnabledFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
+  // Search and filter
+  /** Current search query string */
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  /** Current status filter value */
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  /** Current enabled/disabled filter value */
+  const [enabledFilter, setEnabledFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
 
-   // Dialogs
-   /** Controls visibility of the Create Server dialog */
-   const [createDialogOpen, setCreateDialogOpen] = useState<boolean>(false);
-   /** Controls visibility of the Edit Server dialog */
-   const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
-   /** Controls visibility of the Template Selection dialog */
-   const [templateDialogOpen, setTemplateDialogOpen] = useState<boolean>(false);
-   /** Controls visibility of the Health Check dialog */
-   const [healthDialogOpen, setHealthDialogOpen] = useState<boolean>(false);
-   /** Data for the selected template to be applied */
-   const [templateData, setTemplateData] = useState<MCPServerTemplate | null>(null);
+  // Dialogs
+  /** Controls visibility of the Create Server dialog */
+  const [createDialogOpen, setCreateDialogOpen] = useState<boolean>(false);
+  /** Controls visibility of the Edit Server dialog */
+  const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
+  /** Controls visibility of the Template Selection dialog */
+  const [templateDialogOpen, setTemplateDialogOpen] = useState<boolean>(false);
+  /** Controls visibility of the Health Check dialog */
+  const [healthDialogOpen, setHealthDialogOpen] = useState<boolean>(false);
+  /** Data for the selected template to be applied */
+  const [templateData, setTemplateData] = useState<MCPServerTemplate | null>(null);
 
-   // Selected server for operations
-   /** The server currently selected for editing or viewing details */
-   const [selectedServer, setSelectedServer] = useState<MCPServerResponse | null>(null);
+  // Selected server for operations
+  /** The server currently selected for editing or viewing details */
+  const [selectedServer, setSelectedServer] = useState<MCPServerResponse | null>(null);
 
-   // Operation states
-   /** ID of the server currently undergoing a start/stop/restart operation */
-   const [operatingServerId, setOperatingServerId] = useState<number | null>(null);
-   /** ID of the server currently being deleted */
-   const [deletingServerId, setDeletingServerId] = useState<number | null>(null);
+  // Pagination state
+  /** Current page number for server list pagination */
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  /** Number of items per page */
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
 
-   // Fetch servers
-   /** Fetches the list of servers from the API */
-   const fetchServers = useCallback(async (): Promise<void> => {
-     setLoading(true);
-     setError('');
-     try {
-       const response = await listMCPServers();
-       setServers(response.servers || []);
-     } catch (err) {
-       setError(err instanceof Error ? err.message : 'Failed to load servers');
-     } finally {
-       setLoading(false);
-     }
-   }, []);
+  // Operation states
+  /** ID of the server currently undergoing a start/stop/restart operation */
+  const [operatingServerId, setOperatingServerId] = useState<number | null>(null);
+  /** ID of the server currently being deleted */
+  const [deletingServerId, setDeletingServerId] = useState<number | null>(null);
+  /** ID of the server currently being tested */
+  const [testingServerId, setTestingServerId] = useState<number | null>(null);
+  /** Test result for the currently tested server */
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    message: string;
+    status?: string;
+    lastError?: string
+  } | null>(null);
+  /** ID of the server whose details are expanded */
+  const [expandedServerId, setExpandedServerId] = useState<number | null>(null);
+  /** Controls visibility of the test result dialog */
+  const [testDialogOpen, setTestDialogOpen] = useState<boolean>(false);
 
-   useEffect(() => {
-     fetchServers();
+  // Fetch servers
+  /** Fetches the list of servers from the API */
+  const fetchServers = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setError('');
+    try {
+      const response = await listMCPServers({
+        page: currentPage,
+        limit: itemsPerPage,
+        enabled: enabledFilter === 'enabled' ? true : enabledFilter === 'disabled' ? false : undefined,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        search: searchQuery || undefined,
+      });
+      setListResponse({
+        servers: response.servers || [],
+        pagination: response.pagination,
+      });
+      // Reset test result when data changes
+      setTestResult(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load servers');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, itemsPerPage, enabledFilter, statusFilter, searchQuery]);
 
-     // Auto-refresh every 5 seconds
-     const interval: NodeJS.Timeout = setInterval(fetchServers, 5000);
-     return () => clearInterval(interval);
-   }, [fetchServers]);
+  useEffect(() => {
+    fetchServers();
 
-   // Filter servers
-   /** List of servers filtered by search query, status, and enabled state */
-   const filteredServers: MCPServerResponse[] = servers.filter((server: MCPServerResponse) => {
-     const matchesSearch: boolean = !searchQuery ||
-       server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       server.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       server.description.toLowerCase().includes(searchQuery.toLowerCase());
+    // Auto-refresh every 5 seconds
+    const interval: NodeJS.Timeout = setInterval(fetchServers, 5000);
+    return () => clearInterval(interval);
+  }, [fetchServers]);
 
-     const matchesStatus: boolean = statusFilter === 'all' || server.status === statusFilter;
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [enabledFilter, statusFilter, searchQuery]);
 
-     const matchesEnabled: boolean = enabledFilter === 'all' ||
-       (enabledFilter === 'enabled' && server.enabled) ||
-       (enabledFilter === 'disabled' && !server.enabled);
+  // Statistics from backend pagination
+  const currentServers = listResponse?.servers || [];
+  const paginationInfo = listResponse?.pagination;
 
-     return matchesSearch && matchesStatus && matchesEnabled;
-   });
+  /** Total count of servers from backend */
+  const totalServers: number = paginationInfo?.total || 0;
+  /** Count of connected servers */
+  const connectedServers: number = currentServers.filter((s: MCPServerResponse) => s.status === 'connected').length;
+  /** Count of disconnected servers */
+  const disconnectedServers: number = currentServers.filter((s: MCPServerResponse) => s.status === 'disconnected').length;
+  /** Count of servers in error state */
+  const errorServers: number = currentServers.filter((s: MCPServerResponse) => s.status === 'error').length;
 
-   // Statistics
-   /** Total count of servers */
-   const totalServers: number = servers.length;
-   /** Count of connected servers */
-   const connectedServers: number = servers.filter((s: MCPServerResponse) => s.status === 'connected').length;
-   /** Count of disconnected servers */
-   const disconnectedServers: number = servers.filter((s: MCPServerResponse) => s.status === 'disconnected').length;
-   /** Count of servers in error state */
-   const errorServers: number = servers.filter((s: MCPServerResponse) => s.status === 'error').length;
+  // Pagination info
+  const totalPages: number = totalServers > 0 ? Math.ceil(totalServers / itemsPerPage) : 0;
+  const currentPageNum = paginationInfo?.page || 1;
 
-   // Handlers
-   /** Opens the create server dialog */
-   const handleCreate = (): void => {
-     setTemplateData(null);
-     setCreateDialogOpen(true);
-   };
+  // Handle page change
+  const handlePageChange = (page: number): void => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
-   /** Opens the edit server dialog for a specific server */
-   const handleEdit = (server: MCPServerResponse): void => {
-     setSelectedServer(server);
-     setEditDialogOpen(true);
-   };
+  // Handlers
+  /** Opens the create server dialog */
+  const handleCreate = (): void => {
+    setTemplateData(null);
+    setCreateDialogOpen(true);
+  };
 
-   /** Handles selection of a template and opens the create dialog with pre-filled data */
-   const handleSelectTemplate = (template: MCPServerTemplate): void => {
-     setTemplateData(template);
-     setTemplateDialogOpen(false);
-     setCreateDialogOpen(true);
-   };
+  /** Opens the edit server dialog for a specific server */
+  const handleEdit = (server: MCPServerResponse): void => {
+    setSelectedServer(server);
+    setEditDialogOpen(true);
+  };
 
-   /** Handles saving (creating or updating) a server configuration */
-   const handleSave = async (data: UpdateMCPServerRequest): Promise<void> => {
-     if (editDialogOpen && selectedServer) {
-       // Update existing
-       const updateData: Partial<UpdateMCPServerRequest> = {
-         displayName: data.displayName,
-         description: data.description,
-         type: data.type,
-         command: data.command,
-         args: data.args,
-         env: data.env,
-         url: data.url,
-         headers: data.headers,
-         timeout: data.timeout,
-         autoReconnect: data.autoReconnect,
-         maxReconnectAttempts: data.maxReconnectAttempts,
-         reconnectDelay: data.reconnectDelay,
-         settings: data.settings,
-       };
-       await updateMCPServer(selectedServer.id, updateData as UpdateMCPServerRequest);
-       setEditDialogOpen(false);
-       setSelectedServer(null);
-       setSuccessMessage('Server updated successfully');
-     } else {
-       // Create new
-       await createMCPServer(data as CreateMCPServerRequest);
-       setCreateDialogOpen(false);
-       setSuccessMessage('Server created successfully');
-     }
-     fetchServers();
+  /** Handles selection of a template and opens the create dialog with pre-filled data */
+  const handleSelectTemplate = (template: MCPServerTemplate): void => {
+    setTemplateData(template);
+    setTemplateDialogOpen(false);
+    setCreateDialogOpen(true);
+  };
 
-     setTimeout(() => setSuccessMessage(''), 3000);
-   };
+  /** Handles saving (creating or updating) a server configuration */
+  const handleSave = async (data: UpdateMCPServerRequest): Promise<void> => {
+    if (editDialogOpen && selectedServer) {
+      // Update existing
+      const updateData: Partial<UpdateMCPServerRequest> = {
+        displayName: data.displayName,
+        description: data.description,
+        type: data.type,
+        command: data.command,
+        args: data.args,
+        env: data.env,
+        url: data.url,
+        headers: data.headers,
+        timeout: data.timeout,
+        autoReconnect: data.autoReconnect,
+        maxReconnectAttempts: data.maxReconnectAttempts,
+        reconnectDelay: data.reconnectDelay,
+        settings: data.settings,
+      };
+      await updateMCPServer(selectedServer.id, updateData as UpdateMCPServerRequest);
+      setEditDialogOpen(false);
+      setSelectedServer(null);
+      setSuccessMessage('Server updated successfully');
+    } else {
+      // Create new
+      await createMCPServer(data as CreateMCPServerRequest);
+      setCreateDialogOpen(false);
+      setSuccessMessage('Server created successfully');
+    }
+    fetchServers();
 
-   /** Handles starting a server connection */
-   const handleStart = async (server: MCPServerResponse): Promise<void> => {
-     setOperatingServerId(server.id);
-     try {
-       await startMCPServer(server.id);
-       setSuccessMessage(`Started ${server.displayName}`);
-     } catch (err) {
-       setError(err instanceof Error ? err.message : 'Failed to start server');
-     } finally {
-       setOperatingServerId(null);
-       setTimeout(() => setSuccessMessage(''), 3000);
-       fetchServers();
-     }
-   };
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
 
-   /** Handles stopping a server connection */
-   const handleStop = async (server: MCPServerResponse): Promise<void> => {
-     setOperatingServerId(server.id);
-     try {
-       await stopMCPServer(server.id);
-       setSuccessMessage(`Stopped ${server.displayName}`);
-     } catch (err) {
-       setError(err instanceof Error ? err.message : 'Failed to stop server');
-     } finally {
-       setOperatingServerId(null);
-       setTimeout(() => setSuccessMessage(''), 3000);
-       fetchServers();
-     }
-   };
+  /** Handles testing server connectivity */
+  const handleTestConnection = async (server: MCPServerResponse): Promise<void> => {
+    setTestingServerId(server.id);
+    setTestResult(null);
+    try {
+      const result = await testMCPServerConnection(server.id);
+      setTestResult({
+        success: result.success,
+        message: result.message,
+        status: result.status,
+        lastError: result.lastError,
+      });
+      setTestDialogOpen(true);
+      setSuccessMessage(`Test ${result.success ? 'successful' : 'failed'} for ${server.displayName}`);
+    } catch (err) {
+      setTestResult({
+        success: false,
+        message: err instanceof Error ? err.message : 'Test failed',
+      });
+      setTestDialogOpen(true);
+      setError(`Test failed for ${server.displayName}`);
+    } finally {
+      setTestingServerId(null);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    }
+  };
 
-   /** Handles restarting a server connection */
-   const handleRestart = async (server: MCPServerResponse): Promise<void> => {
-     setOperatingServerId(server.id);
-     try {
-       await restartMCPServer(server.id);
-       setSuccessMessage(`Restarted ${server.displayName}`);
-     } catch (err) {
-       setError(err instanceof Error ? err.message : 'Failed to restart server');
-     } finally {
-       setOperatingServerId(null);
-       setTimeout(() => setSuccessMessage(''), 3000);
-     }
-   };
+  /** Handles starting a server connection */
+  const handleStart = async (server: MCPServerResponse): Promise<void> => {
+    setOperatingServerId(server.id);
+    try {
+      await startMCPServer(server.id);
+      setSuccessMessage(`Started ${server.displayName}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start server');
+    } finally {
+      setOperatingServerId(null);
+      setTimeout(() => setSuccessMessage(''), 3000);
+      fetchServers();
+    }
+  };
 
-   /** Handles deleting a server */
-   const handleDelete = async (server: MCPServerResponse): Promise<void> => {
-     if (!confirm(`Are you sure you want to delete "${server.displayName}"?`)) {
-       return;
-     }
+  /** Handles stopping a server connection */
+  const handleStop = async (server: MCPServerResponse): Promise<void> => {
+    setOperatingServerId(server.id);
+    try {
+      await stopMCPServer(server.id);
+      setSuccessMessage(`Stopped ${server.displayName}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to stop server');
+    } finally {
+      setOperatingServerId(null);
+      setTimeout(() => setSuccessMessage(''), 3000);
+      fetchServers();
+    }
+  };
 
-     setDeletingServerId(server.id);
-     try {
-       await deleteMCPServer(server.id);
-       setSuccessMessage(`Deleted ${server.displayName}`);
-     } catch (err) {
-       setError(err instanceof Error ? err.message : 'Failed to delete server');
-     } finally {
-       setDeletingServerId(null);
-       setTimeout(() => setSuccessMessage(''), 3000);
-       fetchServers();
-     }
-   };
+  /** Handles restarting a server connection */
+  const handleRestart = async (server: MCPServerResponse): Promise<void> => {
+    setOperatingServerId(server.id);
+    try {
+      await restartMCPServer(server.id);
+      setSuccessMessage(`Restarted ${server.displayName}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to restart server');
+    } finally {
+      setOperatingServerId(null);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    }
+  };
 
-   /** Opens the health check dialog for a specific server */
-   const handleHealthCheck = (server: MCPServerResponse): void => {
-     setSelectedServer(server);
-     setHealthDialogOpen(true);
-   };
+  /** Handles deleting a server */
+  const handleDelete = async (server: MCPServerResponse): Promise<void> => {
+    if (!confirm(`Are you sure you want to delete "${server.displayName}"?`)) {
+      return;
+    }
 
-   /** Handles toggling the enabled state of a server */
-   const handleEnableToggle = async (server: MCPServerResponse): Promise<void> => {
-     try {
-       const updateData = {enabled: !server.enabled} as UpdateMCPServerRequest;
-       await updateMCPServer(server.id, updateData);
-       setSuccessMessage(`${!server.enabled ? 'Enabled' : 'Disabled'} ${server.displayName}`);
-     } catch (err) {
-       setError(err instanceof Error ? err.message : 'Failed to toggle server');
-     } finally {
-       setTimeout(() => setSuccessMessage(''), 3000);
-       fetchServers();
-     }
-   };
+    setDeletingServerId(server.id);
+    try {
+      await deleteMCPServer(server.id);
+      setSuccessMessage(`Deleted ${server.displayName}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete server');
+    } finally {
+      setDeletingServerId(null);
+      setTimeout(() => setSuccessMessage(''), 3000);
+      fetchServers();
+    }
+  };
+
+  /** Opens the health check dialog for a specific server */
+  const handleHealthCheck = (server: MCPServerResponse): void => {
+    setSelectedServer(server);
+    setHealthDialogOpen(true);
+  };
+
+  /** Handles toggling the enabled state of a server */
+  const handleEnableToggle = async (server: MCPServerResponse): Promise<void> => {
+    try {
+      const updateData = {enabled: !server.enabled} as UpdateMCPServerRequest;
+      await updateMCPServer(server.id, updateData);
+      setSuccessMessage(`${!server.enabled ? 'Enabled' : 'Disabled'} ${server.displayName}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to toggle server');
+    } finally {
+      setTimeout(() => setSuccessMessage(''), 3000);
+      fetchServers();
+    }
+  };
 
   return (
     <TooltipProvider>
@@ -425,7 +499,7 @@ import HealthDialog from './HealthDialog';
           <div className="flex justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin"/>
           </div>
-        ) : filteredServers.length === 0 ? (
+        ) : currentServers.length === 0 ? (
           <Card>
             <CardContent className="text-center py-12">
               <Server className="w-12 h-12 mx-auto text-muted-foreground mb-4"/>
@@ -439,7 +513,7 @@ import HealthDialog from './HealthDialog';
           </Card>
         ) : (
           <div className="grid gap-4">
-            {filteredServers.map((server) => (
+            {currentServers.map((server) => (
               <Card key={server.id} className={server.enabled ? '' : 'opacity-50'}>
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
@@ -552,6 +626,27 @@ import HealthDialog from './HealthDialog';
                         </Tooltip>
                       </TooltipProvider>
 
+                      {/* Test Connectivity Button */}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleTestConnection(server)}
+                              disabled={testingServerId === server.id}
+                            >
+                              {testingServerId === server.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin"/>
+                              ) : (
+                                <TestTube className="w-4 h-4"/>
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Test Connectivity</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
                       {/* Health Check Button */}
                       <TooltipProvider>
                         <Tooltip>
@@ -565,6 +660,26 @@ import HealthDialog from './HealthDialog';
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Health Check</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+
+                      {/* Expand Details Button */}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setExpandedServerId(expandedServerId === server.id ? null : server.id)}
+                            >
+                              {expandedServerId === server.id ? (
+                                <ChevronUp className="w-4 h-4"/>
+                              ) : (
+                                <ChevronDown className="w-4 h-4"/>
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>{expandedServerId === server.id ? 'Collapse' : 'Expand'}</TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
 
@@ -637,6 +752,88 @@ import HealthDialog from './HealthDialog';
                     )}
                   </div>
 
+                  {/* Expandable Details Section */}
+                  {expandedServerId === server.id && (
+                    <div className="mt-4 space-y-3">
+                      <div className="text-sm font-semibold text-muted-foreground">Configuration Details</div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Timeout:</span>
+                          <div className="font-medium">{server.timeout}ms</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Auto Reconnect:</span>
+                          <div className="font-medium">{server.autoReconnect ? 'Yes' : 'No'}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Max Attempts:</span>
+                          <div
+                            className="font-medium">{server.maxReconnectAttempts === -1 ? '∞' : server.maxReconnectAttempts}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Reconnect Delay:</span>
+                          <div className="font-medium">{server.reconnectDelay}ms</div>
+                        </div>
+                        {server.url && (
+                          <div className="col-span-2">
+                            <span className="text-muted-foreground">URL:</span>
+                            <div className="font-medium break-all">{server.url}</div>
+                          </div>
+                        )}
+                        {server.command && (
+                          <div className="col-span-2">
+                            <span className="text-muted-foreground">Command:</span>
+                            <div className="font-medium break-all">{server.command}</div>
+                          </div>
+                        )}
+                        {server.version && (
+                          <div>
+                            <span className="text-muted-foreground">Version:</span>
+                            <div className="font-medium">{server.version}</div>
+                          </div>
+                        )}
+                        <div>
+                          <span className="text-muted-foreground">Created:</span>
+                          <div className="font-medium">{new Date(server.createdAt).toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Updated:</span>
+                          <div className="font-medium">{new Date(server.updatedAt).toLocaleString()}</div>
+                        </div>
+                      </div>
+                      {server.args && server.args.length > 0 && (
+                        <div>
+                          <span className="text-muted-foreground text-xs">Arguments:</span>
+                          <div
+                            className="font-mono text-xs bg-muted p-2 rounded mt-1">{JSON.stringify(server.args, null, 2)}</div>
+                        </div>
+                      )}
+                      {server.env && Object.keys(server.env).length > 0 && (
+                        <div>
+                          <span className="text-muted-foreground text-xs">Environment:</span>
+                          <div
+                            className="font-mono text-xs bg-muted p-2 rounded mt-1">{JSON.stringify(server.env, null, 2)}</div>
+                        </div>
+                      )}
+                      {server.headers && Object.keys(server.headers).length > 0 && (
+                        <div>
+                          <span className="text-muted-foreground text-xs">Headers:</span>
+                          <div
+                            className="font-mono text-xs bg-muted p-2 rounded mt-1">{JSON.stringify(server.headers, null, 2)}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Test Result Alert */}
+                  {testResult && testResult.lastError && (
+                    <Alert variant="destructive" className="mt-3">
+                      <AlertCircle className="h-4 w-4"/>
+                      <AlertTitle>Test Result</AlertTitle>
+                      <AlertDescription className="line-clamp-2">{testResult.message}</AlertDescription>
+                    </Alert>
+                  )}
+
                   {server.lastError && (
                     <Alert variant="destructive" className="mt-3">
                       <AlertCircle className="h-4 w-4"/>
@@ -647,6 +844,50 @@ import HealthDialog from './HealthDialog';
                 </CardContent>
               </Card>
             ))}
+
+            {/* Pagination UI */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-4">
+                <div className="text-sm text-muted-foreground">
+                  Page {currentPageNum} of {totalPages} ({totalServers} total servers)
+                </div>
+                <div className="flex items-center gap-2">
+                  <Select.Root
+                    value={String(itemsPerPage)}
+                    onValueChange={(v) => {
+                      setItemsPerPage(parseInt(v, 10));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <Select.Trigger className="w-[100px]">
+                      <Select.Value/>
+                    </Select.Trigger>
+                    <Select.Content>
+                      <Select.Item value="5">5 per page</Select.Item>
+                      <Select.Item value="10">10 per page</Select.Item>
+                      <Select.Item value="25">25 per page</Select.Item>
+                      <Select.Item value="50">50 per page</Select.Item>
+                    </Select.Content>
+                  </Select.Root>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPageNum - 1)}
+                    disabled={currentPageNum <= 1}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPageNum + 1)}
+                    disabled={currentPageNum >= totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -678,6 +919,55 @@ import HealthDialog from './HealthDialog';
           onOpenChange={setHealthDialogOpen}
           server={selectedServer}
         />
+
+        {/* Test Result Dialog */}
+        <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <TestTube className="w-5 h-5"/>
+                Connectivity Test Result
+              </DialogTitle>
+              <DialogDescription>
+                Test result for {currentServers.find(s => s.id === testingServerId)?.displayName || 'server'}
+              </DialogDescription>
+            </DialogHeader>
+
+            {testResult && (
+              <>
+                <Alert variant={testResult.success ? 'default' : 'destructive'}>
+                  {testResult.success ? (
+                    <Check className="h-4 w-4"/>
+                  ) : (
+                    <AlertCircle className="h-4 w-4"/>
+                  )}
+                  <AlertTitle>{testResult.success ? 'Successful' : 'Failed'}</AlertTitle>
+                  <AlertDescription>
+                    {testResult.message}
+                    {testResult.status && (
+                      <div className="mt-2">
+                        <StatusBadge
+                          status={testResult.status as 'connected' | 'connecting' | 'disconnected' | 'error'}/>
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+
+                {testResult.lastError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4"/>
+                    <AlertTitle>Error Details</AlertTitle>
+                    <AlertDescription>{testResult.lastError}</AlertDescription>
+                  </Alert>
+                )}
+              </>
+            )}
+
+            <DialogFooter>
+              <Button onClick={() => setTestDialogOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );
