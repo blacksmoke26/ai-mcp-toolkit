@@ -40,6 +40,7 @@ import {
   type SystemMetricsResponse,
 } from '@/lib/api';
 import type {DeepHealthCheckResponse, MetricsAnomaliesResponse, MetricsTrendsResponse} from '@/types/api';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
 
 /**
  * Props for the BarChart component.
@@ -238,7 +239,7 @@ export function PerformanceDashboard() {
   /** Error message string if any data fetch fails. */
   const [error, setError] = useState<string | null>(null);
   /** Flag indicating whether auto-refresh is enabled. */
-  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
   /** The time range in hours for which metrics are displayed. */
   const [hours, setHours] = useState<number>(1);
 
@@ -390,17 +391,21 @@ export function PerformanceDashboard() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Time Range:</span>
-            <select
-              value={hours}
-              onChange={(e) => setHours(Number(e.target.value))}
-              className="text-sm rounded-md border bg-background px-2 py-1"
+            <span className="block text-[11px] text-muted-foreground">Time Range:</span>
+            <Select
+              value={String(hours)}
+              onValueChange={x => setHours(Number(x))}
             >
-              <option value={1}>1 hour</option>
-              <option value={6}>6 hours</option>
-              <option value={12}>12 hours</option>
-              <option value={24}>24 hours</option>
-            </select>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Choose interval"/>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 hour</SelectItem>
+                <SelectItem value="6">6 hours</SelectItem>
+                <SelectItem value="12">12 hours</SelectItem>
+                <SelectItem value="24">24 hours</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <Button
             variant="outline"
