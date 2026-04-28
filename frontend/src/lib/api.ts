@@ -134,8 +134,8 @@ import type {
   MCPServerTestResponse,
   MCPServerTemplatesResponse, ProviderTestResponse, BatchToolUpdateRequest, BatchToolUpdateResponse,
   McpHealthResponse,
-} from '../types/api';
-import {DEFAULT_API_CONFIG} from '../types/api';
+} from '@/types/api';
+import {DEFAULT_API_CONFIG} from '@/types/api';
 
 // ====== Configuration ======
 
@@ -167,7 +167,7 @@ export async function request<T>(
   const timeoutValue = timeout ?? config.timeout;
   const controller = createTimeoutController(timeoutValue as number);
 
-  const newOptions: RequestInit & {noContentType?: boolean} = {
+  const newOptions: RequestInit & { noContentType?: boolean } = {
     noContentType: false,
     ...options,
     signal: controller.signal,
@@ -315,7 +315,7 @@ export async function getMcpHealth(): Promise<McpHealthResponse> {
 /**
  * Re-export for convenience
  */
-export type { McpHealthResponse } from '../types/api';
+export type {McpHealthResponse} from '@/types/api';
 
 // ====== MCP Debug Endpoint ======
 
@@ -348,7 +348,11 @@ export async function debugEcho(body: Record<string, unknown>): Promise<{
  */
 export async function sendMcpBatchRequests(
   rpcRequests: JsonRpcRequest[],
-): Promise<Array<{ error?: { code: number; message: string; data?: unknown } | null; result?: unknown; id: number | string | null }>> {
+): Promise<Array<{
+  error?: { code: number; message: string; data?: unknown } | null;
+  result?: unknown;
+  id: number | string | null
+}>> {
   const responses = await request<JsonRpcResponse[]>('/mcp', {
     method: 'POST',
     body: JSON.stringify(rpcRequests),
@@ -508,6 +512,7 @@ export async function listProviderModels(name: string): Promise<ModelsListRespon
 export async function testProviderConnection(name: string): Promise<ProviderTestResponse> {
   return request<ProviderTestResponse>(`/admin/providers/${encodeURIComponent(name)}/test`, {
     method: 'POST',
+    noContentType: true,
   });
 }
 
@@ -809,7 +814,7 @@ export async function getDeepHealthCheck(): Promise<DeepHealthCheckResponse> {
  * DELETE /metrics/clear - Clear all metrics (dev only)
  */
 export async function clearMetrics(): Promise<{ status: string; timestamp: string }> {
-  return request('/metrics/clear?confirm=yes', { method: 'DELETE' });
+  return request('/metrics/clear?confirm=yes', {method: 'DELETE'});
 }
 
 // ====== Simulation Endpoints ======
