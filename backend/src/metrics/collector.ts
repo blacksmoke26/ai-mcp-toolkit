@@ -1,34 +1,40 @@
 /**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
+/**
  * @module metrics/collector
  * @description Performance metrics collection and monitoring system.
- * 
+ *
  * Tracks:
  * - Request/response latency
  * - Tool execution metrics
  * - Token usage statistics
  * - Provider performance
  * - Error rates and patterns
- * 
+ *
  * ## Features
- * 
+ *
  * - Real-time metrics collection
  * - Time-series data for trend analysis
  * - Metric aggregation and summarization
  * - Export capabilities for external monitoring
- * 
+ *
  * ## Usage
- * 
+ *
  * ```typescript
  * import { metricsCollector } from '@/metrics/collector';
- * 
+ *
  * // Start timing a request
  * const request = metricsCollector.startRequest('chat');
- * 
+ *
  * // ... perform operation
- * 
+ *
  * // End timing with results
  * request.end({ tokens: { input: 50, output: 120 } });
- * 
+ *
  * // Get current metrics
  * const metrics = metricsCollector.getMetrics();
  * ```
@@ -145,7 +151,7 @@ export interface MetricsSummary {
     totalCalls: number;
     successRate: number;
     avgDurationMs: number;
-    byTool: Record<string, {
+    byTool?: Record<string, {
       calls: number;
       avgDurationMs: number;
       successRate: number;
@@ -162,6 +168,7 @@ export interface MetricsSummary {
   errors: {
     total: number;
     byType: Record<string, number>;
+    byTool: Record<string, number>;
     recent: ErrorMetric[];
   };
   /** Provider statistics */
@@ -274,12 +281,12 @@ class MetricsCollector {
   private addEntry(entry: MetricEntry): void {
     entry.id = `${entry.type}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     this.entries.unshift(entry);
-    
+
     // Trim old entries
     if (this.entries.length > this.maxEntries) {
       this.entries = this.entries.slice(0, this.maxEntries);
     }
-    
+
     // Remove entries older than retention period
     const cutoff = Date.now() - this.retentionMs;
     const validCount = this.entries.findIndex(e => e.timestamp.getTime() < cutoff);
@@ -306,7 +313,7 @@ class MetricsCollector {
    * Get entries within time range
    */
   getEntriesInRange(start: Date, end: Date): MetricEntry[] {
-    return this.entries.filter(e => 
+    return this.entries.filter(e =>
       e.timestamp >= start && e.timestamp <= end
     );
   }
@@ -323,12 +330,12 @@ class MetricsCollector {
     const requestEntries = entries
       .filter(e => e.type === 'request')
       .map(e => e.data as unknown as RequestMetric);
-    
+
     const durations = requestEntries.map(r => r.durationMs).sort((a, b) => a - b);
     const requests = {
       total: requestEntries.length,
-      avgLatencyMs: requestEntries.length > 0 
-        ? Math.round(requestEntries.reduce((s, r) => s + r.durationMs, 0) / requestEntries.length) 
+      avgLatencyMs: requestEntries.length > 0
+        ? Math.round(requestEntries.reduce((s, r) => s + r.durationMs, 0) / requestEntries.length)
         : 0,
       p50LatencyMs: durations.length > 0 ? durations[Math.floor(durations.length * 0.5)] : 0,
       p95LatencyMs: durations.length > 0 ? durations[Math.floor(durations.length * 0.95)] : 0,
@@ -341,7 +348,7 @@ class MetricsCollector {
     const toolEntries = entries
       .filter(e => e.type === 'tool')
       .map(e => e.data as unknown as ToolMetric);
-    
+
     const toolStats: Record<string, { calls: number; durations: number[]; successes: number }> = {};
     for (const tool of toolEntries) {
       if (!toolStats[tool.toolName]) {
@@ -354,11 +361,11 @@ class MetricsCollector {
 
     const tools = {
       totalCalls: toolEntries.length,
-      successRate: toolEntries.length > 0 
-        ? Math.round((toolEntries.filter(t => t.success).length / toolEntries.length) * 100) 
+      successRate: toolEntries.length > 0
+        ? Math.round((toolEntries.filter(t => t.success).length / toolEntries.length) * 100)
         : 0,
-      avgDurationMs: toolEntries.length > 0 
-        ? Math.round(toolEntries.reduce((s, t) => s + t.durationMs, 0) / toolEntries.length) 
+      avgDurationMs: toolEntries.length > 0
+        ? Math.round(toolEntries.reduce((s, t) => s + t.durationMs, 0) / toolEntries.length)
         : 0,
       byTool: Object.fromEntries(
         Object.entries(toolStats).map(([name, stats]) => [
@@ -376,7 +383,7 @@ class MetricsCollector {
     const tokenEntries = entries
       .filter(e => e.type === 'token')
       .map(e => e.data as unknown as TokenMetric);
-    
+
     const tokenByProvider: Record<string, TokenMetricSummary> = {};
     for (const token of tokenEntries) {
       const key = `${token.provider}:${token.model}`;
@@ -400,7 +407,7 @@ class MetricsCollector {
     const errorEntries = entries
       .filter(e => e.type === 'error')
       .map(e => e.data as unknown as ErrorMetric);
-    
+
     const errors = {
       total: errorEntries.length,
       byType: this.aggregateBy(errorEntries, (e) => String(e.type)),
@@ -411,7 +418,7 @@ class MetricsCollector {
     const providerEntries = entries
       .filter(e => e.type === 'provider')
       .map(e => e.data as unknown as ProviderMetric);
-    
+
     const providerStats: Record<string, { latencies: number[]; count: number; successes: number; lastStatus: ProviderMetric['status'] }> = {};
     for (const provider of providerEntries) {
       const key = provider.provider;
@@ -443,7 +450,7 @@ class MetricsCollector {
       requests,
       tools,
       tokens,
-      errors,
+      errors: errors as MetricsSummary['errors'],
       providers,
     };
   }
@@ -454,7 +461,7 @@ class MetricsCollector {
   getSystemMetrics(): SystemMetric {
     const eventLoopStartTime = Date.now();
     const memoryUsage = process.memoryUsage();
-    
+
     return {
       memoryUsedMb: Math.round(memoryUsage.heapUsed / 1024 / 1024),
       memoryTotalMb: Math.round(memoryUsage.heapTotal / 1024 / 1024),
