@@ -34,7 +34,8 @@ import {
   removeProvider,
   testProviderConnection,
 } from '@/lib/api';
-import type {ProviderTestResponse} from '@/types/api.ts';
+import type {ProviderTestResponse} from '@/types/api';
+import {Select, SelectContent, SelectTrigger, SelectValue, SelectItem} from '@/components/ui/Select';
 
 /**
  * AdminProviders Component
@@ -56,29 +57,53 @@ import type {ProviderTestResponse} from '@/types/api.ts';
  * ```
  */
 const AdminProviders: React.FC = () => {
+  /** State for the list of active providers. */
   const [providers, setProviders] = useState<Provider[]>([]);
+  /** State for the list of providers configured in the database. */
   const [configuredProviders, setConfiguredProviders] = useState<Provider[]>([]);
+  /** State for the name of the default provider. */
   const [defaultProvider, setDefaultProvider] = useState<string>('');
+  /** State to track if the main data is currently loading. */
   const [loading, setLoading] = useState(false);
+  /** State to store error messages. */
   const [error, setError] = useState<string | null>(null);
+  /** State to store success messages. */
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  /** State to control the visibility of the "Add Provider" form. */
   const [showAddForm, setShowAddForm] = useState(false);
+  /** State for the provider currently selected by the user. */
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  /** State for the list of available models for the selected provider. */
   const [models, setModels] = useState<Model[]>([]);
+  /** State to track if models are currently being fetched. */
   const [loadingModels, setLoadingModels] = useState(false);
+  /** State to track which provider is currently being tested. */
   const [testingConnection, setTestingConnection] = useState<string | null>(null);
+  /** State to store the results of connection tests. */
   const [testResults, setTestResults] = useState<Record<string, ProviderTestResponse>>({});
 
   // Form state
+  /** Form state: The unique name for the provider. */
   const [formName, setFormName] = useState('');
+  /** Form state: The type of the provider (e.g., 'ollama' or 'openai'). */
   const [formType, setFormType] = useState<'ollama' | 'openai'>('ollama');
+  /** Form state: The base URL for the provider API. */
   const [formBaseUrl, setFormBaseUrl] = useState('');
+  /** Form state: The API key for authentication. */
   const [formApiKey, setFormApiKey] = useState('');
+  /** Form state: The default model to use for this provider. */
   const [formDefaultModel, setFormDefaultModel] = useState('');
+  /** Form state: Whether this provider should be set as the default. */
   const [formIsDefault, setFormIsDefault] = useState(false);
+  /**cForm state: The temperature setting for generation. */
   const [formTemperature, setFormTemperature] = useState(0.7);
+  /** Form state: The maximum number of tokens for generation. */
   const [formMaxTokens, setFormMaxTokens] = useState(4096);
 
+  /**
+   * Fetches provider data from the API.
+   * Updates the list of active and configured providers.
+   */
   const fetchData = async () => {
     try {
       setLoading(true);
@@ -251,11 +276,11 @@ const AdminProviders: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <Button onClick={fetchData} variant="outline" disabled={loading}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw className="mr-2 h-4 w-4"/>
             Refresh
           </Button>
           <Button onClick={() => setShowAddForm(!showAddForm)} disabled={loading}>
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className="mr-2 h-4 w-4"/>
             Add Provider
           </Button>
         </div>
@@ -264,7 +289,7 @@ const AdminProviders: React.FC = () => {
       {/* Error/Success Alerts */}
       {error && (
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
+          <AlertCircle className="h-4 w-4"/>
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -272,7 +297,7 @@ const AdminProviders: React.FC = () => {
 
       {successMessage && (
         <Alert variant="success">
-          <CheckCircle2 className="h-4 w-4" />
+          <CheckCircle2 className="h-4 w-4"/>
           <AlertTitle>Success</AlertTitle>
           <AlertDescription>{successMessage}</AlertDescription>
         </Alert>
@@ -293,21 +318,25 @@ const AdminProviders: React.FC = () => {
                 <label className="text-sm font-medium">Provider Name *</label>
                 <Input
                   value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
+                  onChange={e => setFormName(e.target.value)}
                   placeholder="e.g., my-ollama, my-openai"
                 />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Type *</label>
-                <select
+                <Select
                   value={formType}
-                  onChange={(e) => setFormType(e.target.value as 'ollama' | 'openai')}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  onValueChange={x => setFormType(x as 'ollama' | 'openai')}
                 >
-                  <option value="ollama">Ollama</option>
-                  <option value="openai">OpenAI-compatible</option>
-                </select>
+                  <SelectTrigger className="h-10">
+                    <SelectValue placeholder="Type"/>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ollama">Ollama</SelectItem>
+                    <SelectItem value="openai">OpenAI-compatible</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2 sm:col-span-2">
@@ -395,7 +424,7 @@ const AdminProviders: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Server className="h-5 w-5" />
+                <Server className="h-5 w-5"/>
                 Active Providers
                 <Badge variant="secondary" className="ml-auto">
                   {providers.length} total
@@ -409,12 +438,12 @@ const AdminProviders: React.FC = () => {
               {loading ? (
                 <div className="space-y-2">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-24 bg-muted rounded animate-pulse" />
+                    <div key={i} className="h-24 bg-muted rounded animate-pulse"/>
                   ))}
                 </div>
               ) : providers.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Server className="mx-auto h-12 w-12 opacity-20 mb-4" />
+                  <Server className="mx-auto h-12 w-12 opacity-20 mb-4"/>
                   <p>No providers configured</p>
                   <p className="text-sm mt-2">Click "Add Provider" to get started</p>
                 </div>
@@ -444,17 +473,17 @@ const AdminProviders: React.FC = () => {
                               </Badge>
                               {isDefault && (
                                 <Badge variant="success">
-                                  <Sparkles className="h-3 w-3 mr-1" />
+                                  <Sparkles className="h-3 w-3 mr-1"/>
                                   Default
                                 </Badge>
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              <Code className="h-3 w-3 inline mr-1" />
+                              <Code className="h-3 w-3 inline mr-1"/>
                               {provider.defaultModel}
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
-                              <Key className="h-3 w-3 inline mr-1" />
+                              <Key className="h-3 w-3 inline mr-1"/>
                               {provider.baseUrl}
                             </p>
                           </div>
@@ -469,7 +498,7 @@ const AdminProviders: React.FC = () => {
                                 }}
                                 title="Set as default"
                               >
-                                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                                <CheckCircle2 className="h-4 w-4 text-muted-foreground"/>
                               </Button>
                             )}
                             <Button
@@ -483,9 +512,9 @@ const AdminProviders: React.FC = () => {
                               disabled={testingConnection === provider.name}
                             >
                               {testingConnection === provider.name ? (
-                                <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin" />
+                                <RefreshCw className="h-4 w-4 text-muted-foreground animate-spin"/>
                               ) : (
-                                <Wifi className="h-4 w-4 text-muted-foreground" />
+                                <Wifi className="h-4 w-4 text-muted-foreground"/>
                               )}
                             </Button>
                             <Button
@@ -497,44 +526,45 @@ const AdminProviders: React.FC = () => {
                               }}
                               title="Remove provider"
                             >
-                              <Trash2 className="h-4 w-4 text-muted-foreground" />
+                              <Trash2 className="h-4 w-4 text-muted-foreground"/>
                             </Button>
                           </div>
                         </div>
 
                         <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                            {provider.apiKey && (
-                              <span className="flex items-center gap-1">
-                                <Key className="h-3 w-3" />
+                          {provider.apiKey && (
+                            <span className="flex items-center gap-1">
+                                <Key className="h-3 w-3"/>
                                 API Key configured
                               </span>
-                            )}
-                            {provider.temperature !== undefined && (
-                              <span>Temp: {provider.temperature}</span>
-                            )}
-                            {provider.maxTokens !== undefined && (
-                              <span>Tokens: {provider.maxTokens}</span>
-                            )}
-                          </div>
-                          {/* Test Connection Result */}
-                          {testResults[provider.name] && (
-                            <div className="mt-2">
-                              {testResults[provider.name].status === 'ok' ? (
-                                <span className="inline-flex items-center gap-1 text-xs text-green-600">
-                                  <CheckCircle2 className="h-3 w-3" />
-                                  Connected ({testResults[provider.name].latencyMs}ms)
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 text-xs text-red-600" title={testResults[provider.name].message || testResults[provider.name].error}>
-                                  <AlertCircle className="h-3 w-3" />
-                                  Connection failed
-                                </span>
-                              )}
-                            </div>
+                          )}
+                          {provider.temperature !== undefined && (
+                            <span>Temp: {provider.temperature}</span>
+                          )}
+                          {provider.maxTokens !== undefined && (
+                            <span>Tokens: {provider.maxTokens}</span>
                           )}
                         </div>
-                      );
-                    })}
+                        {/* Test Connection Result */}
+                        {testResults[provider.name] && (
+                          <div className="mt-2">
+                            {testResults[provider.name].status === 'ok' ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-green-600">
+                                  <CheckCircle2 className="h-3 w-3"/>
+                                  Connected ({testResults[provider.name].latencyMs}ms)
+                                </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs text-red-600"
+                                    title={testResults[provider.name].message || testResults[provider.name].error}>
+                                  <AlertCircle className="h-3 w-3"/>
+                                  Connection failed
+                                </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -545,7 +575,7 @@ const AdminProviders: React.FC = () => {
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
+                  <Database className="h-5 w-5"/>
                   Configured Providers (Database)
                 </CardTitle>
                 <CardDescription>
@@ -593,7 +623,7 @@ const AdminProviders: React.FC = () => {
                   {/* Provider Info */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <Server className="h-5 w-5 text-primary" />
+                      <Server className="h-5 w-5 text-primary"/>
                       <h3 className="font-medium text-lg">{selectedProvider.name}</h3>
                     </div>
 
@@ -646,9 +676,9 @@ const AdminProviders: React.FC = () => {
                         disabled={defaultProvider === selectedProvider.name}
                       >
                         {defaultProvider === selectedProvider.name ? (
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          <CheckCircle2 className="mr-2 h-4 w-4"/>
                         ) : (
-                          <Sparkles className="mr-2 h-4 w-4" />
+                          <Sparkles className="mr-2 h-4 w-4"/>
                         )}
                         {defaultProvider === selectedProvider.name ? 'Current Default' : 'Set as Default'}
                       </Button>
@@ -665,14 +695,14 @@ const AdminProviders: React.FC = () => {
                         onClick={() => fetchModels(selectedProvider.name)}
                         disabled={loadingModels}
                       >
-                        <RefreshCw className={`h-3 w-3 ${loadingModels ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-3 w-3 ${loadingModels ? 'animate-spin' : ''}`}/>
                       </Button>
                     </div>
 
                     {loadingModels ? (
                       <div className="space-y-2">
                         {[1, 2, 3].map((i) => (
-                          <div key={i} className="h-8 bg-muted rounded animate-pulse" />
+                          <div key={i} className="h-8 bg-muted rounded animate-pulse"/>
                         ))}
                       </div>
                     ) : models.length === 0 ? (
@@ -700,7 +730,7 @@ const AdminProviders: React.FC = () => {
                 </>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  <Server className="mx-auto h-12 w-12 opacity-20 mb-4" />
+                  <Server className="mx-auto h-12 w-12 opacity-20 mb-4"/>
                   <p className="text-sm">
                     Select a provider from the list to view details
                   </p>
