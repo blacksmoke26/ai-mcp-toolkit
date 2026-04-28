@@ -161,7 +161,7 @@ function createTimeoutController(timeout: number): AbortController {
  */
 export async function request<T>(
   endpoint: string,
-  options: RequestInit & {noContentType?: boolean} = {},
+  options: RequestInit & { noContentType?: boolean } = {},
   timeout?: number,
 ): Promise<T> {
   const timeoutValue = timeout ?? config.timeout;
