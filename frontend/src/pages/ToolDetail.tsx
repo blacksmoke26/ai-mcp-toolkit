@@ -1,3 +1,9 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
 import {useEffect, useState} from 'react';
 import {useParams} from 'react-router-dom';
@@ -30,6 +36,7 @@ import {
   updateTool,
   type UpdateToolRequest,
 } from '@/lib/api';
+import {Select, SelectContent, SelectTrigger, SelectValue, SelectItem} from '@/components/ui/Select';
 
 export default function ToolDetail() {
   const { name } = useParams<{ name: string }>();
@@ -181,16 +188,19 @@ export default function ToolDetail() {
 
     if (prop.enum && prop.enum.length > 0) {
       return (
-        <select
-          key={paramName}
+        <Select
           value={value}
-          onChange={(e) => handleParamChange(paramName, e.target.value)}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          onValueChange={x => handleParamChange(paramName, x)}
         >
-          {prop.enum.map((option: string) => (
-            <option key={option} value={option}>{option}</option>
-          ))}
-        </select>
+          <SelectTrigger className="h-10">
+            <SelectValue placeholder="Type"/>
+          </SelectTrigger>
+          <SelectContent>
+            {prop.enum.map((option: string) => (
+            <SelectItem key={option} value={option}>{option}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       );
     }
 
@@ -209,15 +219,18 @@ export default function ToolDetail() {
 
     if (prop.type === 'boolean') {
       return (
-        <select
-          key={paramName}
+        <Select
           value={value}
-          onChange={(e) => handleParamChange(paramName, e.target.value)}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          onValueChange={x => handleParamChange(paramName, x)}
         >
-          <option value="true">true</option>
-          <option value="false">false</option>
-        </select>
+          <SelectTrigger className="h-10">
+            <SelectValue placeholder="Type"/>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="true">true</SelectItem>
+            <SelectItem value="false">false</SelectItem>
+          </SelectContent>
+        </Select>
       );
     }
 
