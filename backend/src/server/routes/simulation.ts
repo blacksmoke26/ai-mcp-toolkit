@@ -80,7 +80,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
   }, async (_request, reply) => {
-    const scenarioNames = simulator.listScenarios();
+    const scenarioNames = simulator.listScenariosName();
 
     // Optimized for performance: single pass map
     const scenarios = scenarioNames.map((name) => {
@@ -268,7 +268,6 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
     },
   }, async (request, reply) => {
     const {name} = request.params;
-    const body = request.body;
 
     const scenario = simulator.getScenario(name);
     if (!scenario) {
@@ -935,7 +934,7 @@ export const simulationRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({
       mockModeEnabled,
       mocksCount: Object.keys(simulator.listMocks()).length,
-      scenariosCount: simulator.listScenarios().length,
+      scenariosCount: simulator.listScenariosName().length,
       availableTools: toolRegistry.listAll().map(t => t.name),
       mockModeDescription: mockModeEnabled
         ? 'Enabled - using mock responses'
