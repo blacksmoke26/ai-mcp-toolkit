@@ -163,7 +163,7 @@ export const metricsRoutes: FastifyPluginAsync = async (fastify) => {
     const entry = summary.tools;
 
     // Filter by tool if specified
-    let byTool = entry.byTool;
+    let byTool = entry.byTool || {};
     if (toolFilter && byTool[toolFilter]) {
       byTool = {[toolFilter]: byTool[toolFilter]};
     } else if (toolFilter) {
