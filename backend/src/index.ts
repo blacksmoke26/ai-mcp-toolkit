@@ -34,27 +34,33 @@
  * ## Architecture Overview
  *
  * ```
- * ┌─────────────────────────────────────────────────┐
- * │                  Fastify Server                  │
- * │                  (Port 3100)                     │
- * ├─────────────┬──────────────┬────────────────────┤
- * │  /mcp       │  /chat       │  /admin            │
- * │  (MCP JSON- │  (Agent      │  (Provider &       │
- * │   RPC 2.0)  │   Chat API)  │   Tool Management) │
- * ├─────────────┴──────────────┴────────────────────┤
- * │              MCP Protocol Layer                  │
- * │     (JSON-RPC 2.0 + Method Dispatch)            │
- * ├─────────────────────────────────────────────────┤
- * │  Tool Registry  │  Resource Registry  │ Prompts  │
- * ├─────────────────────────────────────────────────┤
- * │              LLM Provider Layer                  │
- * │     (Ollama | OpenAI-compatible | ...)          │
- * ├─────────────────────────────────────────────────┤
- * │              Agent Loop                         │
- * │     (LLM ↔ Tool orchestration)                 │
- * ├─────────────────────────────────────────────────┤
- * │              SQLite + Sequelize                  │
- * └─────────────────────────────────────────────────┘
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │                         Fastify Server                               │
+ * │                      (Port 3100 / Configurable)                      │
+ * ├──────────────┬──────────────┬──────────────┬─────────────────────────┤
+ * │  /mcp        │  /chat       │  /admin      │  /api                   │
+ * │  (JSON-RPC)  │  (Agent API) │  (Mgmt UI)   │  (REST)                 │
+ * ├──────────────┴──────────────┴──────────────┴─────────────────────────┤
+ * │                      WebSocket Layer (Real-time)                     │
+ * │                  (Events: mcp, chat, metrics, simulate)              │
+ * ├──────────────────────────────────────────────────────────────────────┤
+ * │                    MCP Protocol Layer                                │
+ * │           (JSON-RPC 2.0 + Method Dispatch + SSE)                     │
+ * ├──────────────────────────────────────────────────────────────────────┤
+ * │  Tool Registry  │  Resource Registry  │  Prompt Registry             │
+ * ├──────────────────────────────────────────────────────────────────────┤
+ * │                    LLM Provider Layer                                │
+ * │        (Ollama | OpenAI-compatible | Custom / Dynamic)               │
+ * ├──────────────────────────────────────────────────────────────────────┤
+ * │                    Agent Loop & Orchestration                        │
+ * │              (LLM ↔ Tool Execution ↔ Memory)                         │
+ * ├──────────────────────────────────────────────────────────────────────┤
+ * │                    Simulation & Mocking Layer                        │
+ * │              (Scenarios, Tool Mocks, Batch Testing)                  │
+ * ├──────────────────────────────────────────────────────────────────────┤
+ * │                    Persistence Layer                                 │
+ * │              (SQLite + Sequelize + Custom Tool Storage)              │
+ * └──────────────────────────────────────────────────────────────────────┘
  * ```
  */
 
@@ -74,6 +80,7 @@ import {customToolExecutor} from '@/tools/custom-tool-executor';
 // ─── Custom Tools ─────────────────────────────────────────────────────────────
 import predefinedTools from '@/tools/index';
 import promptTemplates from '@/constants/prompt-templates';
+import {EVENT_REGISTRY} from '@/websocket';
 
 // ─── Startup ─────────────────────────────────────────────────────────────────
 async function bootstrap() {
@@ -112,7 +119,7 @@ async function bootstrap() {
   // 3.5 Register simulation scenarios
   console.log('\n🧪 Registering simulation scenarios...');
   simulator.registerBuiltInScenarios();
-  console.log(`   ✓ ${simulator.listScenarios().length} scenarios registered`);
+  console.log(`   ✓ ${simulator.listScenariosName().length} scenarios registered`);
 
   // 4. Register LLM providers
   console.log('\n🤖 Configuring LLM providers...');
@@ -206,9 +213,14 @@ async function bootstrap() {
     console.log('   MCP & Chat:');
     console.log(`   POST ${address}/mcp            → MCP JSON-RPC`);
     console.log(`   GET  ${address}/mcp/sse        → MCP SSE Stream`);
+    console.log(`   GET  ${address}/mcp/health     → MCP Health Check`);
+    console.log(`   POST ${address}/mcp/debug/echo → Debug Echo`);
     console.log(`   POST ${address}/chat           → Agent Chat`);
     console.log(`   POST ${address}/chat/stream    → Agent Chat (SSE)`);
     console.log(`   GET  ${address}/chat/conversations → List Chats`);
+    console.log(`   GET  ${address}/chat/conversations/:id → Get Chat`);
+    console.log(`   PATCH ${address}/chat/conversations/:id → Update Chat`);
+    console.log(`   DELETE ${address}/chat/conversations/:id → Delete Chat`);
     console.log('   ────────┬───────┬───────────┬─────────');
     console.log('   Custom Tools API:');
     console.log(`   GET  ${address}/api/custom-tools      → List all custom tools`);
@@ -216,27 +228,78 @@ async function bootstrap() {
     console.log(`   GET  ${address}/api/custom-tools/:id  → Get tool details`);
     console.log(`   PUT  ${address}/api/custom-tools/:id  → Update tool`);
     console.log(`   DELETE ${address}/api/custom-tools/:id → Delete tool`);
+    console.log(`   POST ${address}/api/custom-tools/validate → Validate tool code`);
+    console.log(`   POST ${address}/api/custom-tools/batch → Batch enable/disable`);
     console.log(`   POST ${address}/api/custom-tools/:id/test → Test tool`);
-    console.log(`   POST ${address}/api/custom-tools/:id/toggle → Enable/Disable tool`);
+    console.log(`   PATCH ${address}/api/custom-tools/:id/toggle → Enable/Disable tool`);
     console.log(`   GET  ${address}/api/custom-tools/templates → Get example templates`);
     console.log('   ────────┬───────┬───────────┬─────────');
     console.log('   Health & Monitoring:');
     console.log(`   GET  ${address}/health         → Health Check`);
+    console.log(`   GET  ${address}/health/alive   → Liveness Check`);
     console.log(`   GET  ${address}/health/ready   → Readiness Check`);
+    console.log(`   GET  ${address}/health/deep    → Deep Health Check`);
     console.log(`   GET  ${address}/info           → Server Info`);
     console.log(`   GET  ${address}/metrics        → Performance Metrics`);
+    console.log(`   GET  ${address}/metrics/tools  → Tool Usage Metrics`);
+    console.log(`   GET  ${address}/metrics/tokens → Token Usage Metrics`);
+    console.log(`   GET  ${address}/metrics/providers → Provider Status`);
+    console.log(`   GET  ${address}/metrics/errors → Error Logs`);
+    console.log(`   GET  ${address}/metrics/system → System Metrics`);
+    console.log(`   GET  ${address}/metrics/export → Export Metrics`);
+    console.log(`   DELETE ${address}/metrics/clear → Clear Metrics`);
     console.log(`   GET  ${address}/metrics/live   → Real-time Metrics (SSE)`);
+    console.log(`   GET  ${address}/metrics/compare → Compare Periods`);
+    console.log(`   GET  ${address}/metrics/anomaly → Anomaly Detection`);
+    console.log(`   GET  ${address}/metrics/score   → Health Score`);
     console.log('   ──────────────────────────────────────────────');
     console.log('   Administration:');
-    console.log(`   GET  ${address}/admin/providers → Manage Providers`);
-    console.log(`   GET  ${address}/admin/tools     → Manage Tools`);
+    console.log(`   GET  ${address}/admin/providers → List Providers`);
+    console.log(`   POST ${address}/admin/providers → Add Provider`);
+    console.log(`   DELETE ${address}/admin/providers/:name → Remove Provider`);
+    console.log(`   POST ${address}/admin/providers/:name/default → Set Default`);
+    console.log(`   POST ${address}/admin/providers/:name/test → Test Provider`);
+    console.log(`   GET  ${address}/admin/providers/:name/models → List Models`);
+    console.log(`   GET  ${address}/admin/tools     → List Tools`);
+    console.log(`   POST ${address}/admin/tools/batch → Batch Update Tools`);
+    console.log(`   GET  ${address}/admin/tools/:name → Get Tool Details`);
+    console.log(`   PATCH ${address}/admin/tools/:name → Enable/Disable Tool`);
+    console.log('   ──────────────────────────────────────────────');
+    console.log('   MCP Servers Management:');
+    console.log(`   GET  ${address}/api/mcp-servers → List Servers`);
+    console.log(`   POST ${address}/api/mcp-servers → Create Server`);
+    console.log(`   GET  ${address}/api/mcp-servers/:id → Get Server`);
+    console.log(`   PUT  ${address}/api/mcp-servers/:id → Update Server`);
+    console.log(`   DELETE ${address}/api/mcp-servers/:id → Delete Server`);
+    console.log(`   POST ${address}/api/mcp-servers/:id/start → Start Server`);
+    console.log(`   POST ${address}/api/mcp-servers/:id/stop → Stop Server`);
+    console.log(`   POST ${address}/api/mcp-servers/:id/restart → Restart Server`);
+    console.log(`   GET  ${address}/api/mcp-servers/:id/status → Server Status`);
+    console.log(`   GET  ${address}/api/mcp-servers/:id/health → Server Health`);
+    console.log(`   GET  ${address}/api/mcp-servers/templates → Server Templates`);
     console.log('   ──────────────────────────────────────────────');
     console.log('   Simulation & Testing:');
     console.log(`   GET  ${address}/simulate/scenarios   → List Scenarios`);
+    console.log(`   GET  ${address}/simulate/scenarios/:name → Get Scenario`);
+    console.log(`   POST ${address}/simulate/scenarios   → Create Scenario`);
     console.log(`   POST ${address}/simulate/scenarios/:name/run → Run Scenario`);
     console.log(`   GET  ${address}/simulate/mocks       → Mock Management`);
+    console.log(`   POST ${address}/simulate/mocks       → Set Mock`);
+    console.log(`   POST ${address}/simulate/mocks/batch → Batch Set Mocks`);
+    console.log(`   DELETE ${address}/simulate/mocks/:tool → Delete Mock`);
+    console.log(`   DELETE ${address}/simulate/mocks → Clear Mocks`);
+    console.log(`   GET  ${address}/simulate/mocks/status → Mock Status`);
+    console.log(`   POST ${address}/simulate/mocks/toggle → Toggle Mock Mode`);
     console.log(`   POST ${address}/simulate/load        → Load Simulation`);
     console.log(`   POST ${address}/simulate/tool        → Test Single Tool`);
+    console.log(`   POST ${address}/simulate/batch       → Batch Execution`);
+    console.log(`   GET  ${address}/simulate/status      → Simulation Status`);
+    console.log('   ────────┬───────┬───────────┬─────────');
+    console.log('   WebSocket Real-time:');
+    console.log(`   WS   ${address.replace('http', 'ws')}/ws          → WebSocket Real-time Events`);
+    console.log(`   ───────────────────────────────────────────`);
+    console.log(`   Available Events: ${EVENT_REGISTRY?.length || 30} across 10 categories`);
+    console.log(`   Rooms: general, mcp, chat, chat-stream, providers, simulate, metrics, admin`);
     console.log('─'.repeat(52));
     console.log('');
     logger.info({address}, 'MCP Server started');

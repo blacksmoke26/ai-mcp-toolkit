@@ -332,8 +332,15 @@ class Simulator {
   /**
    * List all scenario names
    */
-  listScenarios(): string[] {
+  listScenariosName(): string[] {
     return Array.from(this.scenarios.keys());
+  }
+
+  /**
+   * List all scenario names
+   */
+  listScenarios(): Scenario[] {
+    return Array.from(this.scenarios.values());
   }
 
   /**

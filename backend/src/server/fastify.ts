@@ -37,6 +37,7 @@ import {metricsRoutes} from './routes/metrics';
 import {simulationRoutes} from './routes/simulation';
 import customToolsRoutes from './routes/custom-tools';
 import mcpServersRoutes from './routes/mcp-servers';
+import {createWebSocketPlugin} from '@/websocket';
 import logger from '@/utils/logger';
 
 /**
@@ -84,6 +85,10 @@ export async function createServer() {
   await server.register(simulationRoutes);
   await server.register(customToolsRoutes);
   await server.register(mcpServersRoutes);
+
+  // ─── WebSocket Integration ───────────────────────────────
+
+  await server.register(createWebSocketPlugin());
 
   // ─── Request Logging Hook ─────────────────────────────────────────────────
 
