@@ -1,3 +1,9 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
 import {useEffect, useState} from 'react';
 import {
@@ -562,7 +568,7 @@ export function MCPTools() {
                           <Card className="border-dashed">
                             <CardContent className="p-4 bg-muted/30">
                               <pre className="text-xs font-mono overflow-x-auto">
-                                <JsonViewer value={callResult}/>
+                                <JsonViewer value={callResult ?? {}}/>
                               </pre>
                             </CardContent>
                           </Card>

@@ -1053,7 +1053,7 @@ const TestDialog: React.FC<TestDialogProps> = ({open, onOpenChange, tool, onTest
           content: [{
             type: 'text',
             text: `Error: ${err instanceof Error ? err.message : String(err)}`,
-            resource: undefined,
+            resource: {} as Record<string, any>,
           }],
           isError: true,
         },

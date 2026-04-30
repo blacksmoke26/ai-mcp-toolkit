@@ -115,15 +115,15 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
     if (open) {
       if (isEditing && server) {
         setName(server.name);
-        setDisplayName(server.displayName);
-        setDescription(server.description);
-        setType(server.type);
+        setDisplayName(server.displayName ?? '');
+        setDescription(server.description ?? '');
+        setType(server.type ?? 'stdio');
         setCommand(server?.command || '');
         setArgs(JSON.stringify(server.args || [], null, 2));
         setEnv(JSON.stringify(server.env || {}, null, 2));
         setUrl(server.url || '');
         setHeaders(JSON.stringify(server.headers || {}, null, 2));
-        setEnabled(server.enabled);
+        setEnabled(server.enabled ?? false);
         setTimedOut(server.timeout || 30000);
         setAutoReconnect(server.autoReconnect ?? true);
         setMaxReconnectAttempts(server.maxReconnectAttempts ?? -1);

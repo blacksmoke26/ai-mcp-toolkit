@@ -1,3 +1,9 @@
+/**
+ * @author Junaid Atari <mj.atari@gmail.com>
+ * @copyright 2026 Junaid Atari
+ * @see https://github.com/blacksmoke26
+ */
+
 import * as React from 'react';
 import {useEffect, useState} from 'react';
 import {Activity, AlertCircle, Bot, CheckCircle2, Clock, Database, RefreshCw, Server, XCircle} from 'lucide-react';
@@ -45,9 +51,9 @@ export function ReadinessCheck() {
 
   const getStatusIcon = (status: 'ok' | 'error') => {
     return status === 'ok' ? (
-      <CheckCircle2 className="h-5 w-5 text-green-600" />
+      <CheckCircle2 className="h-5 w-5 text-green-600"/>
     ) : (
-      <XCircle className="h-5 w-5 text-red-600" />
+      <XCircle className="h-5 w-5 text-red-600"/>
     );
   };
 
@@ -71,10 +77,10 @@ export function ReadinessCheck() {
 
         <Card className="animate-pulse">
           <CardContent className="p-6">
-            <div className="h-6 w-48 bg-muted rounded mb-4" />
+            <div className="h-6 w-48 bg-muted rounded mb-4"/>
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-4 w-full bg-muted rounded" />
+                <div key={i} className="h-4 w-full bg-muted rounded"/>
               ))}
             </div>
           </CardContent>
@@ -100,7 +106,7 @@ export function ReadinessCheck() {
           </p>
         </div>
         <Button onClick={fetchReadiness} variant="outline" disabled={loading}>
-          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`}/>
           Refresh
         </Button>
       </div>
@@ -108,7 +114,7 @@ export function ReadinessCheck() {
       {/* Overall Status Alert */}
       {!isReady && (
         <Alert variant="destructive">
-          <XCircle className="h-4 w-4" />
+          <XCircle className="h-4 w-4"/>
           <AlertTitle>Service Not Ready</AlertTitle>
           <AlertDescription>
             {failedChecks.length} check(s) failed. The service is not ready to accept traffic.
@@ -118,7 +124,7 @@ export function ReadinessCheck() {
 
       {isReady && (
         <Alert variant="success">
-          <CheckCircle2 className="h-4 w-4" />
+          <CheckCircle2 className="h-4 w-4"/>
           <AlertTitle>Service Ready</AlertTitle>
           <AlertDescription>
             All systems operational. The service is ready to accept traffic.
@@ -128,7 +134,7 @@ export function ReadinessCheck() {
 
       {error && (
         <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
+          <AlertCircle className="h-4 w-4"/>
           <AlertTitle>Failed to fetch readiness status</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -161,7 +167,7 @@ export function ReadinessCheck() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <Activity className="h-6 w-6 text-primary" />
+                  <Activity className="h-6 w-6 text-primary"/>
                   <div className="flex-1">
                     <div className="text-2xl font-bold">{checkEntries.length}</div>
                     <div className="text-xs text-muted-foreground">health checks</div>
@@ -176,7 +182,7 @@ export function ReadinessCheck() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <Clock className="h-6 w-6 text-primary" />
+                  <Clock className="h-6 w-6 text-primary"/>
                   <div className="flex-1">
                     <div className="text-2xl font-bold">
                       {(() => {
@@ -200,7 +206,7 @@ export function ReadinessCheck() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  <Clock className="h-6 w-6 text-primary" />
+                  <Clock className="h-6 w-6 text-primary"/>
                   <div className="flex-1">
                     <div className="text-lg font-bold">
                       {readiness.timestamp
@@ -234,7 +240,11 @@ export function ReadinessCheck() {
                     key="database"
                     icon={Database}
                     title="Database"
-                    check={checkEntries?.find?.(([key]) => key === 'database')?.[1]}
+                    check={checkEntries?.find?.(([key]) => key === 'database')?.[1] || {
+                      status: 'error',
+                      latencyMs: 0,
+                      error: '',
+                    }}
                   />
                 )}
 
@@ -261,7 +271,7 @@ export function ReadinessCheck() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
+                  <Database className="h-5 w-5"/>
                   Database Status
                 </CardTitle>
                 <CardDescription>
@@ -300,7 +310,7 @@ export function ReadinessCheck() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Server className="h-5 w-5" />
+                  <Server className="h-5 w-5"/>
                   Provider Statuses
                 </CardTitle>
                 <CardDescription>
@@ -324,7 +334,7 @@ export function ReadinessCheck() {
                             className="flex items-center justify-between rounded-lg border p-3"
                           >
                             <div className="flex items-center gap-2">
-                              <Bot className="h-4 w-4 text-muted-foreground" />
+                              <Bot className="h-4 w-4 text-muted-foreground"/>
                               <span className="text-sm font-medium">{providerName}</span>
                             </div>
                             <div className="flex items-center gap-3">
@@ -354,12 +364,12 @@ interface CheckItemProps {
   check: HealthCheckResult;
 }
 
-function CheckItem({ icon: Icon, title, check }: CheckItemProps) {
+function CheckItem({icon: Icon, title, check}: CheckItemProps) {
   return (
     <div className="flex items-center justify-between rounded-lg border bg-card p-4 shadow-sm">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-          <Icon className="h-5 w-5 text-muted-foreground" />
+          <Icon className="h-5 w-5 text-muted-foreground"/>
         </div>
         <div>
           <div className="font-medium">{title}</div>
@@ -375,9 +385,9 @@ function CheckItem({ icon: Icon, title, check }: CheckItemProps) {
           <span className="text-xs text-red-600">{check.error}</span>
         )}
         {check.status === 'ok' ? (
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <CheckCircle2 className="h-5 w-5 text-green-600"/>
         ) : (
-          <XCircle className="h-5 w-5 text-red-600" />
+          <XCircle className="h-5 w-5 text-red-600"/>
         )}
       </div>
     </div>
