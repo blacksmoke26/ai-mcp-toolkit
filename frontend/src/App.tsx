@@ -2,10 +2,10 @@
  * @author Junaid Atari <mj.atari@gmail.com>
  * @copyright 2026 Junaid Atari
  * @see https://github.com/blacksmoke26
-*/
+ */
 
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 
 // components
 import Layout from '@/components/Layout';
@@ -32,6 +32,7 @@ import ModelsList from '@/pages/ModelsList';
 import ToolDetail from '@/pages/ToolDetail';
 import CustomTools from '@/pages/CustomTools';
 import AdminMCPServers from '@/pages/AdminMCPServers';
+import WebSocketDashboardPage from '@/pages/WebSocket/DashboardPage';
 
 /**
  * Component displayed when a user navigates to a route that does not exist.
@@ -88,6 +89,9 @@ const App: React.FC = () => (
 
         {/* Simulation & Testing */}
         <Route path="/simulate" element={<ToolSimulator/>}/>
+
+        {/* WebSocket Dashboard */}
+        <Route path="/ws-dashboard" element={<WebSocketDashboardPage/>}/>
 
         {/* Redirects */}
         <Route path="/dashboard" element={<Navigate to="/" replace/>}/>

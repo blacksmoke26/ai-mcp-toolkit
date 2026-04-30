@@ -22,6 +22,7 @@ import {
   Info,
   LayoutList,
   Blocks, PocketKnife, ServerCrash, Gauge,
+  Rocket,
 } from 'lucide-react';
 import {cn} from '@/lib/utils';
 import {Button} from './ui/Button';
@@ -211,6 +212,18 @@ const navSections: {
       },
     ],
   },
+  {
+    title: 'WebSocket',
+    items: [
+      {
+        label: 'Dashboard',
+        href: '/ws-dashboard',
+        icon: Rocket,
+        description: 'Full WebSocket monitoring & testing',
+        badge: 'All-in-One',
+      },
+    ],
+  },
 ];
 
 interface LayoutProps {
@@ -267,18 +280,12 @@ const Layout: React.FC<LayoutProps> = ({children}) => {
                 <Moon className="h-5 w-5"/>
               )}
             </Button>
-            <a
-              href="http://localhost:3100"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button variant="outline" size="sm" asChild>
-                <Link to="http://localhost:3100" target="_blank" rel="noopener noreferrer">
-                  Backend: localhost:3100
-                  <ExternalLink className="ml-2 h-3 w-3"/>
-                </Link>
-              </Button>
-            </a>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="http://localhost:3100" target="_blank" rel="noopener noreferrer">
+                Backend: localhost:3100
+                <ExternalLink className="ml-2 h-3 w-3"/>
+              </Link>
+            </Button>
           </div>
         </div>
       </header>
