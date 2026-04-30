@@ -178,7 +178,7 @@ export async function request<T>(
   };
 
   if (newOptions?.method === 'DELETE' || newOptions?.noContentType) {
-    delete newOptions.headers['Content-Type'];
+    delete newOptions?.headers!['Content-Type'];
   }
 
   try {
