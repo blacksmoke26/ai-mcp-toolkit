@@ -81,38 +81,99 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
    * - 2023-10-27: Added JSON Schema validation for response.
    * - 2023-10-27: Added memory usage stats.
    */
-  fastify.get('/health', {
-    schema: {
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            status: {type: 'string', enum: ['ok']},
-            timestamp: {type: 'string', format: 'date-time'},
-            uptime: {type: 'number'},
-            memory: {
-              type: 'object',
-              properties: {
-                heapUsed: {type: 'number'},
-                heapTotal: {type: 'number'},
-              },
-            },
-          },
-        },
-      },
-    },
-  }, async (_request, reply) => {
-    const mem = process.memoryUsage();
-    return reply.send({
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      memory: {
-        heapUsed: mem.heapUsed,
-        heapTotal: mem.heapTotal,
-      },
-    });
-  });
+   fastify.get('/health', {
+     schema: {
+       response: {
+         200: {
+           type: 'object',
+           properties: {
+             status: {type: 'string', enum: ['ok']},
+             platform: {type: 'string'},
+             timestamp: {type: 'string', format: 'date-time'},
+             uptime: {type: 'number'},
+             memory: {
+               type: 'object',
+               properties: {
+                 rss: {type: 'number'},
+                 heapTotal: {type: 'number'},
+                 heapUsed: {type: 'number'},
+                 external: {type: 'number'},
+                 arrayBuffers: {type: 'number'},
+               },
+             },
+             cpu: {
+               type: 'object',
+               properties: {
+                 user: {type: 'number'},
+                 system: {type: 'number'},
+               },
+             },
+             resourceUsage: {
+               type: 'object',
+               properties: {
+                 fsRead: { type: 'number' },
+                fsWrite: { type: 'number' },
+                involuntaryContextSwitches: { type: 'number' },
+                ipcReceived: { type: 'number' },
+                ipcSent: { type: 'number' },
+                majorPageFault: { type: 'number' },
+                maxRSS: { type: 'number' },
+                minorPageFault: { type: 'number' },
+                sharedMemorySize: { type: 'number' },
+                signalsCount: { type: 'number' },
+                swappedOut: { type: 'number' },
+                systemCPUTime: { type: 'number' },
+                unsharedDataSize: { type: 'number' },
+                unsharedStackSize: { type: 'number' },
+                userCPUTime: { type: 'number' },
+                voluntaryContextSwitches: { type: 'number' },
+               },
+             },
+           },
+         },
+       },
+     },
+   }, async (_request, reply) => {
+     const mem = process.memoryUsage();
+     const cpu = process.cpuUsage();
+     const res = process.resourceUsage();
+
+     return reply.send({
+       status: 'ok',
+       platform: process.platform,
+       timestamp: new Date().toISOString(),
+       uptime: process.uptime(),
+       memory: {
+         rss: mem.rss,
+         heapTotal: mem.heapTotal,
+         heapUsed: mem.heapUsed,
+         external: mem.external,
+         arrayBuffers: mem.arrayBuffers,
+       },
+       cpu: {
+         user: cpu.user,
+         system: cpu.system,
+       },
+       resourceUsage: {
+         fsRead: res.fsRead,
+         fsWrite: res.fsWrite,
+         involuntaryContextSwitches: res.involuntaryContextSwitches,
+         ipcReceived: res.ipcReceived,
+         ipcSent: res.ipcSent,
+         majorPageFault: res.majorPageFault,
+         maxRSS: res.maxRSS,
+         minorPageFault: res.minorPageFault,
+         sharedMemorySize: res.sharedMemorySize,
+         signalsCount: res.signalsCount,
+         swappedOut: res.swappedOut,
+         systemCPUTime: res.systemCPUTime,
+         unsharedDataSize: res.unsharedDataSize,
+         unsharedStackSize: res.unsharedStackSize,
+         userCPUTime: res.userCPUTime,
+         voluntaryContextSwitches: res.voluntaryContextSwitches,
+       },
+     });
+   });
 
   /**
    * GET /health/live
@@ -168,6 +229,50 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
                  },
                },
              },
+             stats: {
+               type: 'object',
+               properties: {
+                 uptime: {type: 'number'},
+                 memory: {
+                   type: 'object',
+                   properties: {
+                     rss: {type: 'number'},
+                     heapTotal: {type: 'number'},
+                     heapUsed: {type: 'number'},
+                     external: {type: 'number'},
+                     arrayBuffers: {type: 'number'},
+                   },
+                 },
+                 cpu: {
+                   type: 'object',
+                   properties: {
+                     user: {type: 'number'},
+                     system: {type: 'number'},
+                   },
+                 },
+                 resourceUsage: {
+                   type: 'object',
+                   properties: {
+                     fsRead: { type: 'number' },
+                     fsWrite: { type: 'number' },
+                     involuntaryContextSwitches: { type: 'number' },
+                     ipcReceived: { type: 'number' },
+                     ipcSent: { type: 'number' },
+                     majorPageFault: { type: 'number' },
+                     maxRSS: { type: 'number' },
+                     minorPageFault: { type: 'number' },
+                     sharedMemorySize: { type: 'number' },
+                     signalsCount: { type: 'number' },
+                     swappedOut: { type: 'number' },
+                     systemCPUTime: { type: 'number' },
+                     unsharedDataSize: { type: 'number' },
+                     unsharedStackSize: { type: 'number' },
+                     userCPUTime: { type: 'number' },
+                     voluntaryContextSwitches: { type: 'number' },
+                   },
+                 },
+               },
+             },
            },
            required: ['status', 'timestamp', 'checks'],
          },
@@ -184,6 +289,50 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
                    status: {type: 'string'},
                    latencyMs: {type: 'number'},
                    error: {type: 'string'},
+                 },
+               },
+             },
+             stats: {
+               type: 'object',
+               properties: {
+                 uptime: {type: 'number'},
+                 memory: {
+                   type: 'object',
+                   properties: {
+                     rss: {type: 'number'},
+                     heapTotal: {type: 'number'},
+                     heapUsed: {type: 'number'},
+                     external: {type: 'number'},
+                     arrayBuffers: {type: 'number'},
+                   },
+                 },
+                 cpu: {
+                   type: 'object',
+                   properties: {
+                     user: {type: 'number'},
+                     system: {type: 'number'},
+                   },
+                 },
+                 resourceUsage: {
+                   type: 'object',
+                   properties: {
+                     fsRead: { type: 'number' },
+                     fsWrite: { type: 'number' },
+                     involuntaryContextSwitches: { type: 'number' },
+                     ipcReceived: { type: 'number' },
+                     ipcSent: { type: 'number' },
+                     majorPageFault: { type: 'number' },
+                     maxRSS: { type: 'number' },
+                     minorPageFault: { type: 'number' },
+                     sharedMemorySize: { type: 'number' },
+                     signalsCount: { type: 'number' },
+                     swappedOut: { type: 'number' },
+                     systemCPUTime: { type: 'number' },
+                     unsharedDataSize: { type: 'number' },
+                     unsharedStackSize: { type: 'number' },
+                     userCPUTime: { type: 'number' },
+                     voluntaryContextSwitches: { type: 'number' },
+                   },
                  },
                },
              },
@@ -290,10 +439,47 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
      const allHealthy = Object.values(checks).every((c) => c.status === 'ok');
      const statusCode = allHealthy ? 200 : 503;
 
+     // Gather advanced stats
+     const mem = process.memoryUsage();
+     const cpu = process.cpuUsage();
+     const res = process.resourceUsage();
+
      return reply.code(statusCode).send({
        status: allHealthy ? 'ready' : 'degraded',
        timestamp: new Date().toISOString(),
        checks,
+       stats: {
+         uptime: process.uptime(),
+         memory: {
+           rss: mem.rss,
+           heapTotal: mem.heapTotal,
+           heapUsed: mem.heapUsed,
+           external: mem.external,
+           arrayBuffers: mem.arrayBuffers,
+         },
+         cpu: {
+           user: cpu.user,
+           system: cpu.system,
+         },
+         resourceUsage: {
+           fsRead: res.fsRead,
+           fsWrite: res.fsWrite,
+           involuntaryContextSwitches: res.involuntaryContextSwitches,
+           ipcReceived: res.ipcReceived,
+           ipcSent: res.ipcSent,
+           majorPageFault: res.majorPageFault,
+           maxRSS: res.maxRSS,
+           minorPageFault: res.minorPageFault,
+           sharedMemorySize: res.sharedMemorySize,
+           signalsCount: res.signalsCount,
+           swappedOut: res.swappedOut,
+           systemCPUTime: res.systemCPUTime,
+           unsharedDataSize: res.unsharedDataSize,
+           unsharedStackSize: res.unsharedStackSize,
+           userCPUTime: res.userCPUTime,
+           voluntaryContextSwitches: res.voluntaryContextSwitches,
+         },
+       },
      });
    });
 
