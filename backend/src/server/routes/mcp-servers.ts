@@ -148,6 +148,14 @@ export const mcpServersRoutes: FastifyPluginAsync = async (fastify) => {
       offset,
     });
 
+    const parse = (p: string | null) => {
+      try {
+      	return JSON.parse(p || '');
+      } catch {
+      	return {};
+      }
+    };
+
     const responses: MCPServerResponse[] = rows.map((s) => ({
       id: s.id,
       name: s.name,
@@ -168,6 +176,12 @@ export const mcpServersRoutes: FastifyPluginAsync = async (fastify) => {
       failureCount: s.failureCount || 0,
       createdAt: s.createdAt,
       updatedAt: s.updatedAt,
+      args: parse(s.args),
+      command: s.command,
+      env: parse(s.env),
+      headers: s.headers,
+      settings: parse(s.settings),
+      lastDisconnectedAt: s.lastDisconnectedAt,
     })) as MCPServerResponse[];
 
     return reply.send({
