@@ -319,6 +319,7 @@ export class MCPServerManager extends EventEmitter {
         env: {...process.env, ...(config.env || {})},
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
+        shell: true,
       });
 
       connection.process = childProcess;
