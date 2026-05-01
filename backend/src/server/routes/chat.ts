@@ -282,6 +282,8 @@ export const chatRoutes: FastifyPluginAsync = async (fastify) => {
         'Cache-Control': 'no-cache, no-transform',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control',
       });
       reply.raw.flushHeaders();
 
