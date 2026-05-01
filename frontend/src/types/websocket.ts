@@ -1348,6 +1348,8 @@ export interface UseWebSocketReturn {
   isDisconnected: boolean;
   /** Array of all logged WebSocket event entries. */
   eventLog: EventLogEntry[];
+  /** Version counter to signal eventLog changes to consumers without triggering cascade re-renders. */
+  eventLogVersion: number;
   /** Array of events filtered based on current filter state. */
   filteredEvents: EventLogEntry[];
   /** The current state of all active event filters. */

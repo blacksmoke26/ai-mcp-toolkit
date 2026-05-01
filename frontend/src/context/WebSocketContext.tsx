@@ -173,6 +173,8 @@ export interface WebSocketContextValue {
   // Event log
   /** The full history of logged events. */
   eventLog: EventLogEntry[];
+  /** Version counter to signal eventLog changes to consumers without triggering cascade re-renders. */
+  eventLogVersion: number;
   /** The list of events currently matching the active filters. */
   filteredEvents: EventLogEntry[];
   /** The current filter state applied to the event log. */
@@ -359,6 +361,8 @@ function useInternalWebSocket(
   const [serverMeta, setServerMeta] = React.useState<WsConnectionState['serverMeta']>(null);
   /** Reactive list of event log entries. */
   const [eventLog, setEventLog] = React.useState<EventLogEntry[]>([]);
+  /** Version counter to signal eventLog changes to consumers without triggering cascade. */
+  const [eventLogVersion, setEventLogVersion] = React.useState(0);
   /** Reactive list of filtered event log entries. */
   const [filteredEvents, setFilteredEvents] = React.useState<EventLogEntry[]>([]);
   /** Current filter settings for the event log. */
@@ -409,6 +413,7 @@ function useInternalWebSocket(
       }
 
       setEventLog([...eventLogRef.current]);
+      setEventLogVersion(prev => prev + 1);
       setTotalEvents((prev) => prev + 1);
       onMessage?.(entry);
 
@@ -440,9 +445,14 @@ function useInternalWebSocket(
     [],
   );
 
+  // Use eventLogRef.current directly to get live updates while avoiding the infinite loop.
+  // eventLog version is used to signal changes to consumers without including the full array in deps.
+  const currentEventLog = eventLogRef.current;
+
+  // Re-apply filters whenever eventLog changes (via version) or filters change.
   React.useEffect(() => {
     setFilteredEvents(applyFilters(eventLogRef.current, filters));
-  }, [filters, applyFilters]);
+  }, [filters, applyFilters, eventLogVersion]);
 
   // ---- Flush Queue ----
   const flushMessageQueue = React.useCallback(() => {
@@ -814,6 +824,7 @@ function useInternalWebSocket(
     setEventLog([]);
     setFilteredEvents([]);
     setTotalEvents(0);
+    setEventLogVersion(prev => prev + 1);
   }, []);
 
   const forceReconnect = React.useCallback(() => {
@@ -915,7 +926,8 @@ function useInternalWebSocket(
       ping,
       forceReconnect,
       updateUrl,
-      eventLog,
+      eventLog: currentEventLog,
+      eventLogVersion,
       filteredEvents,
       filters,
       setFilters,
@@ -958,7 +970,7 @@ function useInternalWebSocket(
       ping,
       forceReconnect,
       updateUrl,
-      eventLog,
+      eventLogVersion,
       filteredEvents,
       filters,
       clearEventLog,

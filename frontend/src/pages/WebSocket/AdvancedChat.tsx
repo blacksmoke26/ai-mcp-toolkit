@@ -116,11 +116,11 @@ const DEFAULT_MODELS = [
 ];
 
 const DEFAULT_PROVIDERS = [
-  { id: 'openai', name: 'OpenAI', type: 'chat' },
-  { id: 'anthropic', name: 'Anthropic', type: 'chat' },
-  { id: 'google', name: 'Google AI', type: 'chat' },
-  { id: 'ollama', name: 'Ollama', type: 'local' },
-  { id: 'custom', name: 'Custom', type: 'chat' },
+  {id: 'openai', name: 'OpenAI', type: 'chat'},
+  {id: 'anthropic', name: 'Anthropic', type: 'chat'},
+  {id: 'google', name: 'Google AI', type: 'chat'},
+  {id: 'ollama', name: 'Ollama', type: 'local'},
+  {id: 'custom', name: 'Custom', type: 'chat'},
 ];
 
 const MOCK_CONVERSATIONS: Conversation[] = [
@@ -130,22 +130,22 @@ const MOCK_CONVERSATIONS: Conversation[] = [
     messages: [
       {
         id: 'msg-1',
-        content: "Can you review this TypeScript function for me?",
+        content: 'Can you review this TypeScript function for me?',
         role: 'user',
         timestamp: new Date(Date.now() - 300000).toISOString(),
       },
       {
         id: 'msg-2',
         content:
-          "Of course! Please share the code you'd like me to review. I'll analyze it for:\n\n1. **Type safety**\n2. **Performance**\n3. **Best practices**\n4. **Potential bugs**\n\nJust paste the code and I'll get started right away!",
+          'Of course! Please share the code you\'d like me to review. I\'ll analyze it for:\n\n1. **Type safety**\n2. **Performance**\n3. **Best practices**\n4. **Potential bugs**\n\nJust paste the code and I\'ll get started right away!',
         role: 'assistant',
         timestamp: new Date(Date.now() - 240000).toISOString(),
         toolCalls: [
           {
             id: 'tc-1',
             name: 'analyze_code',
-            arguments: { language: 'typescript', depth: 'detailed' },
-            result: { issues: 2, suggestions: 5, score: 8.5 },
+            arguments: {language: 'typescript', depth: 'detailed'},
+            result: {issues: 2, suggestions: 5, score: 8.5},
             status: 'completed',
             startedAt: new Date(Date.now() - 260000).toISOString(),
             completedAt: new Date(Date.now() - 250000).toISOString(),
@@ -167,27 +167,27 @@ const MOCK_CONVERSATIONS: Conversation[] = [
     messages: [
       {
         id: 'msg-3',
-        content: "What are the best practices for REST API design?",
+        content: 'What are the best practices for REST API design?',
         role: 'user',
         timestamp: new Date(Date.now() - 600000).toISOString(),
       },
       {
         id: 'msg-4',
         content:
-          "Here are the key REST API design principles:\n\n### 1. Resource Naming\nUse nouns, not verbs. Resources should represent entities.\n\n### 2. HTTP Methods\n- `GET` - Retrieve\n- `POST` - Create\n- `PUT/PATCH` - Update\n- `DELETE` - Remove\n\n### 3. Status Codes\n- `200` - Success\n- `201` - Created\n- `400` - Bad Request\n- `401` - Unauthorized\n- `404` - Not Found\n\n### 4. Pagination\nUse `page` and `limit` query parameters.\n\nWould you like me to elaborate on any of these?",
+          'Here are the key REST API design principles:\n\n### 1. Resource Naming\nUse nouns, not verbs. Resources should represent entities.\n\n### 2. HTTP Methods\n- `GET` - Retrieve\n- `POST` - Create\n- `PUT/PATCH` - Update\n- `DELETE` - Remove\n\n### 3. Status Codes\n- `200` - Success\n- `201` - Created\n- `400` - Bad Request\n- `401` - Unauthorized\n- `404` - Not Found\n\n### 4. Pagination\nUse `page` and `limit` query parameters.\n\nWould you like me to elaborate on any of these?',
         role: 'assistant',
         timestamp: new Date(Date.now() - 540000).toISOString(),
       },
       {
         id: 'msg-5',
-        content: "What about versioning strategies?",
+        content: 'What about versioning strategies?',
         role: 'user',
         timestamp: new Date(Date.now() - 480000).toISOString(),
       },
       {
         id: 'msg-6',
         content:
-          "There are three main versioning strategies:\n\n1. **URI Versioning**: `/api/v1/resource`\n2. **Header Versioning**: `Accept: application/vnd.api+json;v=1`\n3. **Query Parameter**: `/api/resource?version=1`\n\n**URI versioning** is the most common and recommended approach for its simplicity and cacheability.",
+          'There are three main versioning strategies:\n\n1. **URI Versioning**: `/api/v1/resource`\n2. **Header Versioning**: `Accept: application/vnd.api+json;v=1`\n3. **Query Parameter**: `/api/resource?version=1`\n\n**URI versioning** is the most common and recommended approach for its simplicity and cacheability.',
         role: 'assistant',
         timestamp: new Date(Date.now() - 420000).toISOString(),
       },
@@ -207,22 +207,22 @@ const MOCK_CONVERSATIONS: Conversation[] = [
       {
         id: 'msg-7',
         content:
-          "I'm getting connection drops with my WebSocket implementation. Here's my setup:\n\n```typescript\nconst ws = new WebSocket('ws://localhost:3100/ws');\nws.onclose = () => console.log('Connection closed');\n```\n\nWhat could be causing this?",
+          'I\'m getting connection drops with my WebSocket implementation. Here\'s my setup:\n\n```typescript\nconst ws = new WebSocket(\'ws://localhost:3100/ws\');\nws.onclose = () => console.log(\'Connection closed\');\n```\n\nWhat could be causing this?',
         role: 'user',
         timestamp: new Date(Date.now() - 900000).toISOString(),
       },
       {
         id: 'msg-8',
         content:
-          "Connection drops can happen for several reasons. Let me help you debug:\n\n### Common Causes\n\n1. **Missing Heartbeat**: Add ping/pong mechanism\n2. **Server Restart**: Implement auto-reconnect with exponential backoff\n3. **Network Issues**: Use WebSocket ping/pong for keep-alive\n4. **Max Message Size**: Ensure payload isn't too large\n\n### Recommended Setup\n\n```typescript\nconst ws = new WebSocket('ws://localhost:3100/ws');\n\nws.onopen = () => {\n  // Start ping interval\n  setInterval(() => ws.send(JSON.stringify({\n    header: { type: 'ws:ping' },\n    data: { ts: Date.now() }\n  })), 30000);\n};\n\nws.onclose = () => {\n  // Exponential backoff reconnect\n  setTimeout(() => ws.open(), Math.random() * 3000);\n};\n```\n\nThis should significantly improve stability.",
+          'Connection drops can happen for several reasons. Let me help you debug:\n\n### Common Causes\n\n1. **Missing Heartbeat**: Add ping/pong mechanism\n2. **Server Restart**: Implement auto-reconnect with exponential backoff\n3. **Network Issues**: Use WebSocket ping/pong for keep-alive\n4. **Max Message Size**: Ensure payload isn\'t too large\n\n### Recommended Setup\n\n```typescript\nconst ws = new WebSocket(\'ws://localhost:3100/ws\');\n\nws.onopen = () => {\n  // Start ping interval\n  setInterval(() => ws.send(JSON.stringify({\n    header: { type: \'ws:ping\' },\n    data: { ts: Date.now() }\n  })), 30000);\n};\n\nws.onclose = () => {\n  // Exponential backoff reconnect\n  setTimeout(() => ws.open(), Math.random() * 3000);\n};\n```\n\nThis should significantly improve stability.',
         role: 'assistant',
         timestamp: new Date(Date.now() - 840000).toISOString(),
         toolCalls: [
           {
             id: 'tc-2',
             name: 'diagnose_websocket',
-            arguments: { protocol: 'ws', timeout: 30000 },
-            result: { rootCause: 'missing_heartbeat', confidence: 0.85 },
+            arguments: {protocol: 'ws', timeout: 30000},
+            result: {rootCause: 'missing_heartbeat', confidence: 0.85},
             status: 'completed',
             startedAt: new Date(Date.now() - 870000).toISOString(),
             completedAt: new Date(Date.now() - 860000).toISOString(),
@@ -242,7 +242,7 @@ const MOCK_CONVERSATIONS: Conversation[] = [
 
 // ==================== Copy Button ====================
 
-const CopyButton: React.FC<{ text: string }> = ({ text }) => {
+const CopyButton: React.FC<{ text: string }> = ({text}) => {
   const [copied, setCopied] = React.useState<boolean>(false);
 
   const handleCopy = () => {
@@ -257,7 +257,7 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
       className="rounded-md p-1 text-muted-foreground/60 transition-all hover:bg-muted hover:text-foreground"
       title={copied ? 'Copied!' : 'Copy'}
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-green-500"/> : <Copy className="h-3.5 w-3.5"/>}
     </button>
   );
 };
@@ -268,7 +268,7 @@ interface ToolCallCardProps {
   toolCall: ToolCallInfo;
 }
 
-const ToolCallCard: React.FC<ToolCallCardProps> = ({ toolCall }) => {
+const ToolCallCard: React.FC<ToolCallCardProps> = ({toolCall}) => {
   const [expanded, setExpanded] = React.useState(false);
 
   const getStatusColor = (status: string) => {
@@ -314,17 +314,17 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ toolCall }) => {
           className={cn(
             'flex h-6 w-6 items-center justify-center rounded-full text-xs',
             toolCall.status === 'completed' ? 'bg-green-500/15 text-green-500' :
-            toolCall.status === 'error' ? 'bg-red-500/15 text-red-500' :
-            toolCall.status === 'running' ? 'bg-blue-500/15 text-blue-500' :
-            'bg-yellow-500/15 text-yellow-500',
+              toolCall.status === 'error' ? 'bg-red-500/15 text-red-500' :
+                toolCall.status === 'running' ? 'bg-blue-500/15 text-blue-500' :
+                  'bg-yellow-500/15 text-yellow-500',
           )}
         >
           {toolCall.status === 'running' ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin"/>
           ) : toolCall.status === 'completed' ? (
-            <Check className="h-3.5 w-3.5" />
+            <Check className="h-3.5 w-3.5"/>
           ) : (
-            <Wrench className="h-3.5 w-3.5" />
+            <Wrench className="h-3.5 w-3.5"/>
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -335,12 +335,12 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ toolCall }) => {
         </div>
         <div
           className="h-2 w-2 rounded-full"
-          style={{ backgroundColor: getStatusColor(toolCall.status) }}
+          style={{backgroundColor: getStatusColor(toolCall.status)}}
         />
         {expanded ? (
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground"/>
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground"/>
         )}
       </button>
 
@@ -348,14 +348,16 @@ const ToolCallCard: React.FC<ToolCallCardProps> = ({ toolCall }) => {
         <div className="border-t border-border/50 bg-background/30 p-3">
           <div className="mb-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Arguments</span>
-            <pre className="mt-1 max-h-[150px] overflow-auto rounded-md bg-muted/40 p-2 text-[11px] font-mono text-muted-foreground">
+            <pre
+              className="mt-1 max-h-[150px] overflow-auto rounded-md bg-muted/40 p-2 text-[11px] font-mono text-muted-foreground">
               {JSON.stringify(toolCall.arguments, null, 2)}
             </pre>
           </div>
           {toolCall.result && (
             <div>
               <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Result</span>
-              <pre className="mt-1 max-h-[150px] overflow-auto rounded-md bg-muted/40 p-2 text-[11px] font-mono text-muted-foreground">
+              <pre
+                className="mt-1 max-h-[150px] overflow-auto rounded-md bg-muted/40 p-2 text-[11px] font-mono text-muted-foreground">
                 {JSON.stringify(toolCall.result, null, 2)}
               </pre>
             </div>
@@ -386,7 +388,7 @@ interface MessageBubbleProps {
  *
  * @param props - The properties defined in MessageBubbleProps.
  */
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({message, isLast}) => {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
 
@@ -409,11 +411,11 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast }) => {
         )}
       >
         {isUser ? (
-          <User className="h-4 w-4 text-white" />
+          <User className="h-4 w-4 text-white"/>
         ) : isSystem ? (
-          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+          <AlertCircle className="h-4 w-4 text-muted-foreground"/>
         ) : (
-          <Bot className="h-4 w-4 text-white" />
+          <Bot className="h-4 w-4 text-white"/>
         )}
       </div>
 
@@ -427,14 +429,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast }) => {
             {new Date(message.timestamp).toLocaleTimeString()}
           </span>
           {message.isStreaming && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-500">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-500">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500"/>
               Streaming
             </span>
           )}
           {!isUser && !isSystem && (
             <div className="ml-auto flex opacity-0 transition-opacity group-hover:opacity-100">
-              <CopyButton text={message.content} />
+              <CopyButton text={message.content}/>
             </div>
           )}
         </div>
@@ -452,7 +455,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast }) => {
         >
           <MarkdownViewer content={message.content}/>
           {message.isPartial && (
-            <span className="inline-block h-4 w-0.5 animate-pulse bg-foreground/60 ml-0.5 align-middle" />
+            <span className="inline-block h-4 w-0.5 animate-pulse bg-foreground/60 ml-0.5 align-middle"/>
           )}
         </div>
 
@@ -460,7 +463,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isLast }) => {
         {message.toolCalls && message.toolCalls.length > 0 && (
           <div className="mt-2 space-y-2">
             {message.toolCalls.map((tc) => (
-              <ToolCallCard key={tc.id} toolCall={tc} />
+              <ToolCallCard key={tc.id} toolCall={tc}/>
             ))}
           </div>
         )}
@@ -480,8 +483,10 @@ interface ConversationItemProps {
   conversation: Conversation;
   /** Flag indicating if this conversation is currently selected/active. */
   isActive: boolean;
+
   /** Callback function invoked when the conversation item is clicked. */
   onClick(): void;
+
   /** Callback function invoked when the delete action is triggered for this conversation. */
   onDelete(): void;
 }
@@ -493,61 +498,60 @@ interface ConversationItemProps {
  *
  * @param props - The properties defined in ConversationItemProps.
  */
-const ConversationItem: React.FC<ConversationItemProps> = ({
-  conversation,
-  isActive,
-  onClick,
-  onDelete,
-}) => (
-  <button
-    onClick={onClick}
-    className={cn(
-      'group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all',
-      isActive
-        ? 'bg-primary/10 border border-primary/20'
-        : 'hover:bg-muted/40 border border-transparent',
-    )}
-  >
-    {/* Streaming indicator */}
-    {conversation.isStreaming && (
-      <span className="relative flex h-3 w-3 flex-shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-        <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500" />
-      </span>
-    )}
+const ConversationItem: React.FC<ConversationItemProps> = (props) => {
+  const {conversation, isActive, onClick, onDelete} = props;
 
-    {/* Icon */}
+  return (
     <div
+      onClick={onClick}
       className={cn(
-        'flex h-8 w-8 items-center justify-center rounded-lg transition-all',
-        isActive ? 'bg-primary/15 text-primary' : 'bg-muted/50 text-muted-foreground',
+        'group cursor-pointer flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all',
+        isActive
+          ? 'bg-primary/10 border border-primary/20'
+          : 'hover:bg-muted/40 border border-transparent',
       )}
     >
-      <MessageSquare className="h-4 w-4" />
-    </div>
+      {/* Streaming indicator */}
+      {conversation.isStreaming && (
+        <span className="relative flex h-3 w-3 flex-shrink-0">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"/>
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-green-500"/>
+        </span>
+      )}
 
-    {/* Info */}
-    <div className="flex-1 min-w-0">
-      <p className={cn('truncate text-sm font-medium', isActive ? 'text-foreground' : 'text-foreground/80')}>
-        {conversation.title}
-      </p>
-      <p className="truncate text-[11px] text-muted-foreground">
-        {conversation.messageCount} messages · {conversation.provider}
-      </p>
-    </div>
+      {/* Icon */}
+      <div
+        className={cn(
+          'flex h-8 w-8 items-center justify-center rounded-lg transition-all',
+          isActive ? 'bg-primary/15 text-primary' : 'bg-muted/50 text-muted-foreground',
+        )}
+      >
+        <MessageSquare className="h-4 w-4"/>
+      </div>
 
-    {/* Delete button */}
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        onDelete();
-      }}
-      className="ml-1 flex h-6 w-6 items-center justify-center rounded-md opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/15 hover:text-red-500"
-    >
-      <Trash2 className="h-3 w-3" />
-    </button>
-  </button>
-);
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className={cn('truncate text-sm font-medium', isActive ? 'text-foreground' : 'text-foreground/80')}>
+          {conversation.title}
+        </p>
+        <p className="truncate text-[11px] text-muted-foreground">
+          {conversation.messageCount} messages · {conversation.provider}
+        </p>
+      </div>
+
+      {/* Delete button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
+        className="ml-1 flex h-6 w-6 items-center justify-center rounded-md opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/15 hover:text-red-500"
+      >
+        <Trash2 className="h-3 w-3"/>
+      </button>
+    </div>
+  );
+};
 
 // ==================== ProviderSelector ====================
 
@@ -558,6 +562,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
 interface ProviderSelectorProps {
   /** The currently selected provider ID (e.g., 'openai', 'anthropic'). */
   value: string;
+
   /** Callback function invoked when the provider or model selection changes.
    * @param provider - The ID of the selected provider.
    * @param model - The name of the selected model.
@@ -572,15 +577,18 @@ interface ProviderSelectorProps {
  *
  * @param props - The properties defined in ProviderSelectorProps.
  */
-const ProviderSelector: React.FC<ProviderSelectorProps> = ({ value, onChange }) => {
-  const [selectedProvider, setSelectedProvider] = React.useState(value);
-  const [selectedModel, setSelectedModel] = React.useState(DEFAULT_MODELS[0]);
-  const [showProviderDropdown, setShowProviderDropdown] = React.useState(false);
-  const [showModelDropdown, setShowModelDropdown] = React.useState(false);
+const ProviderSelector: React.FC<ProviderSelectorProps> = ({value, onChange}) => {
+  const [selectedProvider, setSelectedProvider] = React.useState<string>(value);
+  const [selectedModel, setSelectedModel] = React.useState<string>(DEFAULT_MODELS[0]);
+  const [showProviderDropdown, setShowProviderDropdown] = React.useState<boolean>(false);
+  const [showModelDropdown, setShowModelDropdown] = React.useState<boolean>(false);
 
+  // Sync internal state with prop only when prop explicitly changes and differs from current state
   React.useEffect(() => {
-    setSelectedProvider(value);
-  }, [value]);
+    if (value !== selectedProvider) {
+      setSelectedProvider(value);
+    }
+  }, [value, selectedProvider]);
 
   const handleSelect = (provider: string) => {
     setSelectedProvider(provider);
@@ -611,7 +619,7 @@ const ProviderSelector: React.FC<ProviderSelectorProps> = ({ value, onChange }) 
             )}
           />
           {providerInfo?.name || 'Unknown'}
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          <ChevronDown className="h-3 w-3 text-muted-foreground"/>
         </button>
 
         {showProviderDropdown && (
@@ -646,13 +654,14 @@ const ProviderSelector: React.FC<ProviderSelectorProps> = ({ value, onChange }) 
           onClick={() => setShowModelDropdown(!showModelDropdown)}
           className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted transition-all"
         >
-          <Sparkles className="h-3 w-3 text-muted-foreground" />
+          <Sparkles className="h-3 w-3 text-muted-foreground"/>
           {selectedModel}
-          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+          <ChevronDown className="h-3 w-3 text-muted-foreground"/>
         </button>
 
         {showModelDropdown && (
-          <div className="absolute left-0 top-full z-50 mt-1 min-w-[180px] max-h-[240px] overflow-y-auto rounded-lg border bg-card shadow-xl">
+          <div
+            className="absolute left-0 top-full z-50 mt-1 min-w-[180px] max-h-[240px] overflow-y-auto rounded-lg border bg-card shadow-xl">
             {DEFAULT_MODELS.map((m) => (
               <button
                 key={m}
@@ -687,10 +696,13 @@ interface StreamControlsProps {
   isStreaming: boolean;
   /** The current state of the streaming process. */
   streamState: 'active' | 'paused' | 'stopped' | 'error';
+
   /** Callback function invoked when the user requests to pause the stream. */
   onPause(): void;
+
   /** Callback function invoked when the user requests to resume the stream. */
   onResume(): void;
+
   /** Callback function invoked when the user requests to abort/stop the stream. */
   onAbort(): void;
 }
@@ -703,12 +715,12 @@ interface StreamControlsProps {
  * @param props - The properties defined in StreamControlsProps.
  */
 const StreamControls: React.FC<StreamControlsProps> = ({
-  isStreaming,
-  streamState,
-  onPause,
-  onResume,
-  onAbort,
-}) => (
+                                                         isStreaming,
+                                                         streamState,
+                                                         onPause,
+                                                         onResume,
+                                                         onAbort,
+                                                       }) => (
   <div className="flex items-center gap-1">
     {isStreaming && streamState === 'active' && (
       <button
@@ -716,7 +728,7 @@ const StreamControls: React.FC<StreamControlsProps> = ({
         className="rounded-lg p-2 text-amber-500 hover:bg-amber-500/10 transition-all"
         title="Pause stream"
       >
-        <Pause className="h-3.5 w-3.5" />
+        <Pause className="h-3.5 w-3.5"/>
       </button>
     )}
     {streamState === 'paused' && (
@@ -725,7 +737,7 @@ const StreamControls: React.FC<StreamControlsProps> = ({
         className="rounded-lg p-2 text-green-500 hover:bg-green-500/10 transition-all"
         title="Resume stream"
       >
-        <Play className="h-3.5 w-3.5" />
+        <Play className="h-3.5 w-3.5"/>
       </button>
     )}
     {(isStreaming || streamState === 'active' || streamState === 'paused') && (
@@ -734,7 +746,7 @@ const StreamControls: React.FC<StreamControlsProps> = ({
         className="rounded-lg p-2 text-red-500 hover:bg-red-500/10 transition-all"
         title="Abort stream"
       >
-        <X className="h-3.5 w-3.5" />
+        <X className="h-3.5 w-3.5"/>
       </button>
     )}
   </div>
@@ -751,12 +763,14 @@ interface MessageInputProps {
    * @param content - The text content of the message to be sent.
    */
   onSend(content: string): void;
+
   /** Flag indicating if a response is currently being streamed. */
   isStreaming: boolean;
   /** The currently selected provider ID (e.g., 'openai', 'anthropic'). */
   provider: string;
   /** The currently selected model name (e.g., 'gpt-4o'). */
   model: string;
+
   /** Callback function invoked when the provider or model selection changes.
    * @param provider - The ID of the selected provider.
    * @param model - The name of the selected model.
@@ -774,12 +788,12 @@ interface MessageInputProps {
  * @param props - The properties defined in MessageInputProps.
  */
 const MessageInput: React.FC<MessageInputProps> = ({
-  onSend,
-  isStreaming,
-  provider,
-  model,
-  onProviderChange,
-}) => {
+                                                     onSend,
+                                                     isStreaming,
+                                                     provider,
+                                                     model,
+                                                     onProviderChange,
+                                                   }) => {
   const [input, setInput] = React.useState('');
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -812,10 +826,11 @@ const MessageInput: React.FC<MessageInputProps> = ({
     <div className="border-t border-border bg-card p-4">
       {/* Provider selector */}
       <div className="mb-3 flex items-center justify-between">
-        <ProviderSelector value={provider} onChange={onProviderChange} />
+        <ProviderSelector value={provider} onChange={onProviderChange}/>
         {isStreaming && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/15 px-3 py-1 text-xs font-medium text-green-500">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-green-500/15 px-3 py-1 text-xs font-medium text-green-500">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-green-500"/>
             Streaming
           </span>
         )}
@@ -846,7 +861,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
               : 'bg-muted text-muted-foreground/40 cursor-not-allowed',
           )}
         >
-          <Send className="h-4 w-4" />
+          <Send className="h-4 w-4"/>
         </button>
       </div>
     </div>
@@ -856,8 +871,8 @@ const MessageInput: React.FC<MessageInputProps> = ({
 // ==================== AdvancedChat (Main) ====================
 
 const AdvancedChat: React.FC = () => {
-  const { send, sendToRoom, joinRoom, leaveRoom } = useWebSocket();
-  const { addToast } = useToast();
+  const {sendToRoom, joinRoom, leaveRoom} = useWebSocket();
+  const {addToast} = useToast();
 
   // State
   const [conversations, setConversations] = React.useState<Conversation[]>(MOCK_CONVERSATIONS);
@@ -866,16 +881,20 @@ const AdvancedChat: React.FC = () => {
   );
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [inputFocused, setInputFocused] = React.useState(false);
   const [chatExpanded, setChatExpanded] = React.useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
-  const activeConversation = conversations.find((c) => c.id === activeConversationId);
+  const activeConversation = React.useMemo(
+    () => conversations.find((c) => c.id === activeConversationId),
+    [conversations, activeConversationId],
+  );
 
   // Scroll to bottom on new messages
   React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [activeConversation?.messages.length]);
+    if (activeConversation && activeConversation.messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({behavior: 'smooth'});
+    }
+  }, [activeConversation, activeConversation.messages.length, activeConversationId]);
 
   // Auto-join chat room
   React.useEffect(() => {
@@ -935,7 +954,12 @@ const AdvancedChat: React.FC = () => {
     setConversations((prev) =>
       prev.map((c) =>
         c.id === activeConversationId
-          ? { ...c, messages: [...c.messages, userMsg], updatedAt: new Date().toISOString(), messageCount: c.messageCount + 1 }
+          ? {
+            ...c,
+            messages: [...c.messages, userMsg],
+            updatedAt: new Date().toISOString(),
+            messageCount: c.messageCount + 1,
+          }
           : c,
       ),
     );
@@ -943,7 +967,7 @@ const AdvancedChat: React.FC = () => {
     // Send via WebSocket
     sendToRoom(
       'chat:send',
-      { content, conversationId: activeConversationId } as WsPayload,
+      {content, conversationId: activeConversationId} as WsPayload,
       'chat',
     );
 
@@ -961,19 +985,26 @@ const AdvancedChat: React.FC = () => {
       setConversations((prev) =>
         prev.map((c) =>
           c.id === activeConversationId
-            ? { ...c, messages: [...c.messages, assistantMsg], isStreaming: true, streamState: 'active', updatedAt: new Date().toISOString(), messageCount: c.messageCount + 1 }
+            ? {
+              ...c,
+              messages: [...c.messages, assistantMsg],
+              isStreaming: true,
+              streamState: 'active',
+              updatedAt: new Date().toISOString(),
+              messageCount: c.messageCount + 1,
+            }
             : c,
         ),
       );
 
       // Simulate streaming chunks
       const chunks = [
-        "Here's my response to your question. ",
-        "I've analyzed the details and ",
-        "prepared a comprehensive answer ",
-        "for you. ",
-        "Let me know if you need any ",
-        "clarification or further details!",
+        'Here\'s my response to your question. ',
+        'I\'ve analyzed the details and ',
+        'prepared a comprehensive answer ',
+        'for you. ',
+        'Let me know if you need any ',
+        'clarification or further details!',
       ];
 
       let i = 0;
@@ -985,15 +1016,15 @@ const AdvancedChat: React.FC = () => {
             prev.map((c) =>
               c.id === activeConversationId
                 ? {
-                    ...c,
-                    messages: c.messages.map((m) =>
-                      m.id === assistantMsg.id
-                        ? { ...m, content: chunks.join(''), isStreaming: false, isPartial: false }
-                        : m,
-                    ),
-                    isStreaming: false,
-                    streamState: 'stopped',
-                  }
+                  ...c,
+                  messages: c.messages.map((m) =>
+                    m.id === assistantMsg.id
+                      ? {...m, content: chunks.join(''), isStreaming: false, isPartial: false}
+                      : m,
+                  ),
+                  isStreaming: false,
+                  streamState: 'stopped',
+                }
                 : c,
             ),
           );
@@ -1005,13 +1036,13 @@ const AdvancedChat: React.FC = () => {
           prev.map((c) =>
             c.id === activeConversationId
               ? {
-                  ...c,
-                  messages: c.messages.map((m) =>
-                    m.id === assistantMsg.id
-                      ? { ...m, content: partialContent, isPartial: i < chunks.length - 1 }
-                      : m,
-                  ),
-                }
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.id === assistantMsg.id
+                    ? {...m, content: partialContent, isPartial: i < chunks.length - 1}
+                    : m,
+                ),
+              }
               : c,
           ),
         );
@@ -1037,13 +1068,13 @@ const AdvancedChat: React.FC = () => {
     setConversations((prev) =>
       prev.map((c) =>
         c.id === activeConversationId
-          ? { ...c, streamState: 'paused' }
+          ? {...c, streamState: 'paused'}
           : c,
       ),
     );
     sendToRoom(
       'chat:stream:pause',
-      { messageId: 'current' } as WsPayload,
+      {messageId: 'current'} as WsPayload,
       'chat-stream',
     );
     addToast('warning', 'Stream Paused', 'Response streaming has been paused');
@@ -1054,13 +1085,13 @@ const AdvancedChat: React.FC = () => {
     setConversations((prev) =>
       prev.map((c) =>
         c.id === activeConversationId
-          ? { ...c, streamState: 'active' }
+          ? {...c, streamState: 'active'}
           : c,
       ),
     );
     sendToRoom(
       'chat:stream:resume',
-      { messageId: 'current' } as WsPayload,
+      {messageId: 'current'} as WsPayload,
       'chat-stream',
     );
     addToast('info', 'Stream Resumed', 'Response streaming has been resumed');
@@ -1071,29 +1102,29 @@ const AdvancedChat: React.FC = () => {
     setConversations((prev) =>
       prev.map((c) =>
         c.id === activeConversationId
-          ? { ...c, isStreaming: false, streamState: 'stopped' }
+          ? {...c, isStreaming: false, streamState: 'stopped'}
           : c,
       ),
     );
     sendToRoom(
       'chat:stream:error',
-      { messageId: 'current', error: 'User aborted', recoverable: false } as WsPayload,
+      {messageId: 'current', error: 'User aborted', recoverable: false} as WsPayload,
       'chat-stream',
     );
     addToast('error', 'Stream Aborted', 'Response streaming was aborted by the user');
   };
 
-  const handleProviderChange = (provider: string, model: string) => {
+  const handleProviderChange = React.useCallback((provider: string, model: string) => {
     if (activeConversationId) {
       setConversations((prev) =>
         prev.map((c) =>
           c.id === activeConversationId
-            ? { ...c, provider, model }
+            ? {...c, provider, model}
             : c,
         ),
       );
     }
-  };
+  }, [activeConversationId]);
 
   return (
     <div className="flex h-[calc(100vh-8rem)] overflow-hidden rounded-xl border bg-card">
@@ -1107,7 +1138,7 @@ const AdvancedChat: React.FC = () => {
         {/* Sidebar header */}
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-primary" />
+            <MessageSquare className="h-4 w-4 text-primary"/>
             <span className="text-sm font-semibold text-foreground">Conversations</span>
           </div>
           <div className="flex items-center gap-1">
@@ -1116,14 +1147,14 @@ const AdvancedChat: React.FC = () => {
               className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
               title="New conversation"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4"/>
             </button>
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
               title="Collapse sidebar"
             >
-              {sidebarCollapsed ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+              {sidebarCollapsed ? <Maximize2 className="h-4 w-4"/> : <Minimize2 className="h-4 w-4"/>}
             </button>
           </div>
         </div>
@@ -1132,7 +1163,7 @@ const AdvancedChat: React.FC = () => {
         {!sidebarCollapsed && (
           <div className="border-b border-border px-3 py-2">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"/>
               <input
                 type="text"
                 placeholder="Search conversations..."
@@ -1149,7 +1180,7 @@ const AdvancedChat: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-2">
             {filteredConversations.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <MessageSquare className="mb-2 h-8 w-8 text-muted-foreground/30" />
+                <MessageSquare className="mb-2 h-8 w-8 text-muted-foreground/30"/>
                 <p className="text-xs text-muted-foreground">
                   {searchTerm ? 'No matching conversations' : 'No conversations yet'}
                 </p>
@@ -1181,8 +1212,9 @@ const AdvancedChat: React.FC = () => {
         {/* Sidebar footer */}
         {!sidebarCollapsed && (
           <div className="border-t border-border px-3 py-2">
-            <button className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-all">
-              <Settings className="h-3.5 w-3.5" />
+            <button
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-all">
+              <Settings className="h-3.5 w-3.5"/>
               Settings
             </button>
           </div>
@@ -1214,7 +1246,7 @@ const AdvancedChat: React.FC = () => {
                   className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-all"
                   title={chatExpanded ? 'Minimize chat' : 'Expand chat'}
                 >
-                  {chatExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  {chatExpanded ? <Minimize2 className="h-4 w-4"/> : <Maximize2 className="h-4 w-4"/>}
                 </button>
               </div>
             </div>
@@ -1228,8 +1260,9 @@ const AdvancedChat: React.FC = () => {
             >
               {activeConversation.messages.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-green-500/20">
-                    <Bot className="h-8 w-8 text-primary" />
+                  <div
+                    className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-green-500/20">
+                    <Bot className="h-8 w-8 text-primary"/>
                   </div>
                   <h3 className="mb-2 text-lg font-semibold text-foreground">
                     Start a Conversation
@@ -1239,10 +1272,10 @@ const AdvancedChat: React.FC = () => {
                   </p>
                   <div className="mt-6 grid grid-cols-2 gap-2 text-left">
                     {[
-                      { icon: '💡', label: 'Explain a concept', hint: 'Quantum computing basics' },
-                      { icon: '🔧', label: 'Generate code', hint: 'TypeScript utility functions' },
-                      { icon: '📝', label: 'Write content', hint: 'Blog post introduction' },
-                      { icon: '🐛', label: 'Debug help', hint: 'TypeScript type errors' },
+                      {icon: '💡', label: 'Explain a concept', hint: 'Quantum computing basics'},
+                      {icon: '🔧', label: 'Generate code', hint: 'TypeScript utility functions'},
+                      {icon: '📝', label: 'Write content', hint: 'Blog post introduction'},
+                      {icon: '🐛', label: 'Debug help', hint: 'TypeScript type errors'},
                     ].map((suggestion, i) => (
                       <button
                         key={i}
@@ -1267,7 +1300,7 @@ const AdvancedChat: React.FC = () => {
                       isLast={i === activeConversation.messages.length - 1}
                     />
                   ))}
-                  <div ref={messagesEndRef} />
+                  <div ref={messagesEndRef}/>
                 </div>
               )}
             </div>
@@ -1285,8 +1318,9 @@ const AdvancedChat: React.FC = () => {
           // Empty state
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center">
-              <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20">
-                <MessageSquare className="h-10 w-10 text-primary" />
+              <div
+                className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20">
+                <MessageSquare className="h-10 w-10 text-primary"/>
               </div>
               <h3 className="mb-2 text-xl font-bold text-foreground">Select a Conversation</h3>
               <p className="mb-4 max-w-sm text-sm text-muted-foreground">
@@ -1296,7 +1330,7 @@ const AdvancedChat: React.FC = () => {
                 onClick={createNewConversation}
                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-green-500 px-6 py-3 text-sm font-semibold text-white transition-all hover:opacity-90"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4"/>
                 New Conversation
               </button>
             </div>
