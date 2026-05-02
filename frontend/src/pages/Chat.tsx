@@ -29,6 +29,7 @@ import {
   StopCircle,
   Trash2,
   User,
+  Wand2,
   Wrench,
   X,
   Zap,
@@ -54,7 +55,13 @@ import {
   type Model,
   type Provider,
   sendChat,
+  type PromptTemplate,
+  listPromptTemplates,
+  getPromptTemplateByName,
+  renderPromptTemplate,
 } from '@/lib/api';
+import {PromptTemplateSelector} from '@/components/ui/PromptTemplateSelector';
+import {VariableInputModal} from '@/components/ui/VariableInputModal';
 
 // Types
 interface MessageBubbleProps {
@@ -266,7 +273,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = (props) => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 {message.toolName && (
-                  <Badge variant="secondary" className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 font-mono">
+                  <Badge variant="secondary"
+                         className="text-xs bg-purple-500/20 text-purple-700 dark:text-purple-300 font-mono">
                     <Wrench className="h-3 w-3 mr-1"/>
                     {message.toolName}
                   </Badge>
@@ -512,6 +520,14 @@ const Chat = () => {
   const [providers, setProviders] = useState<Provider[]>([]);
   /** Name of the currently selected provider. */
   const [selectedProvider, setSelectedProvider] = useState('');
+  /** Currently selected prompt template */
+  const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
+  /** Variables collected from the user for the selected template */
+  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({});
+  /** Whether the variable input modal is open */
+  const [showVariableModal, setShowVariableModal] = useState(false);
+  /** Prefilled template content (after variable substitution) */
+  const [prefilledContent, setPrefilledContent] = useState('');
   /** Record mapping provider names to their available models and loading state. */
   const [providerModels, setProviderModels] = useState<Record<string, ProviderModels>>({});
   /** ID or name of the currently selected model. */
@@ -538,6 +554,19 @@ const Chat = () => {
     toolCalls: 0,
     avgResponseTime: 0,
   });
+
+  // Fetch default template on mount
+  useEffect(() => {
+    const fetchDefaultTemplate = async () => {
+      try {
+        const template = await getPromptTemplateByName('general');
+        setSelectedTemplate(template);
+      } catch {
+        // Use default
+      }
+    };
+    fetchDefaultTemplate();
+  }, []);
 
   /** Ref to the DOM element at the end of the message list for auto-scrolling. */
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -658,17 +687,22 @@ const Chat = () => {
    * Sends the user's message to the API and handles the response.
    */
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || loading) return;
+    if (!inputMessage.trim() && !prefilledContent.trim() || loading) return;
+
+    // Use prefilled template content if available, otherwise use inputMessage
+    const finalMessage = prefilledContent.trim() || inputMessage.trim();
+    if (!finalMessage) return;
 
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: 'user',
-      content: inputMessage.trim(),
+      content: finalMessage,
       timestamp: Date.now(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage('');
+    setPrefilledContent('');
     setLoading(true);
     setError(null);
 
@@ -742,6 +776,51 @@ const Chat = () => {
    * Aborts the currently active message generation request.
    * Resets the loading state and clears the abort controller.
    */
+  const handleApplyTemplate = async (template: PromptTemplate | null) => {
+    if (!template) {
+      setSelectedTemplate(null);
+      setTemplateVariables({});
+      setPrefilledContent('');
+      return;
+    }
+
+    setSelectedTemplate(template);
+
+    if (template.variables && template.variables.length > 0) {
+      // Show variable input modal
+      setTemplateVariables({});
+      setShowVariableModal(true);
+    } else {
+      // No variables, apply directly
+      setPrefilledContent(template.content);
+    }
+  };
+
+  const handleVariableSubmit = async (values: Record<string, string>) => {
+    if (!selectedTemplate) return;
+
+    setTemplateVariables(values);
+
+    try {
+      const rendered = await renderPromptTemplate({
+        templateId: selectedTemplate.id,
+        variables: values,
+      });
+      setPrefilledContent(rendered.renderedContent);
+      setShowVariableModal(false);
+    } catch (err) {
+      // Fallback: just use the template content directly
+      setPrefilledContent(selectedTemplate.content);
+      setShowVariableModal(false);
+    }
+  };
+
+  const handleClearTemplate = () => {
+    setPrefilledContent('');
+    setTemplateVariables({});
+    setSelectedTemplate(null);
+  };
+
   const handleAbort = () => {
     if (abortController) {
       abortController.abort();
@@ -1175,52 +1254,101 @@ const Chat = () => {
             </div>
           )}
 
-          {/* Input Area */}
-          <Card className="shrink-0 border-0 shadow-lg">
-            <CardContent className="p-2">
-              <div className="flex gap-2 items-end">
-                <div className="flex-1 relative">
-                  <Textarea
-                    ref={textareaRef}
-                    value={inputMessage}
-                    onChange={handleTextareaChange}
-                    onKeyPress={handleKeyPress}
-                    placeholder="Type your message here... (Shift+Enter for new line)"
-                    className="flex-1 min-h-[48px] max-h-[150px] resize-none pr-12 rounded-2xl border-0 ring-1 ring-input focus:ring-2 focus:ring-primary/50"
-                    disabled={loading}
-                    rows={1}
-                  />
-                </div>
-                {loading ? (
-                  <Button
-                    onClick={handleAbort}
-                    variant="destructive"
-                    size="lg"
-                    className="h-[48px] px-6 rounded-2xl gap-2 shadow-md animate-pulse"
-                  >
-                    <StopCircle className="h-5 w-5"/>
-                    <span className="hidden sm:inline">Stop</span>
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!inputMessage.trim()}
-                    size="lg"
-                    className="h-[48px] px-6 rounded-2xl gap-2 shadow-md transition-all hover:shadow-lg disabled:opacity-50"
-                  >
-                    <span className="hidden sm:inline">Send</span>
-                    <Send className="h-5 w-5"/>
-                  </Button>
+          {/* Template Selector & Input Area */}
+          <div className="space-y-2">
+            {/* Template Selector Bar */}
+            {!(selectedTemplate || messages.length > 0) && (
+              <div className="flex items-center gap-2 shrink-0">
+                <PromptTemplateSelector
+                  selectedTemplate={selectedTemplate}
+                  onTemplateSelect={handleApplyTemplate}
+                  onApply={() => {
+                    // Trigger variable modal or apply directly
+                    if (selectedTemplate && selectedTemplate.variables && selectedTemplate.variables.length > 0) {
+                      setShowVariableModal(true);
+                    } else if (selectedTemplate) {
+                      setPrefilledContent(selectedTemplate.content);
+                    }
+                  }}
+                  inputPlaceholder="Select a template or type your own message..."
+                  disabled={loading}
+                  showPreview={false}
+                />
+                {prefilledContent && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Badge variant="outline" className="gap-1 px-2 py-0.5 text-xs">
+                      <Wand2 className="h-3 w-3"/>
+                      {selectedTemplate?.displayName || selectedTemplate?.name}
+                    </Badge>
+                    <Button size="sm" variant="ghost" onClick={handleClearTemplate} className="h-6 w-6 p-0">
+                      <X className="h-3 w-3"/>
+                    </Button>
+                  </div>
                 )}
               </div>
-              <div className="mt-2 text-center">
-                <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
-                  <Flame className="h-3 w-3"/>
-                  MCP AI can make mistakes. Consider checking important information.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            )}
+
+            <Card className="shrink-0 border-0 shadow-lg">
+              <CardContent className="p-2">
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1 relative">
+                    <Textarea
+                      ref={textareaRef}
+                      value={prefilledContent || inputMessage}
+                      onChange={(e) => {
+                        if (prefilledContent) {
+                          setPrefilledContent(e.target.value);
+                        } else {
+                          handleTextareaChange(e);
+                        }
+                      }}
+                      onKeyPress={handleKeyPress}
+                      placeholder={prefilledContent ? 'Modify the template content or clear it to type freely...' : 'Type your message here... (Shift+Enter for new line)'}
+                      className="flex-1 min-h-[48px] max-h-[150px] resize-none pr-12 rounded-2xl border-0 ring-1 ring-input focus:ring-2 focus:ring-primary/50"
+                      disabled={loading}
+                      rows={1}
+                    />
+                  </div>
+                  {loading ? (
+                    <Button
+                      onClick={handleAbort}
+                      variant="destructive"
+                      size="lg"
+                      className="h-[48px] px-6 rounded-2xl gap-2 shadow-md animate-pulse"
+                    >
+                      <StopCircle className="h-5 w-5"/>
+                      <span className="hidden sm:inline">Stop</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!inputMessage.trim()}
+                      size="lg"
+                      className="h-[48px] px-6 rounded-2xl gap-2 shadow-md transition-all hover:shadow-lg disabled:opacity-50"
+                    >
+                      <span className="hidden sm:inline">Send</span>
+                      <Send className="h-5 w-5"/>
+                    </Button>
+                  )}
+                </div>
+                <div className="mt-2 text-center">
+                  <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <Flame className="h-3 w-3"/>
+                    MCP AI can make mistakes. Consider checking important information.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Variable Input Modal for Templates */}
+          <VariableInputModal
+            isOpen={showVariableModal}
+            onClose={() => setShowVariableModal(false)}
+            variables={selectedTemplate?.variables || []}
+            onSubmit={handleVariableSubmit}
+            prefillValues={templateVariables}
+          />
         </div>
 
         {/* Conversations Sidebar */}

@@ -6,21 +6,21 @@
  * @see https://github.com/blacksmoke26
  */
 
-/**
- * @module lib/api
- * @description API client service for all MCP Server endpoints.
- *
- * Provides a unified interface for all API endpoints with proper error handling
- * and type safety.
- *
- * ## MCP Server Management
- *
- * Includes comprehensive endpoints for managing external MCP servers:
- * - List, create, update, and delete MCP servers
- * - Start, stop, and restart server connections
- * - Test connectivity and health checks
- * - Get server templates for quick setup
- */
+ /**
+  * @module lib/api
+  * @description API client service for all MCP Server endpoints.
+  *
+  * Provides a unified interface for all API endpoints with proper error handling
+  * and type safety.
+  *
+  * ## MCP Server Management
+  *
+  * Includes comprehensive endpoints for managing external MCP servers:
+  * - List, create, update, and delete MCP servers
+  * - Start, stop, and restart server connections
+  * - Test connectivity and health checks
+  * - Get server templates for quick setup
+  */
 
 import type {
   // Health & Info
@@ -136,6 +136,147 @@ import type {
   McpHealthResponse,
 } from '@/types/api';
 import {DEFAULT_API_CONFIG} from '@/types/api';
+
+// ════════════════════════════════════════════════════════════
+// Prompt Template Types
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Represents a variable definition within a prompt template.
+ */
+export interface PromptTemplateVariable {
+  /** The unique identifier for the variable. */
+  name: string;
+  /** A human-readable description of what the variable represents. */
+  description: string;
+  /** Indicates whether the variable must be provided during rendering. */
+  required: boolean;
+}
+
+/**
+ * Represents a complete prompt template entity.
+ */
+export interface PromptTemplate {
+  /** The unique numeric identifier for the template. */
+  id: number;
+  /** The unique machine-readable name for the template. */
+  name: string;
+  /** The human-readable display name for the template. */
+  displayName: string;
+  /** A detailed description of the template's purpose. */
+  description: string;
+  /** The raw content string of the template, containing placeholders for variables. */
+  content: string;
+  /** The category classification for the template (e.g., 'code', 'writing' */
+  category: string;
+  /** Indicates whether this is a built-in system template that cannot be deleted. */
+  isBuiltIn: boolean;
+  /** Indicates whether this template is set as the default for its category or globally. */
+  isDefault: boolean;
+  /** An array of variable definitions used within the template content. */
+  variables: PromptTemplateVariable[];
+  /** Arbitrary key-value settings associated with the template. */
+  settings: Record<string, unknown> | null;
+  /** ISO 8601 timestamp indicating when the template was created. */
+  createdAt: string;
+  /** ISO 8601 timestamp indicating when the template was last updated. */
+  updatedAt: string;
+}
+
+/**
+ * Input interface for creating a new prompt template.
+ */
+export interface PromptTemplateCreateInput {
+  /** The unique machine-readable name for the template. */
+  name: string;
+  /** The human-readable display name for the template. */
+  displayName: string;
+  /** A detailed description of the template's purpose. */
+  description: string;
+  /** The raw content string of the template. */
+  content: string;
+  /** The category classification for the template. */
+  category: string;
+  /** Optional array of variable definitions. */
+  variables?: PromptTemplateVariable[];
+  /** Optional key-value settings for the template. */
+  settings?: Record<string, unknown>;
+}
+
+/**
+ * Input interface for updating an existing prompt template.
+ * All properties are optional.
+ */
+export interface PromptTemplateUpdateInput {
+  /** The updated human-readable display name. */
+  displayName?: string;
+  /** The updated description of the template's purpose. */
+  description?: string;
+  /** The updated raw content string of the template. */
+  content?: string;
+  /** The updated category classification. */
+  category?: string;
+  /** The updated array of variable definitions. */
+  variables?: PromptTemplateVariable[];
+  /** The updated key-value settings. */
+  settings?: Record<string, unknown>;
+  /** Flag to set this template as the default. */
+  isDefault?: boolean;
+}
+
+/**
+ * Input interface for rendering a prompt template.
+ * Requires either `templateId` or `templateName` to identify the template.
+ */
+export interface PromptTemplateRenderInput {
+  /** The numeric ID of the template to render. */
+  templateId?: number;
+  /** The name of the template to render. */
+  templateName?: string;
+  /** Key-value pairs of variable names to their string values for substitution. */
+  variables: Record<string, string>;
+}
+
+/**
+ * Output interface for a rendered prompt template.
+ */
+export interface PromptTemplateRenderOutput {
+  /** The unique numeric identifier of the template that was rendered. */
+  id: number;
+  /** The machine-readable name of the template. */
+  name: string;
+  /** The display name of the template. */
+  displayName: string;
+  /** The original raw content of the template. */
+  content: string;
+  /** The final content string after variable substitution has been applied. */
+  renderedContent: string;
+  /** The variables used during the rendering process. */
+  variables: Record<string, string>;
+}
+
+/**
+ * Response interface for listing prompt templates.
+ */
+export interface PromptTemplateListResponse {
+  /** An array of prompt template objects. */
+  templates: PromptTemplate[];
+  /** The total number of templates available. */
+  count: number;
+}
+
+/**
+ * Response interface for fetching available template categories.
+ */
+export interface PromptTemplateCategoriesResponse {
+  /** An array of category name strings. */
+  categories: string[];
+}
+
+/**
+ * Union type representing known prompt template categories or arbitrary strings.
+ */
+export type PromptTemplateCategory = 'code' | 'writing' | 'analysis' | 'general' | string;
 
 // ====== Configuration ======
 
@@ -414,10 +555,125 @@ export async function callTool(toolRequest: ToolsCallRequest): Promise<CallToolR
 /**
  * POST /chat - Send a message and get response
  */
-export async function sendChat(params: ChatRequest): Promise<ChatResponse> {
+// ════════════════════════════════════════════════════════════
+// Prompt Templates API
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Get all prompt templates with optional category filter.
+ */
+export async function listPromptTemplates(category?: string): Promise<PromptTemplateListResponse> {
+  const params = new URLSearchParams();
+  if (category) params.set('category', category);
+
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates?${params}`);
+  if (!response.ok) throw new Error('Failed to fetch prompt templates');
+  return response.json();
+}
+
+/**
+ * Get a single prompt template by ID.
+ */
+export async function getPromptTemplateById(id: number): Promise<PromptTemplate> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/${id}`);
+  if (!response.ok) throw new Error(`Failed to fetch template with id ${id}`);
+  return response.json();
+}
+
+/**
+ * Get a single prompt template by name.
+ */
+export async function getPromptTemplateByName(name: string): Promise<PromptTemplate> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/name/${name}`);
+  if (!response.ok) throw new Error(`Failed to fetch template with name ${name}`);
+  return response.json();
+}
+
+/**
+ * Create a new custom prompt template.
+ */
+export async function createPromptTemplate(input: PromptTemplateCreateInput): Promise<PromptTemplate> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Failed to create template'}));
+    throw new Error(error.message || 'Failed to create template');
+  }
+  return response.json();
+}
+
+/**
+ * Update an existing prompt template.
+ */
+export async function updatePromptTemplate(id: number, input: PromptTemplateUpdateInput): Promise<PromptTemplate> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/${id}`, {
+    method: 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Failed to update template'}));
+    throw new Error(error.message || 'Failed to update template');
+  }
+  return response.json();
+}
+
+/**
+ * Delete a prompt template.
+ */
+export async function deletePromptTemplate(id: number): Promise<void> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/${id}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Failed to delete template'}));
+    throw new Error(error.message || 'Failed to delete template');
+  }
+}
+
+/**
+ * Set a template as the default.
+ */
+export async function setDefaultPromptTemplate(id: number): Promise<PromptTemplate> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/${id}/default`, {
+    method: 'PATCH',
+  });
+  if (!response.ok) throw new Error(`Failed to set template ${id} as default`);
+  return response.json();
+}
+
+/**
+ * Get available template categories.
+ */
+export async function getPromptTemplateCategories(): Promise<PromptTemplateCategoriesResponse> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/categories`);
+  if (!response.ok) throw new Error('Failed to fetch categories');
+  return response.json();
+}
+
+/**
+ * Render a template with variables (dry run — returns rendered content without sending).
+ */
+export async function renderPromptTemplate(input: PromptTemplateRenderInput): Promise<PromptTemplateRenderOutput> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/render`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Failed to render template'}));
+    throw new Error(error.message || 'Failed to render template');
+  }
+  return response.json();
+}
+
+export async function sendChat(body: ChatRequest): Promise<ChatResponse> {
   return request<ChatResponse>('/chat', {
     method: 'POST',
-    body: JSON.stringify(params),
+    body: JSON.stringify(body),
   }, 360 * 1000);
 }
 

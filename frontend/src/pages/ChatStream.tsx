@@ -24,6 +24,7 @@ import {
   StopCircle,
   Trash2,
   User,
+  Wand2,
   X,
   Zap,
 } from 'lucide-react';
@@ -32,12 +33,23 @@ import {Button} from '@/components/ui/Button';
 import {Popover} from '@/components/ui/Popover';
 import {Textarea} from '@/components/ui/Textarea';
 import {ScrollArea} from '@/components/ui/ScrollArea';
+import MarkdownViewer from '@/components/ui/MarkdownViewer';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from '@/components/ui/Tooltip';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
-import {config, listProviderModels, listProviders, type Model, type Provider} from '@/lib/api';
-import MarkdownViewer from '@/components/ui/MarkdownViewer';
+import {
+  config,
+  listProviderModels,
+  listProviders,
+  type Model,
+  type Provider,
+  type PromptTemplate,
+  getPromptTemplateByName,
+  renderPromptTemplate,
+} from '@/lib/api';
+import {PromptTemplateSelector} from '@/components/ui/PromptTemplateSelector';
+import {VariableInputModal} from '@/components/ui/VariableInputModal';
 
 // Types
 interface StreamMessage {
@@ -123,13 +135,15 @@ interface ModelGuideProps {
 }
 
 // Stats Widget Component
-const StatsWidget: React.FC<StatsWidgetProps> = ({
-                                                   label,
-                                                   value,
-                                                   icon,
-                                                   color = 'blue',
-                                                   animate = false,
-                                                 }) => {
+const StatsWidget: React.FC<StatsWidgetProps> = (props) => {
+  const {
+    label,
+    value,
+    icon,
+    color = 'blue',
+    animate = false,
+  } = props;
+
   const colorClasses: Record<string, string> = {
     blue: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
     green: 'bg-green-500/10 text-green-500 border-green-500/20',
@@ -416,14 +430,23 @@ const ConnectionStatus: React.FC<{ status: 'disconnected' | 'connecting' | 'conn
 
 // Message Bubble Component
 const MessageBubble: React.FC<{
+  /** The message object containing content, role, and metadata. */
   message: StreamMessage;
+  /** Optional callback function triggered when the copy action is invoked. */
   onCopy?(content: string): void;
 }> = ({message, onCopy}) => {
-  const [isCopied, setIsCopied] = useState(false);
-  const isUser = message.role === 'user';
-  const isAssistant = message.role === 'assistant';
+  /** Local state to track the "copied" feedback status. */
+  const [isCopied, setIsCopied] = useState<boolean>(false);
+  /** Determines if the message sender is the user. */
+  const isUser: boolean = message.role === 'user';
+  /** Determines if the message sender is the AI assistant. */
+  const isAssistant: boolean = message.role === 'assistant';
 
-  const handleCopy = () => {
+  /**
+   * Handles the copy-to-clipboard action.
+   * Invokes the `onCopy` callback and temporarily sets the copied state.
+   */
+  const handleCopy = (): void => {
     if (onCopy) {
       onCopy(message.content);
       setIsCopied(true);
@@ -431,7 +454,12 @@ const MessageBubble: React.FC<{
     }
   };
 
-  const formatTime = (date: Date) => {
+  /**
+   * Formats a Date object into a localized time string (HH:MM).
+   * @param date - The date object to format.
+   * @returns The formatted time string.
+   */
+  const formatTime = (date: Date): string => {
     return date.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'});
   };
 
@@ -534,6 +562,25 @@ const ChatStream: React.FC = () => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // ─── Template State ─────────────────────────────────────────────
+  const [selectedTemplate, setSelectedTemplate] = useState<PromptTemplate | null>(null);
+  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({});
+  const [showVariableModal, setShowVariableModal] = useState(false);
+  const [prefilledContent, setPrefilledContent] = useState('');
+
+  // Fetch default template on mount
+  useEffect(() => {
+    const fetchDefaultTemplate = async () => {
+      try {
+        const template = await getPromptTemplateByName('general');
+        setSelectedTemplate(template);
+      } catch {
+        // Use default
+      }
+    };
+    fetchDefaultTemplate();
+  }, []);
 
   /** Scrolls the chat view to the bottom if auto-scroll is enabled. */
   const scrollToBottom = () => {
@@ -644,17 +691,59 @@ const ChatStream: React.FC = () => {
   };
 
   /** Initiates the message sending process and handles the streaming response. */
+    // ─── Template Handlers ─────────────────────────────────────────────
+  const handleApplyTemplate = async (template: PromptTemplate | null) => {
+      if (!template) {
+        setSelectedTemplate(null);
+        setTemplateVariables({});
+        setPrefilledContent('');
+        return;
+      }
+      setSelectedTemplate(template);
+      if (template.variables && template.variables.length > 0) {
+        setTemplateVariables({});
+        setShowVariableModal(true);
+      } else {
+        setPrefilledContent(template.content);
+      }
+    };
+
+  const handleVariableSubmit = async (values: Record<string, string>) => {
+    if (!selectedTemplate) return;
+    setTemplateVariables(values);
+    try {
+      const rendered = await renderPromptTemplate({
+        templateId: selectedTemplate.id,
+        variables: values,
+      });
+      setPrefilledContent(rendered.renderedContent);
+      setShowVariableModal(false);
+    } catch {
+      setPrefilledContent(selectedTemplate.content);
+      setShowVariableModal(false);
+    }
+  };
+
+  const handleClearTemplate = () => {
+    setPrefilledContent('');
+    setTemplateVariables({});
+    setSelectedTemplate(null);
+  };
+
+  /** Initiates the message sending process and handles the streaming response. */
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isStreaming) return;
+    const finalMessage = (prefilledContent.trim() || inputMessage.trim());
+    if (!finalMessage || isStreaming) return;
 
     const userMessage: StreamMessage = {
       role: 'user',
-      content: inputMessage.trim(),
+      content: finalMessage,
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage('');
+    setPrefilledContent('');
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -744,7 +833,7 @@ const ChatStream: React.FC = () => {
                   }));
 
                   if (data.tools && data.tools.length > 0) {
-                    const toolNames = data.tools.map((t: {name: string}) => t.name).join(', ');
+                    const toolNames = data.tools.map((t: { name: string }) => t.name).join(', ');
                     setMessages((prev) => {
                       if (prev.length === 0) return prev;
                       const updated = [...prev];
@@ -888,6 +977,8 @@ const ChatStream: React.FC = () => {
     setMessages([]);
     setStreamStats({iterations: 0, toolCalls: 0, tokens: {input: 0, output: 0, total: 0}});
     setError(null);
+    setPrefilledContent('');
+    setSelectedTemplate(null);
   };
 
   /** Handles keyboard events within the textarea to send messages on Enter. */
@@ -1281,48 +1372,96 @@ const ChatStream: React.FC = () => {
             )}
           </div>
 
-          {/* Input Section */}
-          <Card className="border-0 shadow-lg shrink-0">
-            <CardContent className="p-2">
-              <div className="flex items-end gap-2">
-                <div className="flex-1 relative">
-                  <Textarea
-                    ref={textareaRef}
-                    value={inputMessage}
-                    onChange={handleTextareaChange}
-                    onKeyDown={handleKeyPress}
-                    placeholder="Type your message here... (Shift+Enter for new line)"
-                    disabled={isStreaming}
-                    rows={1}
-                    className="min-h-[48px] max-h-[150px] resize-none rounded-2xl pr-10 border-0 ring-1 ring-input focus:ring-2 focus:ring-primary/50 bg-background/50"
-                  />
-                  <div className="absolute right-3 bottom-3 flex items-center gap-1 text-xs text-muted-foreground">
-                    <Command className="h-3 w-3"/>
-                    <span>K</span>
-                    <span className="hidden sm:inline">to search</span>
+          {/* Template Selector & Input Section */}
+          <div className="space-y-2 shrink-0">
+            {/* Template Selector Bar */}
+            {(selectedTemplate || messages.length > 0) && (
+              <div className="flex items-center gap-2">
+                <PromptTemplateSelector
+                  selectedTemplate={selectedTemplate}
+                  onTemplateSelect={handleApplyTemplate}
+                  onApply={() => {
+                    if (selectedTemplate && selectedTemplate.variables && selectedTemplate.variables.length > 0) {
+                      setShowVariableModal(true);
+                    } else if (selectedTemplate) {
+                      setPrefilledContent(selectedTemplate.content);
+                    }
+                  }}
+                  inputPlaceholder="Select a template or type your own message..."
+                  disabled={isStreaming}
+                  showPreview={false}
+                />
+                {prefilledContent && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <Badge variant="outline" className="gap-1 px-2 py-0.5 text-xs">
+                      <Wand2 className="h-3 w-3"/>
+                      {selectedTemplate?.displayName || selectedTemplate?.name}
+                    </Badge>
+                    <Button size="sm" variant="ghost" onClick={handleClearTemplate} className="h-6 w-6 p-0">
+                      <X className="h-3 w-3"/>
+                    </Button>
                   </div>
-                </div>
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!inputMessage.trim() || isStreaming}
-                  size="lg"
-                  className="h-[48px] px-6 rounded-2xl gap-2 shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isStreaming ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin"/>
-                      <span className="hidden sm:inline">Streaming...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="hidden sm:inline">Send</span>
-                      <Send className="h-5 w-5"/>
-                    </>
-                  )}
-                </Button>
+                )}
               </div>
-            </CardContent>
-          </Card>
+            )}
+
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-2">
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 relative">
+                    <Textarea
+                      ref={textareaRef}
+                      value={prefilledContent || inputMessage}
+                      onChange={(e) => {
+                        if (prefilledContent) {
+                          setPrefilledContent(e.target.value);
+                        } else {
+                          handleTextareaChange(e);
+                        }
+                      }}
+                      onKeyDown={handleKeyPress}
+                      placeholder={prefilledContent ? 'Modify the template content or clear it to type freely...' : 'Type your message here... (Shift+Enter for new line)'}
+                      disabled={isStreaming}
+                      rows={1}
+                      className="min-h-[48px] max-h-[150px] resize-none rounded-2xl pr-10 border-0 ring-1 ring-input focus:ring-2 focus:ring-primary/50 bg-background/50"
+                    />
+                    <div className="absolute right-3 bottom-3 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Command className="h-3 w-3"/>
+                      <span>K</span>
+                      <span className="hidden sm:inline">to search</span>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={(!inputMessage.trim() && !prefilledContent.trim()) || isStreaming}
+                    size="lg"
+                    className="h-[48px] px-6 rounded-2xl gap-2 shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isStreaming ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin"/>
+                        <span className="hidden sm:inline">Streaming...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="hidden sm:inline">Send</span>
+                        <Send className="h-5 w-5"/>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Variable Input Modal for Templates */}
+          <VariableInputModal
+            isOpen={showVariableModal}
+            onClose={() => setShowVariableModal(false)}
+            variables={selectedTemplate?.variables || []}
+            onSubmit={handleVariableSubmit}
+            prefillValues={templateVariables}
+          />
         </div>
 
         {/* Search Panel */}
