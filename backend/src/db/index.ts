@@ -4,7 +4,7 @@
  * @see https://github.com/blacksmoke26
  */
 
- /**
+/**
  * @module db
  * @description Sequelize database connection and initialization.
  *
@@ -30,17 +30,17 @@
  * ```
  */
 
-import { Sequelize, DataTypes, Model, InferAttributes, InferCreationAttributes, CreationOptional } from 'sequelize';
-import { config } from '@/config';
-import path from 'node:path';
 import fs from 'node:fs';
+import path from 'node:path';
+import {Sequelize, DataTypes, Model, InferAttributes, InferCreationAttributes, CreationOptional} from 'sequelize';
+import {config} from '@/config';
 
 // ─── Connection ───────────────────────────────────────────────────────────────
 
 /** Ensure the data directory exists */
 const dbDir = path.dirname(config.dbPath);
 if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
+  fs.mkdirSync(dbDir, {recursive: true});
 }
 
 /**
@@ -285,123 +285,212 @@ export class MCPServer extends Model<InferAttributes<MCPServer>, InferCreationAt
 
 Provider.init(
   {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    name: { type: DataTypes.STRING, allowNull: false, unique: true },
-    type: { type: DataTypes.STRING, allowNull: false, defaultValue: 'ollama' },
-    baseUrl: { type: DataTypes.STRING, allowNull: false },
-    apiKey: { type: DataTypes.STRING, allowNull: true, defaultValue: null },
-    defaultModel: { type: DataTypes.STRING, allowNull: false, defaultValue: 'llama3.1' },
-    isDefault: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
-    settings: { type: DataTypes.TEXT, allowNull: true, defaultValue: null },
-    createdAt: { type: DataTypes.DATE, allowNull: false },
-    updatedAt: { type: DataTypes.DATE, allowNull: false },
+    id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
+    name: {type: DataTypes.STRING, allowNull: false, unique: true},
+    type: {type: DataTypes.STRING, allowNull: false, defaultValue: 'ollama'},
+    baseUrl: {type: DataTypes.STRING, allowNull: false},
+    apiKey: {type: DataTypes.STRING, allowNull: true, defaultValue: null},
+    defaultModel: {type: DataTypes.STRING, allowNull: false, defaultValue: 'llama3.1'},
+    isDefault: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false},
+    settings: {type: DataTypes.TEXT, allowNull: true, defaultValue: null},
+    createdAt: {type: DataTypes.DATE, allowNull: false},
+    updatedAt: {type: DataTypes.DATE, allowNull: false},
   },
-  { sequelize: db, tableName: 'providers' },
+  {sequelize: db, tableName: 'providers'},
 );
 
 Conversation.init(
   {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    conversationId: { type: DataTypes.STRING, allowNull: false, unique: true },
-    title: { type: DataTypes.STRING, allowNull: true },
-    providerId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'providers', key: 'id' } },
-    modelName: { type: DataTypes.STRING, allowNull: false },
-    status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'active' },
-    metadata: { type: DataTypes.TEXT, allowNull: true },
-    createdAt: { type: DataTypes.DATE, allowNull: false },
-    updatedAt: { type: DataTypes.DATE, allowNull: false },
+    id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
+    conversationId: {type: DataTypes.STRING, allowNull: false, unique: true},
+    title: {type: DataTypes.STRING, allowNull: true},
+    providerId: {type: DataTypes.INTEGER, allowNull: false, references: {model: 'providers', key: 'id'}},
+    modelName: {type: DataTypes.STRING, allowNull: false},
+    status: {type: DataTypes.STRING, allowNull: false, defaultValue: 'active'},
+    metadata: {type: DataTypes.TEXT, allowNull: true},
+    createdAt: {type: DataTypes.DATE, allowNull: false},
+    updatedAt: {type: DataTypes.DATE, allowNull: false},
   },
-  { sequelize: db, tableName: 'conversations' },
+  {sequelize: db, tableName: 'conversations'},
 );
 
 Message.init(
   {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    conversationId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'conversations', key: 'id' } },
-    role: { type: DataTypes.STRING, allowNull: false },
-    content: { type: DataTypes.TEXT, allowNull: false },
-    toolName: { type: DataTypes.STRING, allowNull: true },
-    toolCallId: { type: DataTypes.STRING, allowNull: true },
-    tokenCount: { type: DataTypes.INTEGER, allowNull: true },
-    createdAt: { type: DataTypes.DATE, allowNull: false },
+    id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
+    conversationId: {type: DataTypes.INTEGER, allowNull: false, references: {model: 'conversations', key: 'id'}},
+    role: {type: DataTypes.STRING, allowNull: false},
+    content: {type: DataTypes.TEXT, allowNull: false},
+    toolName: {type: DataTypes.STRING, allowNull: true},
+    toolCallId: {type: DataTypes.STRING, allowNull: true},
+    tokenCount: {type: DataTypes.INTEGER, allowNull: true},
+    createdAt: {type: DataTypes.DATE, allowNull: false},
   },
-  { sequelize: db, tableName: 'messages' },
+  {sequelize: db, tableName: 'messages'},
 );
 
 ToolConfig.init(
   {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    name: { type: DataTypes.STRING, allowNull: false, unique: true },
-    description: { type: DataTypes.STRING, allowNull: false },
-    enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
-    inputSchema: { type: DataTypes.TEXT, allowNull: false },
-    category: { type: DataTypes.STRING, allowNull: true },
-    settings: { type: DataTypes.TEXT, allowNull: true },
-    createdAt: { type: DataTypes.DATE, allowNull: false },
-    updatedAt: { type: DataTypes.DATE, allowNull: false },
+    id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
+    name: {type: DataTypes.STRING, allowNull: false, unique: true},
+    description: {type: DataTypes.STRING, allowNull: false},
+    enabled: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true},
+    inputSchema: {type: DataTypes.TEXT, allowNull: false},
+    category: {type: DataTypes.STRING, allowNull: true},
+    settings: {type: DataTypes.TEXT, allowNull: true},
+    createdAt: {type: DataTypes.DATE, allowNull: false},
+    updatedAt: {type: DataTypes.DATE, allowNull: false},
   },
-  { sequelize: db, tableName: 'tool_configs' },
+  {sequelize: db, tableName: 'tool_configs'},
 );
 
 CustomTool.init(
   {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    name: { type: DataTypes.STRING, allowNull: false, unique: true },
-    displayName: { type: DataTypes.STRING, allowNull: false },
-    description: { type: DataTypes.TEXT, allowNull: false },
-    inputSchema: { type: DataTypes.TEXT, allowNull: false },
-    handlerCode: { type: DataTypes.TEXT, allowNull: false },
-    enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
-    category: { type: DataTypes.STRING, allowNull: true, defaultValue: 'custom' },
-    icon: { type: DataTypes.STRING, allowNull: true },
-    settings: { type: DataTypes.TEXT, allowNull: true },
-    lastTestArgs: { type: DataTypes.TEXT, allowNull: true },
-    lastTestResult: { type: DataTypes.TEXT, allowNull: true },
-    createdAt: { type: DataTypes.DATE, allowNull: false },
-    updatedAt: { type: DataTypes.DATE, allowNull: false },
+    id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
+    name: {type: DataTypes.STRING, allowNull: false, unique: true},
+    displayName: {type: DataTypes.STRING, allowNull: false},
+    description: {type: DataTypes.TEXT, allowNull: false},
+    inputSchema: {type: DataTypes.TEXT, allowNull: false},
+    handlerCode: {type: DataTypes.TEXT, allowNull: false},
+    enabled: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true},
+    category: {type: DataTypes.STRING, allowNull: true, defaultValue: 'custom'},
+    icon: {type: DataTypes.STRING, allowNull: true},
+    settings: {type: DataTypes.TEXT, allowNull: true},
+    lastTestArgs: {type: DataTypes.TEXT, allowNull: true},
+    lastTestResult: {type: DataTypes.TEXT, allowNull: true},
+    createdAt: {type: DataTypes.DATE, allowNull: false},
+    updatedAt: {type: DataTypes.DATE, allowNull: false},
   },
-  { sequelize: db, tableName: 'custom_tools' },
+  {sequelize: db, tableName: 'custom_tools'},
 );
 
 MCPServer.init(
   {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    name: { type: DataTypes.STRING, allowNull: false, unique: true },
-    displayName: { type: DataTypes.STRING, allowNull: false },
-    description: { type: DataTypes.TEXT, allowNull: false },
-    type: { type: DataTypes.STRING, allowNull: false, defaultValue: 'stdio' },
-    command: { type: DataTypes.STRING, allowNull: true },
-    args: { type: DataTypes.TEXT, allowNull: true },
-    env: { type: DataTypes.TEXT, allowNull: true },
-    url: { type: DataTypes.TEXT, allowNull: true },
-    headers: { type: DataTypes.TEXT, allowNull: true },
-    enabled: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
-    status: { type: DataTypes.STRING, allowNull: false, defaultValue: 'disconnected' },
-    lastError: { type: DataTypes.TEXT, allowNull: true },
-    timeout: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 30000 },
-    autoReconnect: { type: DataTypes.BOOLEAN, allowNull: true, defaultValue: true },
-    maxReconnectAttempts: { type: DataTypes.INTEGER, allowNull: true, defaultValue: -1 },
-    reconnectDelay: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 5000 },
-    settings: { type: DataTypes.TEXT, allowNull: true },
-    version: { type: DataTypes.STRING, allowNull: true },
-    lastConnectedAt: { type: DataTypes.DATE, allowNull: true },
-    lastDisconnectedAt: { type: DataTypes.DATE, allowNull: true },
-    connectionCount: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 0 },
-    failureCount: { type: DataTypes.INTEGER, allowNull: true, defaultValue: 0 },
-    createdAt: { type: DataTypes.DATE, allowNull: false },
-    updatedAt: { type: DataTypes.DATE, allowNull: false },
+    id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
+    name: {type: DataTypes.STRING, allowNull: false, unique: true},
+    displayName: {type: DataTypes.STRING, allowNull: false},
+    description: {type: DataTypes.TEXT, allowNull: false},
+    type: {type: DataTypes.STRING, allowNull: false, defaultValue: 'stdio'},
+    command: {type: DataTypes.STRING, allowNull: true},
+    args: {type: DataTypes.TEXT, allowNull: true},
+    env: {type: DataTypes.TEXT, allowNull: true},
+    url: {type: DataTypes.TEXT, allowNull: true},
+    headers: {type: DataTypes.TEXT, allowNull: true},
+    enabled: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false},
+    status: {type: DataTypes.STRING, allowNull: false, defaultValue: 'disconnected'},
+    lastError: {type: DataTypes.TEXT, allowNull: true},
+    timeout: {type: DataTypes.INTEGER, allowNull: true, defaultValue: 30000},
+    autoReconnect: {type: DataTypes.BOOLEAN, allowNull: true, defaultValue: true},
+    maxReconnectAttempts: {type: DataTypes.INTEGER, allowNull: true, defaultValue: -1},
+    reconnectDelay: {type: DataTypes.INTEGER, allowNull: true, defaultValue: 5000},
+    settings: {type: DataTypes.TEXT, allowNull: true},
+    version: {type: DataTypes.STRING, allowNull: true},
+    lastConnectedAt: {type: DataTypes.DATE, allowNull: true},
+    lastDisconnectedAt: {type: DataTypes.DATE, allowNull: true},
+    connectionCount: {type: DataTypes.INTEGER, allowNull: true, defaultValue: 0},
+    failureCount: {type: DataTypes.INTEGER, allowNull: true, defaultValue: 0},
+    createdAt: {type: DataTypes.DATE, allowNull: false},
+    updatedAt: {type: DataTypes.DATE, allowNull: false},
   },
-  { sequelize: db, tableName: 'mcp_servers' },
+  {sequelize: db, tableName: 'mcp_servers'},
+);
+
+
+// ─── PromptTemplate Model ────────────────────────────────────────────────────
+
+/**
+ * @model PromptTemplate
+ * @description Stores reusable prompt templates with variable placeholders.
+ *
+ * Templates can be built-in (read-only) or custom (full CRUD).
+ * Variables are stored as JSON and substituted at render time.
+ */
+export class PromptTemplate extends Model<InferAttributes<PromptTemplate>, InferCreationAttributes<PromptTemplate>> {
+  declare id: CreationOptional<number>;
+  /** Unique name/key for the template (e.g., 'code_review', 'summarize') */
+  declare name: string;
+  /** Human-readable display name */
+  declare displayName: string;
+  /** Description of what this template does */
+  declare description: string;
+  /** The template content with variable placeholders like {{variable_name}} */
+  declare content: string;
+  /** Category for grouping (e.g., 'code', 'writing', 'analysis', 'general') */
+  declare category: string;
+  /** Whether this is a built-in template (cannot be deleted) */
+  declare isBuiltIn: boolean;
+  /** Whether this is the default template selected automatically */
+  declare isDefault: boolean;
+  /** JSON string of template variable definitions: [{name: 'variable', description: 'desc', required: true}] */
+  declare variables: string;
+  /** Extra JSON settings */
+  declare settings: CreationOptional<string | null>;
+  /** Timestamps */
+  declare createdAt: CreationOptional<Date>;
+  declare updatedAt: CreationOptional<Date>;
+}
+
+/**
+ * @model PromptTemplateVariable
+ * @description Stores individual variable definitions for a prompt template.
+ */
+export class PromptTemplateVariable extends Model<InferAttributes<PromptTemplateVariable>, InferCreationAttributes<PromptTemplateVariable>> {
+  declare id: CreationOptional<number>;
+  /** Foreign key to the parent template */
+  declare templateId: number;
+  /** Variable name (e.g., 'text', 'language') */
+  declare name: string;
+  /** Human-readable description of the variable */
+  declare description: string;
+  /** Whether this variable is required */
+  declare required: boolean;
+  /** Timestamps */
+  declare createdAt: CreationOptional<Date>;
+  declare updatedAt: CreationOptional<Date>;
+}
+
+PromptTemplate.init(
+  {
+    id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
+    name: {type: DataTypes.STRING, allowNull: false, unique: true},
+    displayName: {type: DataTypes.STRING, allowNull: false},
+    description: {type: DataTypes.TEXT, allowNull: false},
+    content: {type: DataTypes.TEXT, allowNull: false},
+    category: {type: DataTypes.STRING, allowNull: false, defaultValue: 'general'},
+    isBuiltIn: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false},
+    isDefault: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false},
+    variables: {type: DataTypes.TEXT, allowNull: false, defaultValue: '[]'},
+    settings: {type: DataTypes.TEXT, allowNull: true},
+    createdAt: {type: DataTypes.DATE, allowNull: false},
+    updatedAt: {type: DataTypes.DATE, allowNull: false},
+  },
+  {sequelize: db, tableName: 'prompt_templates'},
+);
+
+PromptTemplateVariable.init(
+  {
+    id: {type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true},
+    templateId: {type: DataTypes.INTEGER, allowNull: false, references: {model: 'prompt_templates', key: 'id'}},
+    name: {type: DataTypes.STRING, allowNull: false},
+    description: {type: DataTypes.TEXT, allowNull: false},
+    required: {type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false},
+    createdAt: {type: DataTypes.DATE, allowNull: false},
+    updatedAt: {type: DataTypes.DATE, allowNull: false},
+  },
+  {sequelize: db, tableName: 'prompt_template_variables'},
 );
 
 // ─── Associations ─────────────────────────────────────────────────────────────
 
-Provider.hasMany(Conversation, { foreignKey: 'providerId', as: 'conversations' });
-Conversation.belongsTo(Provider, { foreignKey: 'providerId', as: 'provider' });
-Conversation.hasMany(Message, { foreignKey: 'conversationId', as: 'messages' });
-Message.belongsTo(Conversation, { foreignKey: 'conversationId', as: 'conversation' });
+Provider.hasMany(Conversation, {foreignKey: 'providerId', as: 'conversations'});
+Conversation.belongsTo(Provider, {foreignKey: 'providerId', as: 'provider'});
+Conversation.hasMany(Message, {foreignKey: 'conversationId', as: 'messages'});
+Message.belongsTo(Conversation, {foreignKey: 'conversationId', as: 'conversation'});
 
 // Custom tools have no direct associations currently, but could be linked to users in future
+
+// PromptTemplate associations
+PromptTemplate.hasMany(PromptTemplateVariable, {foreignKey: 'templateId', as: 'variables1'});
+PromptTemplateVariable.belongsTo(PromptTemplate, {foreignKey: 'templateId', as: 'template'});
 
 // ─── Database Initialization ──────────────────────────────────────────────────
 
@@ -440,11 +529,15 @@ export async function initDatabase(): Promise<void> {
         inputSchema: JSON.stringify({
           type: 'object',
           properties: {
-            a: { type: 'number', description: 'First number' },
-            b: { type: 'number', description: 'Second number' },
-            operation: { type: 'string', enum: ['add', 'subtract', 'multiply', 'divide'], description: 'Operation to perform' }
+            a: {type: 'number', description: 'First number'},
+            b: {type: 'number', description: 'Second number'},
+            operation: {
+              type: 'string',
+              enum: ['add', 'subtract', 'multiply', 'divide'],
+              description: 'Operation to perform',
+            },
           },
-          required: ['a', 'b', 'operation']
+          required: ['a', 'b', 'operation'],
         }, null, 2),
         handlerCode: `const { a, b, operation } = args;
 const results = {
@@ -458,11 +551,62 @@ return {
 };`,
         enabled: true,
         category: 'examples',
-        icon: '🧮'
-      }
+        icon: '🧮',
+      },
     ];
     await CustomTool.bulkCreate(exampleTools);
     console.log('✅ Seeded example custom tools');
+  }
+
+  // Seed default prompt templates if none exist
+  const promptTemplateCount = await PromptTemplate.count();
+  if (promptTemplateCount === 0) {
+    const defaultTemplates = [
+      {
+        name: 'summarize',
+        displayName: 'Summarize',
+        description: 'Summarizes the given text into key points',
+        content: 'Please summarize the following text into key points:\n\n{{text}}\n\nProvide the summary in bullet points.',
+        category: 'writing',
+        isBuiltIn: false,
+        isDefault: false,
+        variables: JSON.stringify([{name: 'text', description: 'The text to summarize', required: true}]),
+        settings: null,
+      },
+      {
+        name: 'email_writer',
+        displayName: 'Email Writer',
+        description: 'Helps write professional emails',
+        content: 'Write a professional email with the following details:\n\n**Recipient:** {{recipient}}\n**Topic:** {{topic}}\n**Tone:** {{tone}}\n**Key Points:** {{keyPoints}}\n\nPlease include a subject line and appropriate greeting/closing.',
+        category: 'writing',
+        isBuiltIn: false,
+        isDefault: false,
+        variables: JSON.stringify([
+          {name: 'recipient', description: 'Email recipient', required: true},
+          {name: 'topic', description: 'Main topic of the email', required: true},
+          {name: 'tone', description: 'Tone (formal, casual, friendly, urgent)', required: false},
+          {name: 'keyPoints', description: 'Key points to include', required: false},
+        ]),
+        settings: null,
+      },
+      {
+        name: 'code_explainer',
+        displayName: 'Code Explainer',
+        description: 'Explains what a piece of code does',
+        content: 'Please explain the following code:\n\n```{{language}}\n{{code}}\n```\n\nProvide:\n1. What the code does\n2. Key algorithms/patterns used\n3. Time/space complexity (if applicable)\n4. Potential improvements',
+        category: 'code',
+        isBuiltIn: false,
+        isDefault: true,
+        variables: JSON.stringify([
+          {name: 'language', description: 'Programming language', required: true},
+          {name: 'code', description: 'The code to explain', required: true},
+        ]),
+        settings: null,
+      },
+    ];
+
+    await PromptTemplate.bulkCreate(defaultTemplates);
+    console.log('✅ Seeded default prompt templates');
   }
 }
 

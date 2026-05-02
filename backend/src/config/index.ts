@@ -21,6 +21,8 @@
  * | `MCP_MAX_TOKENS` | Max tokens for LLM responses | `4096` |
  * | `MCP_TEMPERATURE` | Default temperature for generation | `0.7` |
  * | `CORS_ORIGIN` | Allowed CORS origins (comma-separated) | `*` |
+ * | `DEFAULT_PROMPT_TEMPLATES` | Comma-separated built-in template names | `code_review,explain_concept,write_unit_tests,summarize,translate` |
+ * | `AUTO_REGISTER_PROMPT_TEMPLATES` | Auto-register built-in templates on startup | `true` |
  */
 
 import { z } from 'zod';
@@ -52,6 +54,10 @@ const ConfigSchema = z.object({
   temperature: z.coerce.number().min(0).max(2).default(0.7),
   /** Comma-separated list of allowed CORS origins, or '*' for all */
   corsOrigin: z.string().default('*'),
+  /** Comma-separated list of built-in template names to auto-register */
+  builtInTemplates: z.string().default('code_review,explain_concept,write_unit_tests,summarize,translate'),
+  /** Whether to auto-register built-in templates on startup */
+  autoRegisterBuiltIn: z.boolean().default(true),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;
@@ -72,6 +78,8 @@ function loadConfig(): AppConfig {
     maxTokens: process.env.MCP_MAX_TOKENS,
     temperature: process.env.MCP_TEMPERATURE,
     corsOrigin: process.env.CORS_ORIGIN,
+    builtInTemplates: process.env.DEFAULT_PROMPT_TEMPLATES,
+    autoRegisterBuiltIn: process.env.AUTO_REGISTER_PROMPT_TEMPLATES,
   };
 
   const result = ConfigSchema.safeParse(raw);
@@ -100,6 +108,8 @@ export function printConfig(): void {
     ...config,
     openaiApiKey: config.openaiApiKey ? '••••••••' : '(none)',
     dbPath: config.dbPath,
+    builtInTemplates: config.builtInTemplates,
+    autoRegisterBuiltIn: config.autoRegisterBuiltIn,
   };
   console.log('📋 MCP Server Configuration:');
   console.table(masked);
