@@ -62,8 +62,6 @@ import {
   updatePromptTemplate,
 } from '@/lib/api.js';
 import {Button} from '@/components/ui/Button';
-import {Input} from '@/components/ui/Input';
-import {Textarea} from '@/components/ui/Textarea';
 import {Badge} from '@/components/ui/Badge';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Label} from '@/components/ui/Label';
@@ -97,7 +95,9 @@ import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from '@/compon
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
 
 import {cn} from '@/lib/utils';
-import {ScrollArea} from '@/components/ui/ScrollArea.tsx';
+import {ScrollArea} from '@/components/ui/ScrollArea';
+import {AdvancedTextarea} from '@/components/ui/AdvancedTextarea';
+import {AdvancedInput} from '@/components/ui/AdvanceInput';
 
 // ─── Types ────────────────────────────────────────────────────────────────────────
 
@@ -263,11 +263,11 @@ const VariablesWidget: React.FC<VariablesWidgetProps> = ({variables}) => {
               >
                 <Hash className="h-3 w-3"/>
                 {v.name}
-                {v.required && <span className="text-[10px]">required</span>}
+
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              <p className="max-w-xs">{v.description}</p>
+              <p className="max-w-xs">{v.description} {v.required && <span className="text-[11px]">(required)</span>}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -573,6 +573,8 @@ const PromptTemplates: React.FC = () => {
    * @param template - The template to test.
    */
   const handleTest = (template: PromptTemplate) => {
+    setEditTemplate(template);
+    setIsEditing(true);
     setTestVariables({});
     setRenderOutput(null);
     setRenderOpen(true);
@@ -582,11 +584,14 @@ const PromptTemplates: React.FC = () => {
    * Calls the API to render the template with the provided test variables.
    */
   const handleRender = async () => {
-    if (!editTemplate) return;
+    if (!editTemplate) {
+      setError('No template selected for rendering.');
+      return;
+    }
     setRenderLoading(true);
     try {
       const input: PromptTemplateRenderInput = {
-        templateId: editTemplate.id,
+        id: editTemplate.id,
         variables: testVariables,
       };
       const result = await renderPromptTemplate(input);
@@ -687,7 +692,7 @@ const PromptTemplates: React.FC = () => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button onClick={fetchData} variant="outline" size="icon">
+                <Button onClick={fetchData} variant="outline" size="sm">
                   <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')}/>
                 </Button>
               </TooltipTrigger>
@@ -699,8 +704,8 @@ const PromptTemplates: React.FC = () => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button onClick={handleCreate}>
-                  <Plus className="mr-2 h-4 w-4"/>
+                <Button variant="destructive" size="sm" onClick={handleCreate}>
+                  <Plus className="h-4 w-4"/>
                   Create Template
                 </Button>
               </TooltipTrigger>
@@ -777,11 +782,11 @@ const PromptTemplates: React.FC = () => {
             <div className="flex flex-col md:flex-row gap-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/>
-                <Input
+                <AdvancedInput
                   placeholder="Search templates by name, display name, or description…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-3"
                 />
               </div>
 
@@ -798,18 +803,16 @@ const PromptTemplates: React.FC = () => {
                 </SelectContent>
               </Select>
 
-              <div className="flex items-center gap-2">
-                <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-                  <SelectTrigger
-                    className="inline-flex items-center justify-center rounded-md border border-input bg-background h-10 w-10 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
-                    {viewMode === 'grid' ? <LayoutGrid className="h-4 w-4"/> : <List className="h-4 w-4"/>}
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="grid"><LayoutGrid className="h-4 w-4 inline"/> Grid</SelectItem>
-                    <SelectItem value="list"><List className="h-4 w-4 inline"/> List</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+                <SelectTrigger
+                  className="inline-flex items-center justify-center rounded-md border border-input bg-background h-10 w-10 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50">
+                  {viewMode === 'grid' ? <LayoutGrid className="h-4 w-4"/> : <List className="h-4 w-4"/>}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="grid"><LayoutGrid className="h-4 w-4 inline"/> Grid</SelectItem>
+                  <SelectItem value="list"><List className="h-4 w-4 inline"/> List</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Row 2: toggles */}
@@ -937,7 +940,7 @@ const PromptTemplates: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Name <span className="text-red-500">*</span></Label>
-                  <Input
+                  <AdvancedInput
                     value={formState.name}
                     onChange={(e) => setFormState((s) => ({...s, name: e.target.value}))}
                     placeholder="my_template"
@@ -945,7 +948,7 @@ const PromptTemplates: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Display Name <span className="text-red-500">*</span></Label>
-                  <Input
+                  <AdvancedInput
                     value={formState.displayName}
                     onChange={(e) => setFormState((s) => ({...s, displayName: e.target.value}))}
                     placeholder="My Template"
@@ -954,11 +957,12 @@ const PromptTemplates: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>
-                <Textarea
+                <AdvancedTextarea
                   value={formState.description}
-                  onChange={(e) => setFormState((s) => ({...s, description: e.target.value}))}
+                  onChange={value => setFormState((s) => ({...s, description: value}))}
                   placeholder="What does this template do?"
                   rows={2}
+                  autoResize={false}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -1036,7 +1040,12 @@ const PromptTemplates: React.FC = () => {
                   <div key={idx} className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-3 space-y-1">
                       <Label className="text-xs">Name</Label>
-                      <Input
+                      <AdvancedInput
+                        onClearClick={() => {
+                          const vars = [...formState.variables!];
+                          vars[idx] = {...v, name: ''};
+                          setFormState((s) => ({...s, variables: vars}));
+                        }}
                         value={v.name}
                         onChange={(e) => {
                           const vars = [...formState.variables!];
@@ -1048,7 +1057,12 @@ const PromptTemplates: React.FC = () => {
                     </div>
                     <div className="col-span-6 space-y-1">
                       <Label className="text-xs">Description</Label>
-                      <Input
+                      <AdvancedInput
+                        onClearClick={() => {
+                          const vars = [...formState.variables!];
+                          vars[idx] = {...v, description: ''};
+                          setFormState((s) => ({...s, variables: vars}));
+                        }}
                         value={v.description}
                         onChange={(e) => {
                           const vars = [...formState.variables!];
@@ -1059,7 +1073,7 @@ const PromptTemplates: React.FC = () => {
                       />
                     </div>
                     <div className="col-span-3 flex gap-3">
-                      <div className="flex items-center">
+                      <div className="flex">
                         <Checkbox
                           checked={v.required}
                           onCheckedChange={(checked) => {
@@ -1079,7 +1093,7 @@ const PromptTemplates: React.FC = () => {
                             variables: s.variables!.filter((_, i) => i !== idx),
                           }))
                         }
-                        className="text-red-500"
+                        className="text-red-500 relative top-[-8px]"
                       >
                         <X className="h-4 w-4"/>
                       </Button>
@@ -1151,14 +1165,13 @@ const PromptTemplates: React.FC = () => {
                       {v.name}
                       {v.required && <span className="text-red-500">*</span>}
                     </Label>
-                    <Textarea
+                    <AdvancedInput
                       value={testVariables[v.name] ?? ''}
-                      onChange={(e) =>
+                      onChange={e =>
                         setTestVariables((prev) => ({...prev, [v.name]: e.target.value}))
                       }
                       placeholder={v.description || ''}
-                      rows={3}
-                      className={cn(v.required && 'border-orange-300 dark:border-orange-700')}
+                      className={cn((v.required && !testVariables?.[v.name]?.length) && 'border-orange-300 dark:border-orange-700')}
                     />
                   </div>
                 ))}
@@ -1435,16 +1448,16 @@ const TemplateListItem: React.FC<TemplateListItemProps> = (props) => {
         {new Date(template.updatedAt).toLocaleDateString()}
       </div>
       <div className="col-span-1 flex items-center justify-end gap-1">
-        <Button variant="ghost" size="icon" onClick={onSetDefault}>
+        <Button variant="plain" size="icon" onClick={onSetDefault}>
           <Star className={cn('h-4 w-4', template.isDefault && 'fill-amber-400 text-amber-500')}/>
         </Button>
-        <Button variant="ghost" size="icon" onClick={onEdit}>
+        <Button variant="plain" size="icon" onClick={onEdit}>
           <Edit className="h-4 w-4"/>
         </Button>
-        <Button variant="ghost" size="icon" onClick={onTest}>
+        <Button variant="plain" size="icon" onClick={onTest}>
           <Play className="h-4 w-4 text-emerald-500"/>
         </Button>
-        <Button variant="ghost" size="icon" onClick={onDelete} className="text-red-500 hover:text-red-700">
+        <Button variant="plain" size="icon" onClick={onDelete} className="text-red-500 hover:text-red-700">
           <Trash2 className="h-4 w-4"/>
         </Button>
       </div>
