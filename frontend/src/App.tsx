@@ -33,6 +33,7 @@ import ToolDetail from '@/pages/ToolDetail';
 import CustomTools from '@/pages/CustomTools';
 import AdminMCPServers from '@/pages/AdminMCPServers';
 import WebSocketDashboardPage from '@/pages/WebSocket/DashboardPage';
+import PromptTemplates from '@/pages/PromptTemplates';
 
 /**
  * Component displayed when a user navigates to a route that does not exist.
@@ -89,6 +90,9 @@ const App: React.FC = () => (
 
         {/* Simulation & Testing */}
         <Route path="/simulate" element={<ToolSimulator/>}/>
+
+        {/* Prompt Templates */}
+        <Route path="/prompt-templates" element={<PromptTemplates/>}/>
 
         {/* WebSocket Dashboard */}
         <Route path="/ws-dashboard" element={<WebSocketDashboardPage/>}/>
