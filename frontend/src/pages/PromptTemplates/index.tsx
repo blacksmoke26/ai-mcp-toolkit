@@ -29,6 +29,7 @@ import {
   Code,
   CopyCheck,
   Database,
+  Download,
   Edit,
   Eye,
   EyeOff,
@@ -45,10 +46,12 @@ import {
   Star,
   Trash2,
   X,
+  ZoomOut,
 } from 'lucide-react';
 import {
   createPromptTemplate,
   deletePromptTemplate,
+  fetchSampleTemplates,
   getPromptTemplateById,
   getPromptTemplateCategories,
   listPromptTemplates,
@@ -58,6 +61,7 @@ import {
   type PromptTemplateRenderOutput,
   type PromptTemplateUpdateInput,
   renderPromptTemplate,
+  type SampleTemplate,
   setDefaultPromptTemplate,
   updatePromptTemplate,
 } from '@/lib/api.js';
@@ -376,6 +380,20 @@ const PromptTemplates: React.FC = () => {
   /** Loading state specifically for the render operation. */
   const [renderLoading, setRenderLoading] = useState<boolean>(false);
 
+  // ── Samples Dialog State ───────────────
+  /** Controls the visibility of the Import from Samples dialog. */
+  const [samplesOpen, setSamplesOpen] = useState<boolean>(false);
+  /** List of sample templates fetched from the API. */
+  const [samples, setSamples] = useState<SampleTemplate[]>([]);
+  /** Search query for filtering samples. */
+  const [samplesSearch, setSamplesSearch] = useState<string>('');
+  /** Currently selected sample template for prefilling. */
+  const [selectedSample, setSelectedSample] = useState<SampleTemplate | null>(null);
+  /** Loading state for the samples fetch operation. */
+  const [samplesLoading, setSamplesLoading] = useState<boolean>(false);
+  /** Flag to prevent the create/edit useEffect from resetting form state when importing from samples. */
+  const [fromSamples, setFromSamples] = useState<boolean>(false);
+
   // ─── Fetch ────────────────────────────────────────────────────────────────────
 
   /**
@@ -631,6 +649,48 @@ const PromptTemplates: React.FC = () => {
     }
   };
 
+  // ─── Samples Dialog Handlers ───────────
+
+  /**
+   * Opens the samples dialog and fetches available sample templates.
+   */
+  const handleOpenSamples = async () => {
+    setSelectedSample(null);
+    setSamplesSearch('');
+    setSamplesOpen(true);
+    setSamplesLoading(true);
+    try {
+      const res = await fetchSampleTemplates();
+      setSamples(res.templates);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load samples');
+    } finally {
+      setSamplesLoading(false);
+    }
+  };
+
+  /**
+   * Imports the selected sample template into the create form.
+   */
+  const handleSelectSample = () => {
+    if (!selectedSample) return;
+    setFromSamples(true);
+    setFormState({
+      name: selectedSample.name,
+      displayName: selectedSample.displayName,
+      description: selectedSample.description,
+      content: selectedSample.content,
+      category: 'general',
+      variables: selectedSample.variables,
+      settings: {},
+      isDefault: false,
+    });
+    setIsEditing(false);
+    setEditTemplate(null);
+    setSamplesOpen(false);
+    setCreateEditOpen(true);
+  };
+
   // ─── Empty form defaults ───────────────────────────────────────────────────────
 
   /** Default structure for a new template form. */
@@ -666,9 +726,11 @@ const PromptTemplates: React.FC = () => {
   };
 
   useEffect(() => {
-    if (createEditOpen) {
+    if (createEditOpen && !fromSamples) {
       if (isEditing && editTemplate) applyFormStateFromTemplate(editTemplate);
       else setFormState(emptyForm);
+    } else if (createEditOpen && fromSamples) {
+      setFromSamples(false);
     }
     // eslint-disable-next-line
   }, [createEditOpen, isEditing, editTemplate]);
@@ -711,6 +773,19 @@ const PromptTemplates: React.FC = () => {
               </TooltipTrigger>
               <TooltipContent>
                 <p>Create a new prompt template</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={handleOpenSamples}>
+                  <Download className="h-4 w-4"/>
+                  Import from Samples
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Browse and import pre-built sample templates</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -1231,6 +1306,113 @@ const PromptTemplates: React.FC = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenderOpen(false)}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Import from Samples Dialog ────────────────────────────────────────── */}
+      <Dialog open={samplesOpen} onOpenChange={setSamplesOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5 text-primary"/>
+              Import from Samples
+            </DialogTitle>
+            <DialogDescription>
+              Browse {samples.length} pre-built templates and click one to prefill the form.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4 py-2 px-2">
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/>
+              <AdvancedInput
+                placeholder="Search samples…"
+                value={samplesSearch}
+                onChange={(e) => setSamplesSearch(e.target.value)}
+                className="pl-10"
+                leftIcon={<Search className="h-[16px]"/>}
+              />
+            </div>
+
+            {/* Loading */}
+            {samplesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 animate-spin text-primary"/>
+              </div>
+            ) : samples.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-8 w-8 mx-auto mb-2 opacity-50"/>
+                <p>No samples available.</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {samples
+                  .filter((s) => {
+                    if (!samplesSearch) return true;
+                    const q = samplesSearch.toLowerCase();
+                    return s.name.toLowerCase().includes(q) ||
+                      s.displayName.toLowerCase().includes(q) ||
+                      s.description.toLowerCase().includes(q);
+                  })
+                  .map((s) => (
+                    <div
+                      key={s.name}
+                      className={cn(
+                        'rounded-lg border p-3 cursor-pointer transition-all',
+                        'hover:border-primary hover:shadow-sm',
+                        selectedSample?.name === s.name
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-border',
+                      )}
+                      onClick={() => setSelectedSample(s)}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-semibold truncate">{s.displayName}</h4>
+                          <code className="text-[10px] font-mono text-muted-foreground">{s.name}</code>
+                        </div>
+                        {selectedSample?.name === s.name && (
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-primary"/>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{s.description}</p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Badge variant="outline" className="text-[10px]">
+                          {s.variables.length} var{s.variables.length !== 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+                      {s.variables.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {s.variables.slice(0, 3).map((v) => (
+                            <Badge key={v.name} variant="secondary" className="text-[10px]">
+                              {v.name}
+                            </Badge>
+                          ))}
+                          {s.variables.length > 3 && (
+                            <Badge variant="secondary" className="text-[10px]">+{s.variables.length - 3}</Badge>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setSamplesOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSelectSample}
+              disabled={!selectedSample}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4"/>
+              Import Selected
             </Button>
           </DialogFooter>
         </DialogContent>

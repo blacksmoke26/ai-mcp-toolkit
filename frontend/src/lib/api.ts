@@ -756,6 +756,49 @@ export async function getPromptTemplateCategories(): Promise<PromptTemplateCateg
 }
 
 /**
+ * Represents a sample prompt template returned by the /samples endpoint.
+ * Variables are stored as a pre-parsed JSON array of field definitions.
+ */
+export interface SampleTemplate {
+  /** The unique machine-readable name for the sample template. */
+  name: string;
+  /** The human-readable display name for the sample template. */
+  displayName: string;
+  /** A brief description of what the sample template does. */
+  description: string;
+  /** The raw template content with variable placeholders. */
+  content: string;
+  /** Parsed variable definitions for the template. */
+  variables: PromptTemplateVariable[];
+}
+
+/**
+ * Response type for the /samples endpoint.
+ */
+export interface SampleTemplatesResponse {
+  /** Array of sample templates. */
+  templates: SampleTemplate[];
+}
+
+/**
+ * Fetch the list of sample prompt templates from the backend.
+ */
+export async function fetchSampleTemplates(): Promise<SampleTemplatesResponse> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/samples`);
+  if (!response.ok) throw new Error('Failed to fetch sample templates');
+  const raw = await response.json();
+  // Parse the variables JSON string that the backend returns
+  const templates: SampleTemplate[] = raw.templates.map((t: {name: string; displayName: string; description: string; content: string; variables: string}) => ({
+    name: t.name,
+    displayName: t.displayName,
+    description: t.description,
+    content: t.content,
+    variables: typeof t.variables === 'string' ? JSON.parse(t.variables) : t.variables,
+  }));
+  return {templates};
+}
+
+/**
  * Render a template with variables (dry run — returns rendered content without sending).
  */
 export async function renderPromptTemplate(input: PromptTemplateRenderInput): Promise<PromptTemplateRenderOutput> {
