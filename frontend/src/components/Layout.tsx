@@ -23,6 +23,7 @@ import {
   LayoutList,
   Blocks, PocketKnife, ServerCrash, Gauge,
   Rocket,
+  FileText,
 } from 'lucide-react';
 import {cn} from '@/lib/utils';
 import {Button} from './ui/Button';
@@ -201,6 +202,17 @@ const navSections: {
     ],
   },
   {
+    title: 'Prompt Templates',
+    items: [
+      {
+        label: 'Templates',
+        href: '/prompt-templates',
+        icon: FileText,
+        description: 'Manage, test, and render prompt templates',
+      },
+    ],
+  },
+  {
     title: 'Simulation & Testing',
     items: [
       {
@@ -226,6 +238,9 @@ const navSections: {
   },
 ];
 
+/**
+ * Properties for the Layout component.
+ */
 interface LayoutProps {
   /**
    * The content to be rendered within the layout component.
@@ -234,10 +249,19 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+/**
+ * Main layout component for the application.
+ * Handles the sidebar state, theme integration, and routing context.
+ */
 const Layout: React.FC<LayoutProps> = ({children}) => {
-  const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
-  const {theme, toggleTheme} = useTheme();
+  /** Current browser location object from React Router. */
+  const location: ReturnType<typeof useLocation> = useLocation();
+
+  /** State controlling the visibility of the sidebar on mobile devices. */
+  const [isSidebarOpen, setIsSidebarOpen]: [boolean, React.Dispatch<React.SetStateAction<boolean>>] = React.useState<boolean>(true);
+
+  /** Current theme ('light' or 'dark') and the function to toggle it. */
+  const {theme, toggleTheme}: {theme: string, toggleTheme: () => void} = useTheme();
 
   return (
     <div className="min-h-screen bg-background">
