@@ -7,13 +7,14 @@
 import React, {useState, useCallback, useEffect, forwardRef, useImperativeHandle, useRef, useMemo} from 'react';
 import {xcodeDark, xcodeLight} from '@uiw/codemirror-theme-xcode';
 import {javascript} from '@codemirror/lang-javascript';
+import {markdown} from '@codemirror/lang-markdown';
 import {json} from '@codemirror/lang-json';
 import {EditorView} from '@codemirror/view';
 import {EditorState} from '@codemirror/state';
-import Editor, {type ReactCodeMirrorProps, type Extension} from '@uiw/react-codemirror';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import {useTheme} from '@/context/ThemeContext';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import Editor, {type ReactCodeMirrorProps, type Extension} from '@uiw/react-codemirror';
 
 // --- Icons (SVGs) ---
 const Icons = {
@@ -164,7 +165,7 @@ export interface CodeEditorProps {
    * @example
    * <CodeEditor language="json" />
    */
-  language?: 'json' | 'javascript';
+  language?: 'json' | 'javascript' | 'markdown';
 
   /**
    * The title displayed in the editor's header.
@@ -251,6 +252,7 @@ export interface CodeEditorProps {
 const LANGUAGES: Record<string, Extension> = {
   json: json(),
   javascript: javascript(),
+  markdown: markdown(),
 };
 
 /**
