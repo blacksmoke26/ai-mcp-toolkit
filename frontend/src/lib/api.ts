@@ -201,6 +201,7 @@ export interface PromptTemplateCreateInput {
   variables?: PromptTemplateVariable[];
   /** Optional key-value settings for the template. */
   settings?: Record<string, unknown>;
+  isDefault?: boolean;
 }
 
 /**
@@ -230,7 +231,7 @@ export interface PromptTemplateUpdateInput {
  */
 export interface PromptTemplateRenderInput {
   /** The numeric ID of the template to render. */
-  templateId?: number;
+  id?: number;
   /** The name of the template to render. */
   templateName?: string;
   /** Key-value pairs of variable names to their string values for substitution. */
@@ -277,6 +278,97 @@ export interface PromptTemplateCategoriesResponse {
  * Union type representing known prompt template categories or arbitrary strings.
  */
 export type PromptTemplateCategory = 'code' | 'writing' | 'analysis' | 'general' | string;
+
+// ══════════ Raw API Response Types ══════════
+
+ /**
+  * Raw prompt template as returned by the backend API.
+  *
+  * This interface represents the data structure received directly from the server,
+  * where complex objects like `variables` and `settings` are serialized as JSON strings
+  * and require parsing before use in the application.
+  */
+ export interface RawPromptTemplate {
+   /** The unique numeric identifier for the template. */
+   id: number;
+   /** The unique machine-readable name for the template. */
+   name: string;
+   /** The human-readable display name for the template. */
+   displayName: string;
+   /** A detailed description of the template's purpose. */
+   description: string;
+   /** The raw content string of the template, containing placeholders for variables. */
+   content: string;
+   /** The category classification for the template (e.g., 'code', 'writing'). */
+   category: string;
+   /** Indicates whether this is a built-in system template that cannot be deleted. */
+   isBuiltIn: boolean;
+   /** Indicates whether this template is set as the default for its category or globally. */
+   isDefault: boolean;
+   /**
+    * The variables definition serialized as a JSON string.
+    * Must be parsed into an array of `PromptTemplateVariable` objects.
+    */
+   variables: string;
+   /**
+    * Arbitrary key-value settings serialized as a JSON string.
+    * Must be parsed into a `Record<string, unknown>` object.
+    * Can be null if no settings are associated.
+    */
+   settings: string | null;
+   /** ISO 8601 timestamp indicating when the template was created. */
+   createdAt: string;
+   /** ISO 8601 timestamp indicating when the template was last updated. */
+   updatedAt: string;
+ }
+
+/**
+ * Raw list response from the backend.
+ */
+export interface RawPromptTemplateListResponse {
+  templates: RawPromptTemplate[];
+}
+
+/**
+ * Raw single template response.
+ */
+export interface RawPromptTemplateSingleResponse {
+  template: RawPromptTemplate;
+}
+
+/**
+ * Parse a raw prompt template from the backend API response.
+ * Converts string fields (variables, settings) into their parsed objects.
+ */
+export function parsePromptTemplate(raw: RawPromptTemplate): PromptTemplate {
+  let variables: PromptTemplateVariable[] = [];
+  try {
+    variables = JSON.parse(raw.variables ?? '[]');
+  } catch {
+    variables = [];
+  }
+  let settings: Record<string, unknown> | null = null;
+  try {
+    settings = raw.settings ? JSON.parse(raw.settings) : null;
+  } catch {
+    settings = null;
+  }
+  return {
+    ...raw,
+    variables,
+    settings,
+  };
+}
+
+/**
+ * Parse a list of raw prompt templates.
+ */
+export function parsePromptTemplateList(raw: RawPromptTemplateListResponse): PromptTemplateListResponse {
+  return {
+    templates: raw.templates.map(parsePromptTemplate),
+    count: raw.templates.length,
+  };
+}
 
 // ====== Configuration ======
 
@@ -568,7 +660,8 @@ export async function listPromptTemplates(category?: string): Promise<PromptTemp
 
   const response = await fetch(`${config.baseUrl}/api/prompt-templates?${params}`);
   if (!response.ok) throw new Error('Failed to fetch prompt templates');
-  return response.json();
+  const raw = await response.json();
+  return parsePromptTemplateList(raw as RawPromptTemplateListResponse);
 }
 
 /**
@@ -577,7 +670,9 @@ export async function listPromptTemplates(category?: string): Promise<PromptTemp
 export async function getPromptTemplateById(id: number): Promise<PromptTemplate> {
   const response = await fetch(`${config.baseUrl}/api/prompt-templates/${id}`);
   if (!response.ok) throw new Error(`Failed to fetch template with id ${id}`);
-  return response.json();
+  const raw = await response.json();
+  const data = raw as {template: RawPromptTemplate};
+  return parsePromptTemplate(data.template);
 }
 
 /**
@@ -586,7 +681,9 @@ export async function getPromptTemplateById(id: number): Promise<PromptTemplate>
 export async function getPromptTemplateByName(name: string): Promise<PromptTemplate> {
   const response = await fetch(`${config.baseUrl}/api/prompt-templates/name/${name}`);
   if (!response.ok) throw new Error(`Failed to fetch template with name ${name}`);
-  return response.json();
+  const raw = await response.json();
+  const data = raw as {template: RawPromptTemplate};
+  return parsePromptTemplate(data.template);
 }
 
 /**
@@ -596,7 +693,11 @@ export async function createPromptTemplate(input: PromptTemplateCreateInput): Pr
   const response = await fetch(`${config.baseUrl}/api/prompt-templates`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      ...input,
+      variables: input.variables ?? [],
+      settings: input.settings,
+    }),
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({message: 'Failed to create template'}));
@@ -667,7 +768,15 @@ export async function renderPromptTemplate(input: PromptTemplateRenderInput): Pr
     const error = await response.json().catch(() => ({message: 'Failed to render template'}));
     throw new Error(error.message || 'Failed to render template');
   }
-  return response.json();
+  const raw = await response.json() as {template: {id: number; name: string; displayName: string; content: string}; renderedContent: string; variables: Record<string, string>};
+  return {
+    id: raw.template.id,
+    name: raw.template.name,
+    displayName: raw.template.displayName,
+    content: raw.template.content,
+    renderedContent: raw.renderedContent,
+    variables: raw.variables,
+  };
 }
 
 export async function sendChat(body: ChatRequest): Promise<ChatResponse> {
