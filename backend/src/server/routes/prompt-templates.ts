@@ -30,9 +30,12 @@
  * | POST | `/api/prompt-templates/render` | Render template (dry run) |
  */
 
-import {FastifyInstance} from 'fastify';
+import {spaceCase} from 'case-anything';
 import {promptTemplateService} from '@/services/prompt-template-service';
 import {PromptTemplate} from '@/db';
+import promptTemplates from '@/constants/prompt-templates';
+import type {FastifyInstance} from 'fastify';
+import type {TextContent} from '@/mcp/types';
 
 const promptTemplatesRoutes = async (fastify: FastifyInstance): Promise<void> => {
 
@@ -605,7 +608,15 @@ const promptTemplatesRoutes = async (fastify: FastifyInstance): Promise<void> =>
         group: ['category'],
       });
       const categories = templates.map((t) => t.category).filter(Boolean);
-      return reply.send({categories});
+      categories.push(
+        'general',
+        'code',
+        'writing',
+        'analysis',
+        'creative',
+        'business',
+      );
+      return reply.send({categories: [...new Set(categories)]});
     },
   );
 
@@ -674,7 +685,7 @@ const promptTemplatesRoutes = async (fastify: FastifyInstance): Promise<void> =>
       const template = await promptTemplateService.getById(id);
       if (!template) {
         return reply.code(404)
-          .send({ error: 'Template not found' });
+          .send({error: 'Template not found'});
       }
 
       try {
@@ -691,8 +702,61 @@ const promptTemplatesRoutes = async (fastify: FastifyInstance): Promise<void> =>
         });
       } catch (err) {
         return reply.code(400)
-          .send({ error: err instanceof Error ? err.message : String(err) });
+          .send({error: err instanceof Error ? err.message : String(err)});
       }
+    },
+  );
+
+  /**
+   * GET /api/prompt-templates/samples
+   * Get the list of sample prompt templates defined in the constants file.
+   */
+  fastify.get(
+    '/api/prompt-templates/samples',
+    {
+      schema: {
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              templates: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    name: {type: 'string'},
+                    displayName: {type: 'string'},
+                    description: {type: 'string'},
+                    content: {type: 'string'},
+                    variables: {type: 'string'},
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (_request, reply) => {
+      const templates: any[] = [];
+
+      for (const template of promptTemplates) {
+        const displayName = spaceCase(template.name).replaceAll('_', ' ');
+        const args = template.arguments?.reduce?.((accum, current) => {
+          accum[current.name] = `{{${current.name}}}`;
+          return accum;
+        }, {} as Record<string, string>) ?? {};
+
+        templates.push({
+          name: template.name,
+          displayName: displayName[0].toUpperCase() + displayName.slice(1),
+          description: template.description,
+          content: ((await template.handler(args)).messages[0].content as TextContent)?.text,
+          variables: JSON.stringify(template.arguments),
+        });
+      }
+
+      return reply.send({templates});
     },
   );
 };

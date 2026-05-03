@@ -68,7 +68,7 @@ const promptTemplates: RegisteredPrompt[] = [
               '2. How it works (with analogies if helpful)',
               '3. Practical examples',
               '4. Common misconceptions',
-            ].join(' '),
+            ].join(`\n`),
           },
         }],
       };
