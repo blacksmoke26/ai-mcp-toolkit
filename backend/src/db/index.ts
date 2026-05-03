@@ -603,6 +603,34 @@ return {
         ]),
         settings: null,
       },
+      {
+        name: 'sql_generator',
+        displayName: 'SQL Generator',
+        description: 'Generates SQL queries based on natural language descriptions',
+        content: 'Generate a SQL query for the following request:\n\n{{description}}\n\nAssume a standard schema unless specified otherwise.',
+        category: 'code',
+        isBuiltIn: false,
+        isDefault: false,
+        variables: JSON.stringify([
+          {name: 'description', description: 'Natural language description of the query', required: true},
+        ]),
+        settings: JSON.stringify({ dialect: 'postgresql', format: 'pretty' }),
+      },
+      {
+        name: 'translator',
+        displayName: 'Translator',
+        description: 'Translates text from one language to another',
+        content: 'Translate the following text from {{sourceLanguage}} to {{targetLanguage}}:\n\n{{text}}',
+        category: 'general',
+        isBuiltIn: false,
+        isDefault: false,
+        variables: JSON.stringify([
+          {name: 'sourceLanguage', description: 'Source language (e.g., English)', required: true},
+          {name: 'targetLanguage', description: 'Target language (e.g., Spanish)', required: true},
+          {name: 'text', description: 'Text to translate', required: true},
+        ]),
+        settings: JSON.stringify({ formality: 'neutral' }),
+      },
     ];
 
     await PromptTemplate.bulkCreate(defaultTemplates);
