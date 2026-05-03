@@ -38,9 +38,9 @@
  * ```
  */
 
-import type {LLMProvider, LLMProviderConfig} from './types.js';
-import {OllamaProvider} from './ollama.js';
-import {OpenAIProvider} from './openai.js';
+import {OllamaProvider} from './ollama';
+import {OpenAIProvider} from './openai';
+import type {LLMProvider, LLMProviderConfig} from './types';
 
 /**
  * A registry for managing LLM provider instances.
