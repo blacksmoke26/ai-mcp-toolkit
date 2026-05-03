@@ -36,7 +36,6 @@ import {
 } from 'lucide-react';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Button} from '@/components/ui/Button';
-import {Textarea} from '@/components/ui/Textarea';
 import {Badge} from '@/components/ui/Badge';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
@@ -56,12 +55,12 @@ import {
   type Provider,
   sendChat,
   type PromptTemplate,
-  listPromptTemplates,
   getPromptTemplateByName,
   renderPromptTemplate,
 } from '@/lib/api';
 import {PromptTemplateSelector} from '@/components/ui/PromptTemplateSelector';
 import {VariableInputModal} from '@/components/ui/VariableInputModal';
+import {AdvancedTextarea} from '@/components/ui/AdvancedTextarea';
 
 // Types
 interface MessageBubbleProps {
@@ -803,7 +802,7 @@ const Chat = () => {
 
     try {
       const rendered = await renderPromptTemplate({
-        templateId: selectedTemplate.id,
+        id: selectedTemplate.id,
         variables: values,
       });
       setPrefilledContent(rendered.renderedContent);
@@ -1292,21 +1291,24 @@ const Chat = () => {
               <CardContent className="p-2">
                 <div className="flex gap-2 items-end">
                   <div className="flex-1 relative">
-                    <Textarea
+                    <AdvancedTextarea
                       ref={textareaRef}
                       value={prefilledContent || inputMessage}
-                      onChange={(e) => {
+                      onChange={value => {
                         if (prefilledContent) {
-                          setPrefilledContent(e.target.value);
+                          setPrefilledContent(value);
                         } else {
-                          handleTextareaChange(e);
+                          setInputMessage(value);
                         }
                       }}
-                      onKeyPress={handleKeyPress}
+                      onKeyDown={handleKeyPress}
                       placeholder={prefilledContent ? 'Modify the template content or clear it to type freely...' : 'Type your message here... (Shift+Enter for new line)'}
-                      className="flex-1 min-h-[48px] max-h-[150px] resize-none pr-12 rounded-2xl border-0 ring-1 ring-input focus:ring-2 focus:ring-primary/50"
                       disabled={loading}
-                      rows={1}
+                      rows={5}
+                      maxLength={3000}
+                      autoResize={false}
+                      showCharCount
+                      enableDragDrop
                     />
                   </div>
                   {loading ? (
@@ -1334,7 +1336,7 @@ const Chat = () => {
                 <div className="mt-2 text-center">
                   <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
                     <Flame className="h-3 w-3"/>
-                    MCP AI can make mistakes. Consider checking important information.
+                    AI can make mistakes. Consider checking important information.
                   </p>
                 </div>
               </CardContent>

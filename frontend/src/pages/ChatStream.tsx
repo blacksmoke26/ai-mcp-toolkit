@@ -13,7 +13,6 @@ import {
   Brain,
   Check,
   Clock,
-  Command,
   Copy,
   Info,
   Loader2,
@@ -31,7 +30,6 @@ import {
 import {Badge} from '@/components/ui/Badge';
 import {Button} from '@/components/ui/Button';
 import {Popover} from '@/components/ui/Popover';
-import {Textarea} from '@/components/ui/Textarea';
 import {ScrollArea} from '@/components/ui/ScrollArea';
 import MarkdownViewer from '@/components/ui/MarkdownViewer';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
@@ -50,6 +48,7 @@ import {
 } from '@/lib/api';
 import {PromptTemplateSelector} from '@/components/ui/PromptTemplateSelector';
 import {VariableInputModal} from '@/components/ui/VariableInputModal';
+import {AdvancedTextarea} from '@/components/ui/AdvancedTextarea';
 
 // Types
 interface StreamMessage {
@@ -713,7 +712,7 @@ const ChatStream: React.FC = () => {
     setTemplateVariables(values);
     try {
       const rendered = await renderPromptTemplate({
-        templateId: selectedTemplate.id,
+        id: selectedTemplate.id,
         variables: values,
       });
       setPrefilledContent(rendered.renderedContent);
@@ -1409,27 +1408,25 @@ const ChatStream: React.FC = () => {
               <CardContent className="p-2">
                 <div className="flex items-end gap-2">
                   <div className="flex-1 relative">
-                    <Textarea
+                    <AdvancedTextarea
                       ref={textareaRef}
                       value={prefilledContent || inputMessage}
-                      onChange={(e) => {
+                      onChange={value => {
                         if (prefilledContent) {
-                          setPrefilledContent(e.target.value);
+                          setPrefilledContent(value);
                         } else {
-                          handleTextareaChange(e);
+                          setInputMessage(value);
                         }
                       }}
                       onKeyDown={handleKeyPress}
                       placeholder={prefilledContent ? 'Modify the template content or clear it to type freely...' : 'Type your message here... (Shift+Enter for new line)'}
                       disabled={isStreaming}
-                      rows={1}
-                      className="min-h-[48px] max-h-[150px] resize-none rounded-2xl pr-10 border-0 ring-1 ring-input focus:ring-2 focus:ring-primary/50 bg-background/50"
+                      rows={5}
+                      autoResize={false}
+                      showCharCount
+                      maxLength={3000}
+                      enableDragDrop
                     />
-                    <div className="absolute right-3 bottom-3 flex items-center gap-1 text-xs text-muted-foreground">
-                      <Command className="h-3 w-3"/>
-                      <span>K</span>
-                      <span className="hidden sm:inline">to search</span>
-                    </div>
                   </div>
                   <Button
                     onClick={handleSendMessage}
