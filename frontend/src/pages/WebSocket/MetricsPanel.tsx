@@ -74,7 +74,7 @@ const MetricsGauge: React.FC<MetricsGaugeProps> = (props) => {
 
   const sizeConfig = {
     sm: {width: 80, height: 48, fontSize: '11px'},
-    md: {width: 120, height: 72, fontSize: '14px'},
+    md: {width: 120, height: 120, fontSize: '14px'},
     lg: {width: 160, height: 96, fontSize: '18px'},
   };
   const config = sizeConfig[size];
@@ -745,7 +745,7 @@ const MetricsPanel: React.FC = () => {
               color="#8b5cf6"
               icon={Cpu}
               unit="%"
-              trend={{direction: 'up' as 'up', change: 2.5}}
+              trend={{direction: 'up' as const, change: 2.5}}
             />
             <MetricsGauge
               label="Memory"
@@ -754,7 +754,7 @@ const MetricsPanel: React.FC = () => {
               color="#06b6d4"
               icon={MemoryStick}
               unit="MB"
-              trend={{direction: 'down' as 'down', change: -1.2}}
+              trend={{direction: 'down' as const, change: -1.2}}
             />
             <MetricsGauge
               label="Latency"
@@ -763,7 +763,7 @@ const MetricsPanel: React.FC = () => {
               color={simulatedData.avgLatency < 100 ? '#10b981' : simulatedData.avgLatency < 250 ? '#f59e0b' : '#ef4444'}
               icon={Timer}
               unit="ms"
-              trend={{direction: 'up' as 'up', change: 5.3}}
+              trend={{direction: 'up' as const, change: 5.3}}
             />
             <MetricsGauge
               label="Connections"
@@ -772,7 +772,7 @@ const MetricsPanel: React.FC = () => {
               color="#3b82f6"
               icon={Activity}
               unit="active"
-              trend={{direction: 'stable' as 'stable', change: 0}}
+              trend={{direction: 'stable' as const, change: 0}}
             />
           </div>
 
