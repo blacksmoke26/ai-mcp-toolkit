@@ -17,17 +17,17 @@
  * - Built-in / default badge support
  */
 
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   AlertCircle,
+  AlertTriangle,
   ArrowUpDown,
-  BarChart3,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Clock,
   Code,
   CopyCheck,
+  CopySlash,
   Database,
   Download,
   Edit,
@@ -35,36 +35,59 @@ import {
   EyeOff,
   FileText,
   Filter,
+  FolderDown,
+  FolderOpen,
+  FolderUp,
   Hash,
+  Info,
   LayoutGrid,
   List,
+  Loader2,
   Play,
   Plus,
   RefreshCw,
   Search,
+  Settings,
   Sparkles,
   Star,
   Trash2,
+  Wand2,
   X,
-  ZoomOut,
 } from 'lucide-react';
 import {
+  bulkDeletePromptTemplates,
+  clonePromptTemplate,
   createPromptTemplate,
   deletePromptTemplate,
+  exportPromptTemplates,
+  extractPromptTemplateVariables,
   fetchSampleTemplates,
   getPromptTemplateById,
   getPromptTemplateCategories,
+  getPromptTemplateStats,
+  importPromptTemplates,
   listPromptTemplates,
   type PromptTemplate,
+  type PromptTemplateCloneInput,
   type PromptTemplateCreateInput,
+  type PromptTemplateExportInput,
+  type PromptTemplateExtractVariablesOutput,
+  type PromptTemplateImportInput,
+  type PromptTemplateImportTemplate,
+  type PromptTemplateRenameCategoryInput,
   type PromptTemplateRenderInput,
   type PromptTemplateRenderOutput,
+  type PromptTemplateStats,
   type PromptTemplateUpdateInput,
+  type PromptTemplateValidateInput,
+  renamePromptTemplateCategory,
   renderPromptTemplate,
   type SampleTemplate,
   setDefaultPromptTemplate,
   updatePromptTemplate,
+  validatePromptTemplate,
 } from '@/lib/api.js';
+import {DocTooltip} from '@/components/ui/DocTooltip';
 import {Button} from '@/components/ui/Button';
 import {Badge} from '@/components/ui/Badge';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
@@ -95,223 +118,25 @@ import Separator from '@/components/ui/Separator';
 import {Checkbox} from '@/components/ui/Checkbox';
 import JsonViewer from '@/components/ui/JsonViewer';
 import CodeEditor from '@/components/ui/CodeEditor';
-import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from '@/components/ui/Tooltip';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/Select';
-
-import {cn} from '@/lib/utils';
 import {ScrollArea} from '@/components/ui/ScrollArea';
 import {AdvancedTextarea} from '@/components/ui/AdvancedTextarea';
 import {AdvancedInput} from '@/components/ui/AdvanceInput';
+//import CategoryChart from './CategoryChart';
+import MiniStat from './MiniStat';
+import TemplateListItem from './TemplateListItem';
+import TemplateCard from './TemplateCard';
 
-// ─── Types ────────────────────────────────────────────────────────────────────────
-
-/**
- * Statistics summary for the prompt templates' dashboard.
- * Aggregates counts and metadata about the current template collection.
- */
-interface Stats {
-  /** Total number of templates available. */
-  total: number;
-  /** Count of templates grouped by their category name. */
-  byCategory: Record<string, number>;
-  /** Number of templates marked as built-in. */
-  builtIn: number;
-  /** Number of user-created custom templates. */
-  custom: number;
-  /** Number of templates marked as default. */
-  defaultCount: number;
-  /** Total number of unique variables defined across all templates. */
-  variables: number;
-  /** ISO timestamp of the most recent update to any template. */
-  lastUpdated: string;
-}
-
-/**
- * Represents a variable field definition used in forms or testing.
- * This interface is currently unused but reserved for future form handling logic.
- */
-interface VariableField {
-  /** The unique identifier for the variable (e.g., 'user_name'). */
-  name: string;
-  /** Human-readable description of what the variable represents. */
-  description: string;
-  /** Whether the variable must be provided during rendering. */
-  required: boolean;
-  /** The current value assigned to the variable. */
-  value: string;
-}
-
-/** Display mode for the template list. */
-type ViewMode = 'grid' | 'list';
-
-/** Fields available for sorting the template list. */
-type SortField = 'name' | 'displayName' | 'updatedAt' | 'category';
-
-/** Direction for sorting the template list. */
-type SortDir = 'asc' | 'desc';
-
-// ─── Color palette for category chart ───────────────────────────────────────────────
-
-const CATEGORY_COLORS = [
-  'bg-blue-500',
-  'bg-emerald-500',
-  'bg-violet-500',
-  'bg-amber-500',
-  'bg-rose-500',
-  'bg-cyan-500',
-  'bg-fuchsia-500',
-  'bg-lime-500',
-  'bg-orange-500',
-  'bg-sky-500',
-];
-
-/**
- * Retrieves a color class from the predefined palette based on an index.
- * This ensures consistent coloring across the UI by cycling through the
- * `CATEGORY_COLORS` array using modulo arithmetic.
- *
- * @param i - The index used to select the color.
- * @returns The Tailwind CSS class string for the selected color.
- */
-const getColorForIndex = (i: number): string => CATEGORY_COLORS[i % CATEGORY_COLORS.length];
-
-// ─── Sub-components ─────────────────────────────────────────────────────────────────
-
-/**
- * Props for the CategoryChart component.
- */
-interface CategoryChartProps {
-  /** The statistics object containing category distribution data. */
-  stats: Stats;
-}
-
-/**
- * Simple category bar-chart widget.
- * Visualizes the distribution of templates across different categories
- * using horizontal bars with colors corresponding to the category index.
- */
-const CategoryChart: React.FC<CategoryChartProps> = ({stats}) => {
-  /** Sorted array of [category, count] tuples, descending by count. */
-  const cats = Object.entries(stats.byCategory).sort((a, b) => b[1] - a[1]);
-  /** The maximum count value, used to calculate bar width percentages. */
-  const max = Math.max(...cats.map(([, v]) => v), 1);
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <BarChart3 className="h-4 w-4 text-muted-foreground"/>
-        <span className="text-sm font-medium">By Category</span>
-      </div>
-      {cats.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No data</p>
-      ) : (
-        <div className="space-y-1.5">
-          {cats.map(([cat, count], idx) => (
-            <div key={cat} className="flex items-center gap-2">
-              <div
-                className={cn('h-3 w-3 rounded-full', getColorForIndex(idx))}
-              />
-              <span className="text-xs w-24 truncate text-muted-foreground">{cat}</span>
-              <div className="flex-1 h-3 bg-muted rounded-full overflow-hidden">
-                <div
-                  className={cn(
-                    'h-full rounded-full',
-                    getColorForIndex(idx),
-                  )}
-                  style={{width: `${(count / max) * 100}%`}}
-                />
-              </div>
-              <span className="text-xs font-mono w-6 text-right">{count}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-/**
- * Props for the VariablesWidget component.
- */
-interface VariablesWidgetProps {
-  /** Array of variable definitions to display. */
-  variables: PromptTemplate['variables'];
-}
-
-/**
- * Variable list widget.
- * Displays a list of variables as badges. Required variables are highlighted
- * with specific styling. Hovering over a badge reveals its description via a tooltip.
- */
-const VariablesWidget: React.FC<VariablesWidgetProps> = ({variables}) => {
-  if (!variables || variables.length === 0) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Hash className="h-4 w-4"/>
-        <span>No variables</span>
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {variables.map((v) => (
-        <TooltipProvider key={v.name}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge
-                variant="outline"
-                className={cn(
-                  'gap-1 cursor-default',
-                  v.required && 'border-orange-400 bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
-                )}
-              >
-                <Hash className="h-3 w-3"/>
-                {v.name}
-
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="max-w-xs">{v.description} {v.required && <span className="text-[11px]">(required)</span>}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ))}
-    </div>
-  );
-};
-
-/**
- * Props for the MiniStat component.
- */
-interface MiniStatProps {
-  /** The title label for the statistic. */
-  title: string;
-  /** The numerical or string value to display. */
-  value: string | number;
-  /** The Lucide React icon component to render. */
-  icon: React.ElementType;
-  /** Optional Tailwind CSS color class for the icon. Defaults to 'text-primary'. */
-  color?: string;
-}
-
-/**
- * Mini stat card.
- * Displays a single statistic with a title, value, and an associated icon.
- * Used in the dashboard summary grid.
- */
-const MiniStat: React.FC<MiniStatProps> = ({title, value, icon: Icon, color = 'text-primary'}) => (
-  <Card>
-    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle className="text-sm font-medium">{title}</CardTitle>
-      <Icon className={cn('h-5 w-5 opacity-60', color)}/>
-    </CardHeader>
-    <CardContent>
-      <div className="text-2xl font-bold">{value}</div>
-    </CardContent>
-  </Card>
-);
-
-// ─── Main Page ──────────────────────────────────────────────────────────────────────
+import {cn} from '@/lib/utils';
+import type {
+  BulkDeleteResult,
+  ImportResult,
+  SortDir,
+  SortField,
+  Stats,
+  ValidationResult,
+  ViewMode,
+} from './types';
 
 const PromptTemplates: React.FC = () => {
   // State
@@ -352,9 +177,50 @@ const PromptTemplates: React.FC = () => {
   /** ID of the template for which variable details are currently expanded. */
   const [showVariables, setShowVariables] = useState<string | null>(null);
 
+  // ── Bulk Selection State ──
+  /** Set of selected template IDs for bulk operations. */
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectAllOpen, setSelectAllOpen] = useState(false);
+
+  // ── Stats State ──
+  /** Aggregated statistics from backend stats endpoint. */
+  const [statsData, setStatsData] = useState<PromptTemplateStats | null>(null);
+
+  // ── Validation State ──
+  /** Current validation result for template content. */
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
+  /** Debounce timer for validation. */
+  const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Bulk Delete Dialog ──
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteResult, setBulkDeleteResult] = useState<BulkDeleteResult | null>(null);
+
+  // ── Import Dialog ──
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFileContent, setImportFileContent] = useState('');
+  const [importStrategy, setImportStrategy] = useState<'skip' | 'overwrite' | 'rename'>('rename');
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+
+  // ── Export Loading ──
+  const [exportLoading, setExportLoading] = useState(false);
+
+  // ── Clone Dialog ──
+  const [cloneOpen, setCloneOpen] = useState(false);
+  const [cloneTarget, setCloneTarget] = useState<PromptTemplate | null>(null);
+  const [cloneName, setCloneName] = useState('');
+  const [cloneLoading, setCloneLoading] = useState(false);
+
+  // ── Rename Category Dialog ──
+  const [renameCatOpen, setRenameCatOpen] = useState(false);
+  const [renameCatSource, setRenameCatSource] = useState('');
+  const [renameCatTarget, setRenameCatTarget] = useState('');
+  const [renameCatLoading, setRenameCatLoading] = useState(false);
+
   // View mode / sort
   /** Current display mode for the template list. */
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   /** Field currently used for sorting. */
   const [sortField, setSortField] = useState<SortField>('updatedAt');
   /** Current sort direction. */
@@ -379,6 +245,8 @@ const PromptTemplates: React.FC = () => {
   const [renderOutput, setRenderOutput] = useState<PromptTemplateRenderOutput | null>(null);
   /** Loading state specifically for the render operation. */
   const [renderLoading, setRenderLoading] = useState<boolean>(false);
+  /** Validation errors for the create/edit form. */
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // ── Samples Dialog State ───────────────
   /** Controls the visibility of the Import from Samples dialog. */
@@ -393,23 +261,43 @@ const PromptTemplates: React.FC = () => {
   const [samplesLoading, setSamplesLoading] = useState<boolean>(false);
   /** Flag to prevent the create/edit useEffect from resetting form state when importing from samples. */
   const [fromSamples, setFromSamples] = useState<boolean>(false);
+  /** Toggle for settings JSON preview in the create/edit dialog. */
+  const [settingsPreviewOpen, setSettingsPreviewOpen] = useState(false);
 
-  // ─── Fetch ────────────────────────────────────────────────────────────────────
+  // ─── Empty form defaults ───────────────────────────────────────────────────────
+
+  /** Default structure for a new template form. */
+  const emptyForm: PromptTemplateCreateInput = {
+    name: '',
+    displayName: '',
+    description: '',
+    content: '',
+    category: 'general',
+    variables: [],
+    settings: {},
+    isDefault: false,
+  };
+
+  /** State representing the current values in the create/edit form. */
+  const [formState, setFormState] = useState<PromptTemplateCreateInput>(emptyForm);
 
   /**
-   * Fetches the list of templates and available categories from the API.
+   * Fetches the list of templates, available categories, and stats from the API.
    * Updates the local state with the results.
    */
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
+    setSuccessMessage('');
     try {
-      const [listRes, catRes] = await Promise.all([
+      const [listRes, catRes, statsRes] = await Promise.all([
         listPromptTemplates(),
         getPromptTemplateCategories(),
+        getPromptTemplateStats(),
       ]);
       setTemplates(listRes.templates);
       setAvailableCategories(catRes.categories);
+      setStatsData(statsRes);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load templates');
     } finally {
@@ -420,8 +308,6 @@ const PromptTemplates: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  // ─── Stats computation ──────────────────────────────────────────────────────────
 
   /**
    * Computes statistics based on the current list of templates.
@@ -455,7 +341,123 @@ const PromptTemplates: React.FC = () => {
     });
   }, [templates]);
 
-  // ─── Filtering + sorting ────────────────────────────────────────────────────────
+  /**
+   * Memoized list of templates that have been filtered and sorted
+   * based on the current state of search, filters, and sort options.
+   */
+  /**
+   * Debounced auto-validate template content whenever it changes.
+   */
+  const validateContent = useCallback(async () => {
+    if (!formState.content || !createEditOpen || isEditing) return;
+    if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
+    validationTimerRef.current = setTimeout(async () => {
+      try {
+        const input: PromptTemplateValidateInput = {
+          content: formState.content,
+          variables: formState.variables,
+        };
+        const result = await validatePromptTemplate(input);
+        setValidationResult(result);
+      } catch {
+        // Validation errors handled silently
+      }
+    }, 500);
+    return () => {
+      if (validationTimerRef.current) clearTimeout(validationTimerRef.current);
+    };
+  }, [formState.content, formState.variables, createEditOpen, isEditing]);
+
+  // ── Form Validation ──
+  interface FormValidationError {
+    field: string;
+    message: string;
+  }
+
+  const validateForm = useCallback((): FormValidationError[] => {
+    const errors: FormValidationError[] = [];
+
+    // Name validation
+    if (!formState.name?.trim()) {
+      errors.push({field: 'name', message: 'Name is required'});
+    } else if (!/^[a-z0-9_]+$/.test(formState.name)) {
+      errors.push({field: 'name', message: 'Name must be lowercase alphanumeric with underscores only'});
+    } else if (templates.some(t => t.name === formState.name && (!isEditing || t.id !== editTemplate?.id))) {
+      errors.push({field: 'name', message: 'Name already exists'});
+    }
+
+    // Display name validation
+    if (!formState.displayName?.trim()) {
+      errors.push({field: 'displayName', message: 'Display name is required'});
+    }
+
+    // Content validation
+    if (!formState.content?.trim()) {
+      errors.push({field: 'content', message: 'Content is required'});
+    }
+
+    // Variable name validation (no duplicates)
+    if (formState.variables) {
+      const varNames = formState.variables.map(v => v.name).filter(Boolean);
+      const uniqueNames = new Set(varNames);
+      if (uniqueNames.size !== varNames.length) {
+        errors.push({field: 'variables', message: 'Variable names must be unique'});
+      }
+      // Check for reserved names
+      const reservedNames = ['id', 'name', 'content', 'template', 'variables', 'context', 'system', 'prompt'];
+      const reserved = varNames.filter(n => reservedNames.includes(n.toLowerCase()));
+      if (reserved.length > 0) {
+        errors.push({field: 'variables', message: `Variable names cannot be reserved: ${reserved.join(', ')}`});
+      }
+    }
+
+    // Settings validation (keys must be non-empty strings)
+    if (formState.settings) {
+      Object.entries(formState.settings).forEach(([key, value]) => {
+        if (!key || !key.trim()) {
+          errors.push({field: 'settings', message: 'Settings key cannot be empty'});
+        }
+        if (value === null || value === undefined) {
+          errors.push({field: 'settings', message: `Settings key "${key}" has empty value`});
+        }
+      });
+    }
+
+    return errors;
+  }, [formState, templates, isEditing, editTemplate]);
+
+  useEffect(() => {
+    const cleanup = validateContent();
+    return () => {
+      if (cleanup) cleanup.then(c => c?.());
+    };
+  }, [validateContent]);
+
+  /**
+   * Auto-extract variables from content whenever it changes during create/edit.
+   */
+  const extractTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (extractTimerRef.current) clearTimeout(extractTimerRef.current);
+    if (!formState.content || !createEditOpen || isEditing) return;
+    extractTimerRef.current = setTimeout(async () => {
+      try {
+        const result: PromptTemplateExtractVariablesOutput = await extractPromptTemplateVariables({content: formState.content});
+        if (result.count > 0 && (!formState.variables || formState.variables.length === 0)) {
+          setFormState((s) => ({
+            ...s,
+            variables: result.variables.map((name) => ({name, description: '', required: false})),
+          }));
+        }
+      } catch {
+        // Silent fail
+      }
+    }, 800);
+    return () => {
+      if (extractTimerRef.current) clearTimeout(extractTimerRef.current);
+    };
+    // eslint-disable-next-line
+  }, [formState.content, createEditOpen, isEditing]);
 
   /**
    * Memoized list of templates that have been filtered and sorted
@@ -487,8 +489,6 @@ const PromptTemplates: React.FC = () => {
   }, [templates, searchQuery, selectedCategory, showBuiltIn, showDefault, sortField, sortDir]);
 
   // No extra categories computation needed — availableCategories is already populated from the API
-
-  // ─── Handlers ───────────────────────────────────────────────────────────────────
 
   /**
    * Opens the create dialog in "create mode".
@@ -552,6 +552,18 @@ const PromptTemplates: React.FC = () => {
    * @param data - The form data to save.
    */
   const handleSave = async (data: PromptTemplateCreateInput | PromptTemplateUpdateInput) => {
+    // Run form validation and display errors inline
+    const errors = validateForm();
+    if (errors.length > 0) {
+      const errorMap: Record<string, string> = {};
+      errors.forEach((e) => {
+        errorMap[e.field] = e.message;
+      });
+      setFormErrors(errorMap);
+      return;
+    }
+    setFormErrors({});
+
     if (isEditing && editTemplate) {
       await updatePromptTemplate(editTemplate.id, data as PromptTemplateUpdateInput);
       setSuccessMessage(`Template "${(data as PromptTemplateUpdateInput).displayName ?? editTemplate.displayName}" updated`);
@@ -590,6 +602,172 @@ const PromptTemplates: React.FC = () => {
    *
    * @param template - The template to test.
    */
+  /**
+   * Toggles selection of a template for bulk operations.
+   */
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  /**
+   * Selects all visible templates.
+   */
+  const selectAll = () => {
+    setSelectedIds(new Set(filteredAndSorted.map((t) => String(t.id))));
+  };
+
+  /**
+   * Deselects all templates.
+   */
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  /**
+   * Opens the clone dialog for a template.
+   */
+  const handleClone = async (template: PromptTemplate) => {
+    setCloneTarget(template);
+    setCloneName(`${template.name}_copy`);
+    setCloneLoading(false);
+    setCloneTarget(template);
+    setCloneOpen(true);
+  };
+
+  /**
+   * Executes the clone operation.
+   */
+  const confirmClone = async () => {
+    if (!cloneTarget) return;
+    setCloneLoading(true);
+    try {
+      const input: PromptTemplateCloneInput = cloneName ? {name: cloneName} : {};
+      const result = await clonePromptTemplate(cloneTarget.id, input);
+      setSuccessMessage(`Template cloned as "${result.template.displayName}"`);
+      setCloneOpen(false);
+      setTimeout(() => setSuccessMessage(''), 3000);
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clone template');
+    } finally {
+      setCloneLoading(false);
+    }
+  };
+
+  /**
+   * Executes bulk deletion of selected templates.
+   */
+  const confirmBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkDeleteOpen(false);
+    try {
+      const result = await bulkDeletePromptTemplates({ids});
+      setBulkDeleteResult(result);
+      setTemplates((prev) => prev.filter((t) => !ids.includes(String(t.id))));
+      setSelectedIds(new Set());
+      setTimeout(() => setBulkDeleteResult(null), 4000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Bulk delete failed');
+    }
+  };
+
+  /**
+   * Opens the import dialog.
+   */
+  const handleOpenImport = () => {
+    setImportFileContent('');
+    setImportStrategy('rename');
+    setImportResult(null);
+    setImportOpen(true);
+  };
+
+  /**
+   * Executes the import operation.
+   */
+  const confirmImport = async () => {
+    if (!importFileContent.trim()) return;
+    setImportLoading(true);
+    try {
+      const parsed = JSON.parse(importFileContent);
+      const templates: PromptTemplateImportTemplate[] = Array.isArray(parsed) ? parsed : parsed.templates;
+      if (!Array.isArray(templates) || templates.length === 0) {
+        setError('Invalid import format. Expected an array of templates.');
+        return;
+      }
+      const input: PromptTemplateImportInput = {templates, strategy: importStrategy};
+      const result = await importPromptTemplates(input);
+      setImportResult(result);
+      setTimeout(() => setImportOpen(false), 2000);
+      setTimeout(() => setImportResult(null), 4000);
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  /**
+   * Exports selected templates (or all if none selected) as JSON.
+   */
+  const handleExport = async () => {
+    const ids = selectedIds.size > 0 ? Array.from(selectedIds) : undefined;
+    setExportLoading(true);
+    try {
+      const input: PromptTemplateExportInput = ids ? {ids} : {};
+      const result = await exportPromptTemplates(input);
+      const jsonStr = JSON.stringify(result.templates, null, 2);
+      const blob = new Blob([jsonStr], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `prompt-templates-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSuccessMessage(`Exported ${result.count} templates`);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  /**
+   * Opens the rename category dialog.
+   */
+  const handleRenameCategory = (currentCategory: string) => {
+    setRenameCatOpen(true);
+    setRenameCatSource(currentCategory);
+    setRenameCatTarget('');
+  };
+
+  /**
+   * Executes the category rename.
+   */
+  const confirmRenameCategory = async () => {
+    if (!renameCatSource || !renameCatTarget || renameCatSource === renameCatTarget) return;
+    setRenameCatLoading(true);
+    try {
+      const input: PromptTemplateRenameCategoryInput = {oldName: renameCatSource, newName: renameCatTarget};
+      const result = await renamePromptTemplateCategory(input);
+      setSuccessMessage(`Renamed ${renameCatSource} → ${renameCatTarget} (${result.count} templates)`);
+      setRenameCatOpen(false);
+      setTimeout(() => setSuccessMessage(''), 3000);
+      await fetchData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Rename category failed');
+    } finally {
+      setRenameCatLoading(false);
+    }
+  };
+
   const handleTest = (template: PromptTemplate) => {
     setEditTemplate(template);
     setIsEditing(true);
@@ -691,22 +869,6 @@ const PromptTemplates: React.FC = () => {
     setCreateEditOpen(true);
   };
 
-  // ─── Empty form defaults ───────────────────────────────────────────────────────
-
-  /** Default structure for a new template form. */
-  const emptyForm: PromptTemplateCreateInput = {
-    name: '',
-    displayName: '',
-    description: '',
-    content: '',
-    category: 'general',
-    variables: [],
-    settings: {},
-    isDefault: false,
-  };
-  /** State representing the current values in the create/edit form. */
-  const [formState, setFormState] = useState<PromptTemplateCreateInput>(emptyForm);
-
   /**
    * Populates the form state with data from an existing template.
    *
@@ -732,6 +894,7 @@ const PromptTemplates: React.FC = () => {
     } else if (createEditOpen && fromSamples) {
       setFromSamples(false);
     }
+    if (!createEditOpen) setFormErrors({});
     // eslint-disable-next-line
   }, [createEditOpen, isEditing, editTemplate]);
 
@@ -745,69 +908,162 @@ const PromptTemplates: React.FC = () => {
           <h2 className="text-3xl font-bold tracking-tight flex items-center gap-2">
             <FileText className="h-8 w-8 text-primary"/>
             Prompt Templates
+            <DocTooltip
+              content={
+                <div className="space-y-2">
+                  <p className="text-xs">Full CRUD management for prompt templates.</p>
+                  <ul className="text-xs list-disc pl-4 space-y-0.5 text-slate-600 dark:text-slate-400">
+                    <li>Create, edit, delete templates</li>
+                    <li>Bulk operations (select &amp; delete)</li>
+                    <li>Export/import JSON backup</li>
+                    <li>Test &amp; render with variables</li>
+                    <li>Auto-validate content &amp; extract variables</li>
+                    <li>Clone &amp; rename categories</li>
+                  </ul>
+                  <DocTooltip content="https://github.com/blacksmoke26/ai-mcp-server" title="API Reference"
+                              placement="top">
+                    <span className="text-xs text-blue-500 hover:underline cursor-pointer">API Reference</span>
+                  </DocTooltip>
+                </div>
+              }
+              title="Prompt Templates"
+              variant="info"
+            >
+              <span className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center cursor-help">
+                <Info className="h-3 w-3 text-primary"/>
+              </span>
+            </DocTooltip>
           </h2>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 flex items-center gap-2">
             Manage, test, validate, and render prompt templates
+            {statsData && (
+              <DocTooltip
+                content={
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Live Stats</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                      <span>Total:</span><span className="font-mono">{statsData.total}</span>
+                      <span>Built-in:</span><span className="font-mono">{statsData.builtIn}</span>
+                      <span>Custom:</span><span className="font-mono">{statsData.custom}</span>
+                      <span>Categories:</span><span
+                      className="font-mono">{Object.keys(statsData.categories).length}</span>
+                    </div>
+                  </div>
+                }
+                title="Backend Statistics"
+                variant="success"
+              >
+                <span
+                  className="text-xs bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 px-1.5 py-0.5 rounded-md cursor-help">
+                  {statsData.total} templates
+                </span>
+              </DocTooltip>
+            )}
           </p>
         </div>
-        <div className="flex gap-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={fetchData} variant="outline" size="sm">
-                  <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')}/>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Refresh templates</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="destructive" size="sm" onClick={handleCreate}>
-                  <Plus className="h-4 w-4"/>
-                  Create Template
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Create a new prompt template</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleOpenSamples}>
-                  <Download className="h-4 w-4"/>
-                  Import from Samples
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Browse and import pre-built sample templates</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        <div className="flex flex-wrap gap-2">
+          <DocTooltip
+            content="Refresh the template list and statistics from the backend."
+            title="Refresh"
+            placement="bottom"
+          >
+            <Button onClick={fetchData} variant="outline" size="sm" className="gap-1">
+              <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')}/>
+              Refresh
+            </Button>
+          </DocTooltip>
+          <DocTooltip
+            content="Create a new custom prompt template. You can also import from samples or clone existing templates."
+            title="Create Template"
+            codeLanguage="http"
+            placement="bottom"
+          >
+            <Button variant="default" size="sm" onClick={handleCreate} className="gap-1">
+              <Plus className="h-4 w-4"/>
+              Create
+            </Button>
+          </DocTooltip>
+          <DocTooltip
+            content="Browse and import pre-built sample templates from the MCP server's built-in samples."
+            title="Import from Samples"
+            placement="bottom"
+          >
+            <Button variant="outline" size="sm" onClick={handleOpenSamples} className="gap-1">
+              <Download className="h-4 w-4"/>
+              Samples
+            </Button>
+          </DocTooltip>
+          {selectedIds.size > 0 && (
+            <DocTooltip
+              content={`Select ${selectedIds.size} templates for bulk operations. You can export them or delete them in bulk.`}
+              title={`Bulk Selected (${selectedIds.size})`}
+              variant="warning"
+              placement="bottom"
+            >
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectAllOpen(true)}
+                className="gap-1 border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400"
+              >
+                <Trash2 className="h-4 w-4"/>
+                {selectedIds.size}
+              </Button>
+            </DocTooltip>
+          )}
+          <DocTooltip
+            content="Export selected templates (or all if none selected) as a JSON file for backup or sharing."
+            codeLanguage="http"
+            title="Export Templates"
+            placement="bottom"
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExport}
+              disabled={exportLoading}
+              className="gap-1"
+            >
+              {exportLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <FolderDown className="h-4 w-4"/>}
+              Export
+            </Button>
+          </DocTooltip>
+          <DocTooltip
+            content="Import templates from a JSON file. Choose a conflict strategy: skip existing, overwrite, or rename on conflict."
+            codeLanguage="http"
+            title="Import Templates"
+            placement="bottom"
+          >
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenImport}
+              disabled={importLoading}
+              className="gap-1"
+            >
+              <FolderUp className="h-4 w-4"/>
+              Import
+            </Button>
+          </DocTooltip>
         </div>
       </div>
 
       {/* ── Stats Cards ────────────────────────────────────────────────────────── */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <MiniStat
           title="Total Templates"
-          value={stats.total}
+          value={statsData?.total ?? stats.total}
           icon={FileText}
         />
         <MiniStat
           title="Built-in"
-          value={stats.builtIn}
+          value={statsData?.builtIn ?? stats.builtIn}
           icon={Sparkles}
           color="text-violet-600"
         />
         <MiniStat
           title="Custom"
-          value={stats.custom}
+          value={statsData?.custom ?? stats.custom}
           icon={Code}
           color="text-emerald-600"
         />
@@ -823,14 +1079,37 @@ const PromptTemplates: React.FC = () => {
           icon={Database}
           color="text-sky-600"
         />
-        <Card>
+        {/*<Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Categories</CardTitle>
+            {statsData && Object.keys(statsData.categories).length > 0 && (
+              <DocTooltip
+                content={
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Category Distribution</p>
+                    {Object.entries(statsData.categories)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([cat, count]) => (
+                        <div key={cat} className="flex items-center justify-between text-xs">
+                          <span>{cat}</span>
+                          <span className="font-mono text-slate-500">{count}</span>
+                        </div>
+                      ))}
+                  </div>
+                }
+                title="Category Breakdown"
+                variant="info"
+              >
+                <span className="text-xs bg-primary/5 text-primary px-1.5 py-0.5 rounded-md cursor-help">
+                  {Object.keys(statsData.categories).length} categories
+                </span>
+              </DocTooltip>
+            )}
           </CardHeader>
           <CardContent>
-            <CategoryChart stats={stats}/>
+            <CategoryChart stats={statsData?.categories ? {...stats, byCategory: statsData.categories} : stats}/>
           </CardContent>
-        </Card>
+        </Card>*/}
       </div>
 
       {/* ── Alerts ─────────────────────────────────────────────────────────────── */}
@@ -936,6 +1215,48 @@ const PromptTemplates: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* ── Bulk Selection Toolbar ── */}
+      {filteredAndSorted.length > 0 && (
+        <div className="flex items-center justify-between gap-3 px-1">
+          <div className="">
+          </div>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-2">
+              <DocTooltip
+                content={`Delete ${selectedIds.size} selected custom templates. Built-in templates will be skipped.`}
+                title="Bulk Delete"
+                variant="error"
+                placement="bottom"
+              >
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setBulkDeleteOpen(true)}
+                  className="gap-1"
+                >
+                  <Trash2 className="h-3.5 w-3.5"/>
+                  Delete ({selectedIds.size})
+                </Button>
+              </DocTooltip>
+              <DocTooltip
+                content={`Export ${selectedIds.size} selected templates as JSON.`}
+                title="Export Selected"
+                placement="bottom"
+              >
+                <Button variant="outline" size="sm" onClick={handleExport} className="gap-1">
+                  <FolderDown className="h-3.5 w-3.5"/>
+                  Export
+                </Button>
+              </DocTooltip>
+              <Button variant="ghost" size="sm" onClick={deselectAll} className="gap-1 text-xs">
+                <X className="h-3.5 w-3.5"/>
+                Clear
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Template List / Grid ───────────────────────────────────────────────── */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
@@ -967,21 +1288,29 @@ const PromptTemplates: React.FC = () => {
               onDelete={() => handleDelete(t)}
               onSetDefault={() => handleSetDefault(t)}
               onTest={() => handleTest(t)}
+              onClone={() => handleClone(t)}
               variablesExpanded={showVariables === String(t.id)}
               onToggleVariables={() => setShowVariables((prev) => (prev === String(t.id) ? null : String(t.id)))}
+              isSelected={selectedIds.has(String(t.id))}
+              onToggleSelect={() => toggleSelect(String(t.id))}
             />
           ))}
         </div>
       ) : (
         <div className="space-y-3">
           {/* List header */}
-          <div className="hidden sm:grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground px-4">
-            <div className="col-span-3">Name</div>
-            <div className="col-span-2">Category</div>
-            <div className="col-span-2">Variables</div>
-            <div className="col-span-2">Status</div>
-            <div className="col-span-2 text-right">Updated</div>
-            <div className="col-span-1"></div>
+          <div className="hidden sm:grid grid-cols-12 gap-1 text-xs font-medium text-muted-foreground px-4">
+            <div className="col-span-1"><Checkbox
+              checked={selectedIds.size === filteredAndSorted.length && filteredAndSorted.length > 0}
+              onCheckedChange={checked => {
+                if (checked) selectAll(); else deselectAll();
+              }} className="h-4 w-4"/></div>
+            <div className="col-span-2">Name</div>
+            <div className="col-span-1">Category</div>
+            <div className="col-span-3">Variables</div>
+            <div className="col-span-1">Status</div>
+            <div className="col-span-1 text-right">Updated</div>
+            <div className="col-span-1">&nbsp;</div>
           </div>
           {filteredAndSorted.map((t) => (
             <TemplateListItem
@@ -991,13 +1320,21 @@ const PromptTemplates: React.FC = () => {
               onDelete={() => handleDelete(t)}
               onSetDefault={() => handleSetDefault(t)}
               onTest={() => handleTest(t)}
+              onClone={() => handleClone(t)}
+              isSelected={selectedIds.has(String(t.id))}
+              onToggleSelect={() => toggleSelect(String(t.id))}
             />
           ))}
         </div>
       )}
 
       {/* ── Create / Edit Dialog ───────────────────────────────────────────────── */}
-      <Dialog open={createEditOpen} onOpenChange={setCreateEditOpen}>
+      <Dialog
+        open={createEditOpen}
+        onOpenChange={(open) => {
+          if (!open) setValidationResult(null);
+          setCreateEditOpen(open);
+        }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -1010,28 +1347,72 @@ const PromptTemplates: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
 
+          {/* Validation Status */}
+          {validationResult && createEditOpen && !isEditing && (
+            <Alert className={cn(
+              validationResult.valid
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
+                : 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-800 dark:text-amber-300',
+            )}>
+              {validationResult.valid ? <CheckCircle2 className="h-4 w-4 text-emerald-600"/> :
+                <AlertTriangle className="h-4 w-4 text-amber-600"/>}
+              <AlertTitle>{validationResult.valid ? 'Valid' : 'Warnings'}</AlertTitle>
+              <AlertDescription className="text-xs">
+                {validationResult.valid
+                  ? 'Content and variables match correctly.'
+                  : validationResult.errors.slice(0, 2).map((e, i) => <div key={i}>{e}</div>)}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <ScrollArea className="max-h-[700px]">
             <div className="space-y-4 p-1 pr-3">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Name <span className="text-red-500">*</span></Label>
+                  <div className="flex items-center gap-1">
+                    <Label>Name <span className="text-red-500">*</span></Label>
+                    <DocTooltip
+                      content="Unique machine-readable identifier. Must be lowercase alphanumeric with underscores only. Cannot be a reserved name."
+                      title="Name Guidelines" placement="top" variant="help">
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help"/>
+                    </DocTooltip>
+                  </div>
                   <AdvancedInput
+                    lowercase={true}
+                    charsRemainingWarning={15}
+                    showCharCount={true}
+                    maxLength={50}
                     value={formState.name}
                     onChange={(e) => setFormState((s) => ({...s, name: e.target.value}))}
                     placeholder="my_template"
+                    className={cn(formState.name && /^[a-z0-9_]+$/.test(formState.name) ? 'border-green-500' : formState.name && !/^[a-z0-9_]+$/.test(formState.name) ? 'border-red-400' : formErrors.name ? 'border-red-400' : '')}
                   />
+                  {formErrors.name && <p className="text-xs text-red-500">{formErrors.name}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label>Display Name <span className="text-red-500">*</span></Label>
+                  <div className="flex items-center gap-1">
+                    <Label>Display Name <span className="text-red-500">*</span></Label>
+                    <DocTooltip content="Human-readable name displayed in the UI." title="Display Name" placement="top">
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help"/>
+                    </DocTooltip>
+                  </div>
                   <AdvancedInput
                     value={formState.displayName}
                     onChange={(e) => setFormState((s) => ({...s, displayName: e.target.value}))}
                     placeholder="My Template"
                   />
+                  {formErrors.displayName && <p className="text-xs text-red-500">{formErrors.displayName}</p>}
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
+                <div className="flex items-center gap-1">
+                  <Label>Description</Label>
+                  <DocTooltip
+                    content="Brief description of what this template does. Shown in list views and search results."
+                    title="Description" placement="top">
+                    <Info className="h-3 w-3 text-muted-foreground cursor-help"/>
+                  </DocTooltip>
+                </div>
                 <AdvancedTextarea
                   value={formState.description}
                   onChange={value => setFormState((s) => ({...s, description: value}))}
@@ -1040,9 +1421,16 @@ const PromptTemplates: React.FC = () => {
                   autoResize={false}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <div className="flex items-center gap-1">
+                    <Label>Category</Label>
+                    <DocTooltip
+                      content="Group templates by category. Categories help organize and filter templates."
+                      title="Category" placement="top">
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help"/>
+                    </DocTooltip>
+                  </div>
                   <Select
                     value={formState.category}
                     onValueChange={v => setFormState((s) => ({...s, category: v}))}
@@ -1068,8 +1456,19 @@ const PromptTemplates: React.FC = () => {
                       onCheckedChange={(v) => setFormState((s) => ({...s, isDefault: v}))}
                     />
                     <span className="text-sm text-muted-foreground">
-                    {formState.isDefault ? 'Yes' : 'No'}
-                  </span>
+                      {formState.isDefault ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1 mt-2">
+                    <Wand2 className="h-3.5 w-3.5"/>Variables
+                  </Label>
+                  <div className="pt-3">
+                    <Badge variant="outline" className="text-xs">
+                      {formState.variables?.length ?? 0} defined
+                      <Wand2 className="ml-1 h-3 w-3 text-muted-foreground"/>
+                    </Badge>
                   </div>
                 </div>
               </div>
@@ -1079,10 +1478,26 @@ const PromptTemplates: React.FC = () => {
               {/* Content */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Template Content</Label>
-                  <Badge variant="outline" className="text-xs">
-                    {{content: '1'}.content.length} chars
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    <Label>Template Content</Label>
+                    <DocTooltip
+                      content="Use {{variable_name}} placeholders for dynamic content. Variables are automatically extracted from content."
+                      title="Template Content" placement="top" variant="code">
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help"/>
+                    </DocTooltip>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {formState.content.includes('{{') && (
+                      <Badge variant="secondary"
+                             className="text-xs bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                        <Hash className="h-3 w-3 mr-1"/>
+                        Variables detected
+                      </Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {formState.content.length} chars
+                    </Badge>
+                  </div>
                 </div>
                 <CodeEditor
                   value={formState.content}
@@ -1090,6 +1505,7 @@ const PromptTemplates: React.FC = () => {
                   language="markdown"
                   heightClass="h-[200px]"
                 />
+                {formErrors.content && <p className="text-xs text-red-500">{formErrors.content}</p>}
               </div>
 
               <Separator/>
@@ -1101,6 +1517,7 @@ const PromptTemplates: React.FC = () => {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="mr-1"
                     onClick={() =>
                       setFormState((s) => ({
                         ...s,
@@ -1108,7 +1525,7 @@ const PromptTemplates: React.FC = () => {
                       }))
                     }
                   >
-                    <Plus className="mr-1 h-3.5 w-3.5"/>Add Variable
+                    <Plus className="h-3.5 w-3.5"/>Add Variable
                   </Button>
                 </div>
                 {formState.variables.map((v, idx) => (
@@ -1128,6 +1545,7 @@ const PromptTemplates: React.FC = () => {
                           setFormState((s) => ({...s, variables: vars}));
                         }}
                         placeholder="var_name"
+                        allowClear={false}
                       />
                     </div>
                     <div className="col-span-6 space-y-1">
@@ -1145,6 +1563,7 @@ const PromptTemplates: React.FC = () => {
                           setFormState((s) => ({...s, variables: vars}));
                         }}
                         placeholder="What is this variable?"
+                        allowClear={false}
                       />
                     </div>
                     <div className="col-span-3 flex gap-3">
@@ -1175,6 +1594,130 @@ const PromptTemplates: React.FC = () => {
                     </div>
                   </div>
                 ))}
+                {formState.variables.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic py-2">No variables defined.
+                    Use {'{{'}variable_name{'}}'} in your content to auto-detect variables.</p>
+                )}
+              </div>
+
+              <Separator/>
+
+              {/* Settings */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-1">
+                    <Settings className="h-4 w-4"/>
+                    Settings
+                    <DocTooltip
+                      content="Optional key-value pairs for template-specific configuration. Common settings: maxTokens, temperature, topP, etc."
+                      title="Template Settings" placement="top" variant="info">
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help"/>
+                    </DocTooltip>
+                  </Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mr-1"
+                    onClick={() =>
+                      setFormState((s) => ({
+                        ...s,
+                        settings: {...(s.settings || {}), [``]: ''},
+                      }))
+                    }
+                  >
+                    <Plus className="h-3.5 w-3.5"/>Add Setting
+                  </Button>
+                </div>
+                {formState.settings && Object.keys(formState.settings).length > 0 ? (
+                  <div className="space-y-2">
+                    {Object.entries(formState.settings).map(([key, value]) => (
+                      <div key={key} className="grid grid-cols-11 gap-2 items-end">
+                        <div className="col-span-4 space-y-1">
+                          <Label className="text-xs">Key</Label>
+                          <AdvancedInput
+                            value={key}
+                            onChange={(e) => {
+                              const newSettings = {...formState.settings};
+                              const newKey = e.target.value;
+                              const newVal = newSettings[key];
+                              delete newSettings[key];
+                              newSettings[newKey] = newVal;
+                              setFormState((s) => ({...s, settings: newSettings}));
+                            }}
+                            placeholder="key"
+                            allowClear={false}
+                            />
+                        </div>
+                        <div className="col-span-6 space-y-1">
+                          <Label className="text-xs">Value</Label>
+                          <div className="flex gap-2">
+                            <AdvancedInput
+                              value={String(value ?? '')}
+                              onChange={(e) => {
+                                const newSettings = {...formState.settings};
+                                newSettings[key] = e.target.value;
+                                setFormState((s) => ({...s, settings: newSettings}));
+                              }}
+                              placeholder="value"
+                              allowClear={false}
+                            />
+                            <Select
+                              value={typeof value}
+                              onValueChange={(v) => {
+                                const newSettings = {...formState.settings};
+                                if (v === 'number') newSettings[key] = Number(newSettings[key]);
+                                else if (v === 'boolean') newSettings[key] = String(newSettings[key]).toLowerCase() === 'true';
+                                else newSettings[key] = String(newSettings[key]);
+                                setFormState((s) => ({...s, settings: newSettings}));
+                              }}
+                            >
+                              <SelectTrigger className="w-[90px] h-[40px] text-xs">
+                                <SelectValue/>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="string">String</SelectItem>
+                                <SelectItem value="number">Number</SelectItem>
+                                <SelectItem value="boolean">Boolean</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const newSettings = {...formState.settings};
+                              delete newSettings[key];
+                              setFormState((s) => ({...s, settings: newSettings}));
+                            }}
+                            className="text-red-500 h-7 w-7 p-0 relative top-[-10px]"
+                          >
+                            <X className="h-3.5 w-3.5"/>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {/* Preview JSON */}
+                    <div className="mt-2">
+                      <div
+                        className="flex items-center gap-1 cursor-pointer text-xs text-muted-foreground hover:text-primary transition-colors"
+                        onClick={() => setSettingsPreviewOpen(!settingsPreviewOpen)}>
+                        <ChevronDown
+                          className={cn('h-3 w-3 transition-transform', settingsPreviewOpen && 'rotate-90')}/>
+                        <span>JSON Preview</span>
+                      </div>
+                      {settingsPreviewOpen && (
+                        <pre className="mt-2 text-xs bg-muted/50 p-3 rounded-lg overflow-x-auto font-mono">
+                          <JsonViewer value={formState.settings}/>
+                        </pre>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic py-2">No settings defined. Add optional
+                    configuration for this template.</p>
+                )}
               </div>
             </div>
           </ScrollArea>
@@ -1417,232 +1960,377 @@ const PromptTemplates: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-};
 
-// ─── Template Card (Grid view) ──────────────────────────────────────────────────────
-
-/**
- * Props for the TemplateCard component.
- */
-interface TemplateCardProps {
-  /** The template data to display. */
-  template: PromptTemplate;
-  /** Whether the variable details section is expanded. */
-  variablesExpanded: boolean;
-
-  /** Callback to edit the template. */
-  onEdit(): void;
-
-  /** Callback to delete the template. */
-  onDelete(): void;
-
-  /** Callback to set the template as default. */
-  onSetDefault(): void;
-
-  /** Callback to open the test/render dialog. */
-  onTest(): void;
-
-  /** Callback to toggle the expansion of variable details. */
-  onToggleVariables(): void;
-}
-
-/**
- * Template Card component for Grid view.
- * Displays a summary of the template including name, badges, and actions.
- * Supports expanding to show variable details.
- */
-const TemplateCard: React.FC<TemplateCardProps> = (props) => {
-  const {template, onEdit, onDelete, onSetDefault, onTest, variablesExpanded, onToggleVariables} = props;
-
-  return (
-    <Card className="transition-all hover:shadow-md hover:border-primary/40 group">
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <CardTitle className="text-base truncate">{template.displayName}</CardTitle>
-              {template.isBuiltIn && (
-                <Badge variant="secondary" className="text-xs">Built-in</Badge>
-              )}
-              {template.isDefault && (
-                <Badge variant="default" className="text-xs bg-amber-500 hover:bg-amber-600">
-                  Default
-                </Badge>
-              )}
-            </div>
-            <code className="text-xs font-mono text-muted-foreground">{template.name}</code>
+      {/* ── Clone Dialog ── */}
+      <Dialog open={cloneOpen} onOpenChange={setCloneOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CopySlash className="h-5 w-5 text-primary"/>
+              Clone Template
+            </DialogTitle>
+            <DialogDescription>
+              Clone "{cloneTarget?.displayName}" to create a new custom template.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <DocTooltip
+              content="Optional custom name for the cloned template. If left blank, a default name will be auto-generated."
+              title="Clone Name"
+              variant="info"
+              placement="top"
+            >
+              <Label className="cursor-help">
+                Name (optional)
+                <Info className="h-3 w-3 ml-1 text-muted-foreground"/>
+              </Label>
+            </DocTooltip>
+            <AdvancedInput
+              value={cloneName}
+              onChange={(e) => setCloneName(e.target.value)}
+              placeholder="auto-generated"
+            />
+            <DocTooltip
+              content={`Source: ${cloneTarget?.content.length ?? 0} chars, ${(cloneTarget?.variables ?? []).length} variables, category: ${cloneTarget?.category}`}
+              title="Source Template Details"
+              placement="top"
+            >
+              <div className="flex gap-2 text-xs text-muted-foreground cursor-help">
+                <Badge variant="outline">{cloneTarget?.category}</Badge>
+                <span>{cloneTarget?.content.length ?? 0} chars</span>
+                <span>{(cloneTarget?.variables ?? []).length} vars</span>
+              </div>
+            </DocTooltip>
           </div>
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={onSetDefault}>
-                    <Star className={cn('h-4 w-4', template.isDefault && 'fill-amber-400 text-amber-500')}/>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{template.isDefault ? 'Remove default' : 'Set as default'}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={onEdit}>
-                    <Edit className="h-4 w-4"/>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Edit template</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={onTest}>
-                    <Play className="h-4 w-4 text-emerald-500"/>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Test &amp; render</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={onDelete} className="text-red-500 hover:text-red-700">
-                    <Trash2 className="h-4 w-4"/>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Delete template</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0 space-y-3">
-        <p className="text-sm text-muted-foreground line-clamp-2">{template.description}</p>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="text-xs">{template.category}</Badge>
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-           <Clock className="h-3 w-3"/> {new Date(template.updatedAt).toLocaleDateString()}
-          </span>
-        </div>
-        <div className="flex items-center justify-between">
-          <VariablesWidget variables={template.variables}/>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleVariables}
-            className="text-xs h-7"
-          >
-            {variablesExpanded ? (
-              <ChevronUp className="h-3 w-3 mr-1"/>
-            ) : (
-              <ChevronDown className="h-3 w-3 mr-1"/>
-            )}
-            Details
-          </Button>
-        </div>
-        {variablesExpanded && (
-          <div className="rounded-lg border bg-muted/50 p-3 text-xs space-y-1">
-            {template.variables.map((v) => (
-              <div key={v.name} className="flex items-start gap-2">
-                <Hash className="h-3 w-3 mt-0.5 shrink-0"/>
-                <div>
-                  <span className="font-mono font-medium">{v.name}</span>
-                  <span className="text-muted-foreground ml-2">{v.description}</span>
-                  {v.required && (
-                    <Badge variant="outline" className="ml-1 text-[10px] border-orange-300 text-orange-600">
-                      required
-                    </Badge>
-                  )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCloneOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmClone} disabled={cloneLoading} className="gap-2">
+              {cloneLoading && <Loader2 className="h-4 w-4 animate-spin"/>}
+              <CopySlash className="h-4 w-4"/>
+              Clone
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bulk Delete Result Dialog ── */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive"/>
+              Bulk Delete Result
+            </DialogTitle>
+            <DialogDescription>
+              Results of the bulk deletion operation.
+            </DialogDescription>
+          </DialogHeader>
+          {bulkDeleteResult && (
+            <div className="space-y-3 py-2">
+              <div className="grid grid-cols-3 gap-3">
+                <div
+                  className="text-center p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                  <div className="text-2xl font-bold text-emerald-600">{bulkDeleteResult.deleted}</div>
+                  <div className="text-xs text-emerald-700 dark:text-emerald-400">Deleted</div>
+                </div>
+                <div
+                  className="text-center p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                  <div className="text-2xl font-bold text-amber-600">{bulkDeleteResult.skipped}</div>
+                  <div className="text-xs text-amber-700 dark:text-amber-400">Skipped</div>
+                </div>
+                <div
+                  className="text-center p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+                  <div className="text-2xl font-bold text-red-600">{bulkDeleteResult.errors.length}</div>
+                  <div className="text-xs text-red-700 dark:text-red-400">Failed</div>
                 </div>
               </div>
-            ))}
-            {template.settings && Object.keys(template.settings).length > 0 && (
-              <>
-                <Separator className="my-2"/>
-                <div className="font-medium mb-1">Settings</div>
-                <JsonViewer value={template.settings} collapsed={true}/>
-              </>
+              {bulkDeleteResult.errors.length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-xs">Errors:</Label>
+                  <ScrollArea className="max-h-32">
+                    {bulkDeleteResult.errors.map((err, i) => (
+                      <div key={i} className="text-xs text-red-600 dark:text-red-400 flex items-start gap-1">
+                        <AlertCircle className="h-3 w-3 mt-0.5 shrink-0"/>
+                        <span>ID {err.id}: {err.error}</span>
+                      </div>
+                    ))}
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Import Dialog ── */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderUp className="h-5 w-5 text-primary"/>
+              Import Templates
+            </DialogTitle>
+            <DialogDescription>
+              Paste JSON content of exported templates or upload a JSON file.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 py-2">
+            <DocTooltip
+              content={
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold">JSON Format:</p>
+                  <pre className="text-[10px] overflow-x-auto bg-slate-50 dark:bg-slate-800 p-2 rounded">
+{`[
+  {
+    "name": "template_name",
+    "displayName": "Template Name",
+    "description": "...",
+    "content": "...",
+    "category": "general",
+    "variables": [...],
+    "settings": {...}
+  }
+]`}
+                  </pre>
+                </div>
+              }
+              title="Import Format Guide"
+              variant="code"
+              placement="top"
+            >
+              <Label className="cursor-help flex items-center gap-1">
+                JSON Content
+                <Info className="h-3 w-3 text-muted-foreground"/>
+              </Label>
+            </DocTooltip>
+            <div className="relative">
+              <CodeEditor
+                value={importFileContent}
+                onChange={(v) => setImportFileContent(v)}
+                language="json"
+                heightClass="h-[200px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Conflict Strategy</Label>
+              <div className="flex gap-2">
+                {(['skip', 'overwrite', 'rename'] as const).map((strategy) => (
+                  <Button
+                    key={strategy}
+                    variant={importStrategy === strategy ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setImportStrategy(strategy)}
+                    className="text-xs capitalize"
+                  >
+                    {strategy}
+                  </Button>
+                ))}
+              </div>
+              <DocTooltip
+                content={
+                  <div className="text-xs space-y-1">
+                    <p><strong>Skip:</strong> Keep existing templates, ignore imported ones with same name.</p>
+                    <p><strong>Overwrite:</strong> Replace existing templates (not built-in).</p>
+                    <p><strong>Rename:</strong> Append suffix to avoid conflicts.</p>
+                  </div>
+                }
+                title="Strategy Explanation"
+                variant="help"
+                placement="top"
+              >
+                <span className="text-xs text-muted-foreground cursor-help hover:text-primary">
+                  Click for details
+                  <Info className="h-3 w-3 ml-1 inline"/>
+                </span>
+              </DocTooltip>
+            </div>
+            {importResult && (
+              <Alert className={cn(
+                importResult.failed > 0
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-emerald-50 border-emerald-200',
+              )}>
+                {importResult.failed > 0 ? <AlertTriangle className="h-4 w-4 text-amber-600"/> :
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600"/>}
+                <AlertTitle>{importResult.failed > 0 ? 'Partial Success' : 'Import Complete'}</AlertTitle>
+                <AlertDescription className="text-xs">
+                  <div className="grid grid-cols-3 gap-2 mt-1">
+                    <div><span className="text-emerald-600 font-bold">{importResult.imported}</span> imported</div>
+                    <div><span className="text-amber-600 font-bold">{importResult.skipped}</span> skipped</div>
+                    <div><span className="text-red-600 font-bold">{importResult.failed}</span> failed</div>
+                  </div>
+                </AlertDescription>
+              </Alert>
             )}
           </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setImportOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmImport} disabled={importLoading || !importFileContent.trim()} className="gap-2">
+              {importLoading && <Loader2 className="h-4 w-4 animate-spin"/>}
+              <FolderUp className="h-4 w-4"/>
+              Import
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-// ─── Template List Item ──────────────────────────────────────────────────────────────
+      {/* ── Rename Category Dialog ── */}
+      <Dialog open={renameCatOpen} onOpenChange={setRenameCatOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="h-5 w-5 text-primary"/>
+              Rename Category
+            </DialogTitle>
+            <DialogDescription>
+              Rename category across all templates that use it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex flex-col items-center">
+                <Badge variant="outline" className="text-sm px-3 py-1 font-mono">{renameCatSource}</Badge>
+              </div>
+              <Edit className="h-4 w-4 text-muted-foreground rotate-90"/>
+              <div className="flex flex-col items-center flex-1">
+                <AdvancedInput
+                  value={renameCatTarget}
+                  onChange={(e) => setRenameCatTarget(e.target.value)}
+                  placeholder="new_category"
+                  className={cn(
+                    renameCatTarget && /^[a-z_]+$/.test(renameCatTarget) ? 'border-green-500' :
+                      renameCatTarget && !/^[a-z_]+$/.test(renameCatTarget) ? 'border-red-400' : '',
+                  )}
+                />
+                <span
+                  className="text-xs text-muted-foreground mt-1">Must be lowercase alphanumeric with underscores</span>
+              </div>
+            </div>
+            <DocTooltip
+              content="This operation will update the category field for all custom templates in this category. Built-in templates are not modified."
+              title="Category Rename"
+              variant="warning"
+              placement="top"
+            >
+              <div
+                className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 cursor-help">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5"/>
+                <div className="text-xs text-amber-700 dark:text-amber-400">
+                  This will affect all custom templates in the "{renameCatSource}" category. Built-in templates are
+                  excluded.
+                </div>
+              </div>
+            </DocTooltip>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameCatOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmRenameCategory}
+              disabled={renameCatLoading || !renameCatTarget || renameCatSource === renameCatTarget}
+              className="gap-2"
+            >
+              {renameCatLoading && <Loader2 className="h-4 w-4 animate-spin"/>}
+              <Edit className="h-4 w-4"/>
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-/**
- * Props for the TemplateListItem component.
- */
-interface TemplateListItemProps {
-  /** The template data to display. */
-  template: PromptTemplate;
-
-  /** Callback to edit the template. */
-  onEdit(): void;
-
-  /** Callback to delete the template. */
-  onDelete(): void;
-
-  /** Callback to set the template as default. */
-  onSetDefault(): void;
-
-  /** Callback to open the test/render dialog. */
-  onTest(): void;
-}
-
-/**
- * Template List Item component for List view.
- * Displays a compact row representation of the template with columns for key data.
- */
-const TemplateListItem: React.FC<TemplateListItemProps> = (props) => {
-  const {template, onEdit, onDelete, onSetDefault, onTest} = props;
-
-  return (
-    <div
-      className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center rounded-lg border px-4 py-3 hover:bg-muted/40 transition-colors">
-      <div className="col-span-3">
-        <div className="font-medium text-sm">{template.displayName}</div>
-        <code className="text-xs font-mono text-muted-foreground">{template.name}</code>
-      </div>
-      <div className="col-span-2">
-        <Badge variant="outline" className="text-xs">{template.category}</Badge>
-      </div>
-      <div className="col-span-2">
-        <VariablesWidget variables={template.variables}/>
-      </div>
-      <div className="col-span-2 flex items-center gap-1">
-        {template.isBuiltIn && <Badge variant="secondary" className="text-xs">Built-in</Badge>}
-        {template.isDefault && <Badge variant="default" className="text-xs bg-amber-500">Default</Badge>}
-      </div>
-      <div className="col-span-2 text-right text-xs text-muted-foreground">
-        {new Date(template.updatedAt).toLocaleDateString()}
-      </div>
-      <div className="col-span-1 flex items-center justify-end gap-1">
-        <Button variant="plain" size="icon" onClick={onSetDefault}>
-          <Star className={cn('h-4 w-4', template.isDefault && 'fill-amber-400 text-amber-500')}/>
-        </Button>
-        <Button variant="plain" size="icon" onClick={onEdit}>
-          <Edit className="h-4 w-4"/>
-        </Button>
-        <Button variant="plain" size="icon" onClick={onTest}>
-          <Play className="h-4 w-4 text-emerald-500"/>
-        </Button>
-        <Button variant="plain" size="icon" onClick={onDelete} className="text-red-500 hover:text-red-700">
-          <Trash2 className="h-4 w-4"/>
-        </Button>
-      </div>
+      {/* ── Bulk Selection Quick Actions Dialog ── */}
+      <Dialog open={selectAllOpen} onOpenChange={setSelectAllOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5 text-primary"/>
+              Bulk Operations
+            </DialogTitle>
+            <DialogDescription>
+              Choose an action for the {selectedIds.size} selected template(s).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <DocTooltip
+              content="Permanently delete the selected custom templates. Built-in templates will be skipped."
+              title="Bulk Delete"
+              variant="error"
+              placement="top"
+            >
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3 border-destructive/30 hover:bg-destructive/10 text-destructive"
+                onClick={() => {
+                  setSelectAllOpen(false);
+                  setBulkDeleteOpen(true);
+                }}
+              >
+                <Trash2 className="h-5 w-5"/>
+                <div className="text-left">
+                  <div className="font-medium">Delete Selected</div>
+                  <div className="text-xs text-muted-foreground">Remove {selectedIds.size} templates</div>
+                </div>
+              </Button>
+            </DocTooltip>
+            <DocTooltip
+              content="Export selected templates as a JSON file for backup or sharing."
+              title="Export"
+              placement="top"
+            >
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-3"
+                onClick={() => {
+                  setSelectAllOpen(false);
+                  handleExport();
+                }}
+              >
+                <FolderDown className="h-5 w-5"/>
+                <div className="text-left">
+                  <div className="font-medium">Export Selected</div>
+                  <div className="text-xs text-muted-foreground">Download as JSON</div>
+                </div>
+              </Button>
+            </DocTooltip>
+            <Button
+              variant="outline"
+              className="w-full justify-start gap-3"
+              onClick={() => {
+                setSelectAllOpen(false);
+                const unselected = filteredAndSorted.filter((t) => !selectedIds.has(String(t.id)));
+                if (unselected.length > 0) {
+                  setEditTemplate(unselected[0]);
+                  setIsEditing(true);
+                  setCreateEditOpen(true);
+                }
+              }}
+            >
+              <FileText className="h-5 w-5"/>
+              <div className="text-left">
+                <div className="font-medium">View Unselected</div>
+                <div className="text-xs text-muted-foreground">{filteredAndSorted.length - selectedIds.size} templates
+                </div>
+              </div>
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={deselectAll} className="gap-2">
+              <X className="h-4 w-4"/>
+              Deselect All
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
