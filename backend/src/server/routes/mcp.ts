@@ -1292,4 +1292,50 @@ export const mcpRoutes: FastifyPluginAsync = async (fastify) => {
       });
     },
   );
+
+  /**
+   * GET /mcp/methods
+   * Returns the list of available MCP methods.
+   *
+   * @description
+   * Provides a list of all supported MCP methods, including their names,
+   * descriptions, and expected parameters. Useful for client discovery
+   * and documentation generation.
+   *
+   * @changelog
+   * - 2023-10-27: New endpoint for method listing.
+   * - 2023-10-27: Added JSON Schema response validation.
+   */
+  fastify.get(
+    '/mcp/available-methods',
+    {
+      schema: {
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              list: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  required: ['method', 'description', 'params'],
+                  properties: {
+                    method: {type: 'string'},
+                    description: {type: 'string'},
+                    params: {type: 'string'},
+                  },
+                },
+              }
+            }
+          },
+        },
+      },
+    },
+    async (_request, reply) => {
+      const methodsList = await import('@/mcp/methods-list');
+      return reply.send({
+        list: methodsList.default
+      });
+    },
+  );
 };
