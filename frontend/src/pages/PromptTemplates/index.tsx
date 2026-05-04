@@ -1856,7 +1856,7 @@ const PromptTemplates: React.FC = () => {
 
       {/* ── Import from Samples Dialog ────────────────────────────────────────── */}
       <Dialog open={samplesOpen} onOpenChange={setSamplesOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Download className="h-5 w-5 text-primary"/>
