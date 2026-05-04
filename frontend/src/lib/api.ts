@@ -279,7 +279,131 @@ export interface PromptTemplateCategoriesResponse {
  */
 export type PromptTemplateCategory = 'code' | 'writing' | 'analysis' | 'general' | string;
 
-// ══════════ Raw API Response Types ══════════
+// ─── Stats Types ───
+
+export interface PromptTemplateStats {
+  total: number;
+  builtIn: number;
+  custom: number;
+  categories: Record<string, number>;
+}
+
+// ─── Validation Types ───
+
+export interface PromptTemplateValidateInput {
+  content: string;
+  variables?: Array<{ name: string; description: string; required?: boolean }>;
+}
+
+export interface PromptTemplateValidateOutput {
+  valid: boolean;
+  errors: string[];
+}
+
+// ─── Extract Variables Types ───
+
+export interface PromptTemplateExtractVariablesInput {
+  content: string;
+}
+
+export interface PromptTemplateExtractVariablesOutput {
+  variables: string[];
+  count: number;
+}
+
+// ─── Clone Types ───
+
+export interface PromptTemplateCloneInput {
+  name?: string;
+}
+
+export interface PromptTemplateCloneOutput {
+  status: string;
+  template: {
+    id: number;
+    name: string;
+    displayName: string;
+  };
+}
+
+// ─── Bulk Delete Types ───
+
+export interface PromptTemplateBulkDeleteInput {
+  ids: string[];
+}
+
+export interface PromptTemplateBulkDeleteError {
+  id: number;
+  error: string;
+}
+
+export interface PromptTemplateBulkDeleteOutput {
+  status: string;
+  deleted: number;
+  skipped: number;
+  errors: PromptTemplateBulkDeleteError[];
+}
+
+// ─── Export Types ───
+
+export interface PromptTemplateExportInput {
+  ids?: string[];
+}
+
+export interface PromptTemplateExportedTemplate {
+  name: string;
+  displayName: string;
+  description: string;
+  content: string;
+  category: string;
+  variables: string;
+  settings: string | null;
+}
+
+export interface PromptTemplateExportOutput {
+  exportedAt: string;
+  format: 'json';
+  count: number;
+  templates: PromptTemplateExportedTemplate[];
+}
+
+// ─── Import Types ───
+
+export interface PromptTemplateImportTemplate {
+  name: string;
+  displayName: string;
+  description: string;
+  content: string;
+  category: string;
+  variables?: any;
+  settings?: any;
+}
+
+export interface PromptTemplateImportInput {
+  templates: PromptTemplateImportTemplate[];
+  strategy: 'skip' | 'overwrite' | 'rename';
+}
+
+export interface PromptTemplateImportOutput {
+  status: string;
+  imported: number;
+  skipped: number;
+  failed: number;
+}
+
+// ─── Rename Category Types ───
+
+export interface PromptTemplateRenameCategoryInput {
+  oldName: string;
+  newName: string;
+}
+
+export interface PromptTemplateRenameCategoryOutput {
+  status: string;
+  count: number;
+}
+
+// ─── Raw API Response Types ══════════
 
  /**
   * Raw prompt template as returned by the backend API.
@@ -820,6 +944,142 @@ export async function renderPromptTemplate(input: PromptTemplateRenderInput): Pr
     renderedContent: raw.renderedContent,
     variables: raw.variables,
   };
+}
+
+// ====== Stats Endpoint ======
+
+/**
+ * GET /api/prompt-templates/stats - Get template statistics
+ */
+export async function getPromptTemplateStats(): Promise<PromptTemplateStats> {
+  return request('/api/prompt-templates/stats');
+}
+
+// ====== Validation Endpoint ======
+
+/**
+ * POST /api/prompt-templates/validate - Validate template content and variables
+ */
+export async function validatePromptTemplate(input: PromptTemplateValidateInput): Promise<PromptTemplateValidateOutput> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/validate`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Validation failed'}));
+    throw new Error(error.message || 'Validation failed');
+  }
+  return response.json();
+}
+
+// ====== Extract Variables Endpoint ======
+
+/**
+ * POST /api/prompt-templates/extract-variables - Extract variables from content
+ */
+export async function extractPromptTemplateVariables(input: PromptTemplateExtractVariablesInput): Promise<PromptTemplateExtractVariablesOutput> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/extract-variables`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Failed to extract variables'}));
+    throw new Error(error.message || 'Failed to extract variables');
+  }
+  return response.json();
+}
+
+// ====== Clone Endpoint ======
+
+/**
+ * POST /api/prompt-templates/:id/clone - Clone a template
+ */
+export async function clonePromptTemplate(id: number, input?: PromptTemplateCloneInput): Promise<PromptTemplateCloneOutput> {
+  const body = input ? JSON.stringify(input) : undefined;
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/${id}/clone`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: body,
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Failed to clone template'}));
+    throw new Error(error.message || 'Failed to clone template');
+  }
+  return response.json();
+}
+
+// ====== Bulk Delete Endpoint ======
+
+/**
+ * POST /api/prompt-templates/bulk-delete - Delete multiple templates
+ */
+export async function bulkDeletePromptTemplates(input: PromptTemplateBulkDeleteInput): Promise<PromptTemplateBulkDeleteOutput> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/bulk-delete`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Bulk delete failed'}));
+    throw new Error(error.message || 'Bulk delete failed');
+  }
+  return response.json();
+}
+
+// ====== Export Endpoint ======
+
+/**
+ * POST /api/prompt-templates/export - Export templates to JSON
+ */
+export async function exportPromptTemplates(input: PromptTemplateExportInput): Promise<PromptTemplateExportOutput> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/export`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Export failed'}));
+    throw new Error(error.message || 'Export failed');
+  }
+  return response.json();
+}
+
+// ====== Import Endpoint ======
+
+/**
+ * POST /api/prompt-templates/import - Import templates from JSON
+ */
+export async function importPromptTemplates(input: PromptTemplateImportInput): Promise<PromptTemplateImportOutput> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/import`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Import failed'}));
+    throw new Error(error.message || 'Import failed');
+  }
+  return response.json();
+}
+
+// ====== Rename Category Endpoint ======
+
+/**
+ * PATCH /api/prompt-templates/rename-category - Rename category across templates
+ */
+export async function renamePromptTemplateCategory(input: PromptTemplateRenameCategoryInput): Promise<PromptTemplateRenameCategoryOutput> {
+  const response = await fetch(`${config.baseUrl}/api/prompt-templates/rename-category`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({message: 'Rename category failed'}));
+    throw new Error(error.message || 'Rename category failed');
+  }
+  return response.json();
 }
 
 export async function sendChat(body: ChatRequest): Promise<ChatResponse> {
