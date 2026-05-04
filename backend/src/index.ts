@@ -79,7 +79,6 @@ import {customToolExecutor} from '@/tools/custom-tool-executor';
 
 // ─── Custom Tools ─────────────────────────────────────────────────────────────
 import predefinedTools from '@/tools/index';
-import promptTemplates from '@/constants/prompt-templates';
 import {EVENT_REGISTRY} from '@/websocket';
 
 // ─── Startup ─────────────────────────────────────────────────────────────────
@@ -191,8 +190,6 @@ async function bootstrap() {
 
   // 6. Register example prompts
   console.log('\n💬 Registering MCP prompts...');
-
-  promptTemplates.forEach(x => promptRegistry.register(x));
 
   console.log(`   ✓ ${promptRegistry.size} prompts registered`);
 
