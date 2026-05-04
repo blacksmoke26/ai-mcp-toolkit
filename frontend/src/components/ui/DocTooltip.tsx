@@ -16,6 +16,7 @@
  * - Position-aware rendering (avoids viewport edges)
  * - Multi-line tooltip content with scroll support
  * - Configurable delay, placement, and animation
+ * - Portal-based rendering (works inside modals / dialogs)
  *
  * ## Usage
  *
@@ -36,12 +37,13 @@
  * ```
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { cn } from '@/lib/utils';
-import { Info, ExternalLink, BookOpen, Lightbulb, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, {useState, useRef, useEffect, useCallback} from 'react';
+import {Portal} from '@radix-ui/react-portal';
+import {cn} from '@/lib/utils';
+import {Info, ExternalLink, BookOpen, Lightbulb, AlertCircle, CheckCircle2} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { xcodeLight as lightCodeTheme } from '@uiw/codemirror-theme-xcode';
+import {Prism as SyntaxHighlighter} from 'react-syntax-highlighter';
+import {xcodeLight as lightCodeTheme} from '@uiw/codemirror-theme-xcode';
 
 // ─── Types ────────────────────────
 
@@ -212,13 +214,13 @@ const DEFAULT_CLOSE_DELAY = 150;
 // ─── Icon Map ────────────────────────
 
 const variantIcons: Record<TooltipVariant, React.ReactNode> = {
-  default: <Info className="h-4 w-4" />,
-  info: <Info className="h-4 w-4 text-blue-500" />,
-  success: <CheckCircle2 className="h-4 w-4 text-green-500" />,
-  warning: <AlertCircle className="h-4 w-4 text-yellow-500" />,
-  error: <AlertCircle className="h-4 w-4 text-red-500" />,
-  help: <Lightbulb className="h-4 w-4 text-amber-500" />,
-  code: <BookOpen className="h-4 w-4 text-purple-500" />,
+  default: <Info className="h-4 w-4"/>,
+  info: <Info className="h-4 w-4 text-blue-500"/>,
+  success: <CheckCircle2 className="h-4 w-4 text-green-500"/>,
+  warning: <AlertCircle className="h-4 w-4 text-yellow-500"/>,
+  error: <AlertCircle className="h-4 w-4 text-red-500"/>,
+  help: <Lightbulb className="h-4 w-4 text-amber-500"/>,
+  code: <BookOpen className="h-4 w-4 text-purple-500"/>,
 };
 
 const variantBorders: Record<TooltipVariant, string> = {
@@ -258,7 +260,7 @@ function getTooltipPosition(
   switch (placement) {
     case 'top':
       top = `${rect.top - tooltipHeight - gap}px`;
-      left = `${rect.left + rect.width / 2 - tooltipWidth / 2}px`;
+      left = `${rect.left + rect.width / 2}px`;
       transform = 'translateX(-50%)';
       break;
     case 'top-start':
@@ -271,7 +273,7 @@ function getTooltipPosition(
       break;
     case 'bottom':
       top = `${rect.bottom + gap}px`;
-      left = `${rect.left + rect.width / 2 - tooltipWidth / 2}px`;
+      left = `${rect.left + rect.width / 2}px`;
       transform = 'translateX(-50%)';
       break;
     case 'bottom-start':
@@ -283,8 +285,9 @@ function getTooltipPosition(
       left = `${rect.left + rect.width - tooltipWidth}px`;
       break;
     case 'left':
-      top = `${rect.top + rect.height / 2 - tooltipHeight / 2}px`;
+      top = `${rect.top + rect.height / 2}px`;
       left = `${rect.left - tooltipWidth - gap}px`;
+      transform = 'translateY(-50%)';
       break;
     case 'left-start':
       top = `${rect.top}px`;
@@ -295,8 +298,9 @@ function getTooltipPosition(
       left = `${rect.left - tooltipWidth - gap}px`;
       break;
     case 'right':
-      top = `${rect.top + rect.height / 2 - tooltipHeight / 2}px`;
+      top = `${rect.top + rect.height / 2}px`;
       left = `${rect.right + gap}px`;
+      transform = 'translateY(-50%)';
       break;
     case 'right-start':
       top = `${rect.top}px`;
@@ -308,7 +312,7 @@ function getTooltipPosition(
       break;
   }
 
-  return { top, left, transform };
+  return {top, left, transform};
 }
 
 // ─── Component ────────────────────────
@@ -322,6 +326,7 @@ function getTooltipPosition(
  * - Multiple placement options
  * - Keyboard navigation
  * - Custom variants and styling
+ * - Portal-based rendering (works correctly inside modals / dialogs)
  *
  * @example
  * <DocTooltip
@@ -333,38 +338,41 @@ function getTooltipPosition(
  *   <InfoIcon />
  * </DocTooltip>
  */
-export function DocTooltip({
-  trigger,
-  content,
-  title,
-  description,
-  codeExample,
-  codeLanguage = 'typescript',
-  placement = 'right',
-  variant = 'default',
-  hoverOpen = true,
-  openDelay = DEFAULT_OPEN_DELAY,
-  closeDelay = DEFAULT_CLOSE_DELAY,
-  maxWidth = DEFAULT_MAX_WIDTH,
-  bordered = true,
-  shadowed = true,
-  activeIcon,
-  persistOnOpen = false,
-  closeButton,
-  showLearnMore = false,
-  learnMoreUrl = '#',
-  ariaLabel,
-  disabled = false,
-  onOpen,
-  onClose,
-  tooltipClassName,
-  triggerClassName,
-  children,
-  className,
-  ...rest
-}: DocTooltipProps) {
+export function DocTooltip(props: DocTooltipProps) {
+  const {
+    trigger,
+    content,
+    title,
+    description,
+    codeExample,
+    codeLanguage = 'typescript',
+    placement = 'bottom',
+    variant = 'default',
+    hoverOpen = true,
+    openDelay = DEFAULT_OPEN_DELAY,
+    closeDelay = DEFAULT_CLOSE_DELAY,
+    maxWidth = DEFAULT_MAX_WIDTH,
+    bordered = true,
+    shadowed = true,
+    activeIcon,
+    persistOnOpen = false,
+    closeButton,
+    showLearnMore = false,
+    learnMoreUrl = '#',
+    ariaLabel,
+    disabled = false,
+    onOpen,
+    onClose,
+    tooltipClassName,
+    triggerClassName,
+    children,
+    className,
+    ...rest
+  } = props;
+
   const [isOpen, setIsOpen] = useState(false);
   const [tooltipWidth, setTooltipWidth] = useState(0);
+  const [tooltipHeight, setTooltipHeight] = useState(0);
   const triggerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -372,30 +380,35 @@ export function DocTooltip({
   // ─── Handlers ───────────────────────
 
   /**
-   * Open the tooltip.
+   * Cancel any pending close timeout.
    */
-  const openTooltip = useCallback(() => {
+  const cancelClose = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+  }, []);
+
+  /**
+   * Open the tooltip.
+   */
+  const openTooltip = useCallback(() => {
+    cancelClose();
     if (disabled) return;
     onOpen?.();
     setIsOpen(true);
-  }, [disabled, onOpen]);
+  }, [disabled, onOpen, cancelClose]);
 
   /**
    * Close the tooltip.
    */
   const closeTooltip = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+    cancelClose();
     timeoutRef.current = setTimeout(() => {
       setIsOpen(false);
       onClose?.();
     }, closeDelay);
-  }, [closeDelay, onClose]);
+  }, [closeDelay, onClose, cancelClose]);
 
   /**
    * Toggle the tooltip state.
@@ -410,12 +423,33 @@ export function DocTooltip({
 
   // ─── Effects ───────────────────────
 
+  /** Measure the tooltip once it mounts */
   useEffect(() => {
     if (isOpen && tooltipRef.current) {
       setTooltipWidth(tooltipRef.current.offsetWidth);
+      setTooltipHeight(tooltipRef.current.offsetHeight);
     }
   }, [isOpen]);
 
+  /** Reposition on scroll / resize while open (e.g. modal scrolls) */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleUpdate = () => {
+      // Force a re-render so `position` is recalculated from fresh rect
+      setTooltipWidth((w) => w); // no-op state bump to trigger re-render
+    };
+
+    window.addEventListener('scroll', handleUpdate, true); // capture = catch modal scrolls
+    window.addEventListener('resize', handleUpdate);
+
+    return () => {
+      window.removeEventListener('scroll', handleUpdate, true);
+      window.removeEventListener('resize', handleUpdate);
+    };
+  }, [isOpen]);
+
+  /** Clean up timeout on unmount */
   useEffect(() => {
     return () => {
       if (timeoutRef.current) {
@@ -428,20 +462,33 @@ export function DocTooltip({
 
   const position = isOpen && triggerRef?.current
     ? getTooltipPosition(
-        triggerRef.current.getBoundingClientRect(),
-        placement,
-        tooltipWidth || maxWidth,
-        0,
-      )
+      triggerRef.current.getBoundingClientRect(),
+      placement,
+      tooltipWidth || maxWidth,
+      tooltipHeight,
+    )
     : null;
 
   // ─── Render ───────────────────────
+
+  /**
+   * Shared hover handlers attached to both the trigger AND the portaled
+   * tooltip content so that moving the cursor from trigger → tooltip
+   * doesn't accidentally dismiss it.
+   */
+  const portalHoverProps = hoverOpen
+    ? {
+      onMouseEnter: () => cancelClose(),
+      onMouseLeave: closeTooltip,
+    }
+    : {};
 
   const TooltipContent = () => (
     <div
       ref={tooltipRef}
       className={cn(
-        'z-50 rounded-xl bg-white dark:bg-slate-900',
+        'z-[100] rounded-xl bg-white dark:bg-slate-900',
+        bordered && 'border',
         bordered && variantBorders[variant],
         shadowed && 'shadow-lg',
         className,
@@ -452,15 +499,18 @@ export function DocTooltip({
       style={{
         maxWidth: `${maxWidth}px`,
         minWidth: '240px',
-        ...(position ? {
-          position: 'fixed',
-          top: position.top,
-          left: position.left,
-          transform: position.transform,
-        } : {}),
+        ...(position
+          ? {
+            position: 'fixed',
+            top: position.top,
+            left: position.left,
+            transform: position.transform,
+          }
+          : {}),
       }}
       role="tooltip"
       aria-label={ariaLabel || title?.toString()}
+      {...portalHoverProps}
       {...rest}
     >
       {/* Header */}
@@ -485,7 +535,7 @@ export function DocTooltip({
               aria-label="Close tooltip"
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           )}
@@ -509,7 +559,7 @@ export function DocTooltip({
             {typeof content === 'string' ? (
               <ReactMarkdown
                 components={{
-                  code({ className, children, ...props }) {
+                  code({className, children, ...props}) {
                     const match = /language-(\w+)/.exec(className || '');
                     return match ? (
                       <code className={cn('rounded bg-slate-100 px-1 py-0.5 text-xs', className)} {...props}>
@@ -521,16 +571,18 @@ export function DocTooltip({
                       </code>
                     );
                   },
-                  pre({ children, ...props }) {
+                  pre({children, ...props}) {
                     return (
-                      <pre className="my-2 overflow-x-auto rounded-lg border bg-slate-50 p-3 dark:bg-slate-800" {...props}>
+                      <pre
+                        className="my-2 overflow-x-auto rounded-lg border bg-slate-50 p-3 dark:bg-slate-800" {...props}>
                         {children}
                       </pre>
                     );
                   },
-                  a({ href, children, ...props }) {
+                  a({href, children, ...props}) {
                     return (
-                      <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline" {...props}>
+                      <a href={href} target="_blank" rel="noopener noreferrer"
+                         className="text-blue-500 hover:underline" {...props}>
                         {children}
                       </a>
                     );
@@ -549,7 +601,7 @@ export function DocTooltip({
         {codeExample && (
           <div className="mt-3">
             <div className="mb-1 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-              <BookOpen className="h-3 w-3" />
+              <BookOpen className="h-3 w-3"/>
               <span>Example</span>
             </div>
             <div className="relative">
@@ -561,9 +613,9 @@ export function DocTooltip({
                   padding: '0.75rem',
                   fontSize: '0.75rem',
                   borderRadius: '0.5rem',
-                  backgroundColor: 'rgba(241, 245, 249, 0.8)',
+                  backgroundColor: 'transparent',
                 }}
-                showLineNumbers={false}
+                showLineNumbers={true}
               >
                 {codeExample}
               </SyntaxHighlighter>
@@ -575,7 +627,8 @@ export function DocTooltip({
                 aria-label="Copy code"
               >
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
                 </svg>
               </button>
             </div>
@@ -592,7 +645,7 @@ export function DocTooltip({
               className="inline-flex items-center gap-1 text-xs font-medium text-blue-500 hover:text-blue-600"
             >
               Learn more
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="h-3 w-3"/>
             </a>
           </div>
         )}
@@ -622,7 +675,8 @@ export function DocTooltip({
       aria-expanded={isOpen}
     >
       {trigger || children || (
-        <span className="inline-flex items-center justify-center rounded-full bg-slate-100 p-1 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700">
+        <span
+          className="inline-flex items-center justify-center rounded-full bg-slate-100 p-1 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700">
           {variantIcons[variant]}
         </span>
       )}
@@ -632,7 +686,11 @@ export function DocTooltip({
   return (
     <>
       {defaultTrigger}
-      {isOpen && <TooltipContent />}
+      {isOpen && (
+        <Portal>
+          <TooltipContent/>
+        </Portal>
+      )}
     </>
   );
 }
@@ -642,10 +700,10 @@ export function DocTooltip({
 /**
  * Quick info icon that can be used as a trigger.
  */
-export function InfoTooltip({ content, title, ...rest }: Omit<DocTooltipProps, 'trigger'>) {
+export function InfoTooltip({content, title, ...rest}: Omit<DocTooltipProps, 'trigger'>) {
   return (
     <DocTooltip content={content} title={title} {...rest}>
-      <Info className="h-4 w-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
+      <Info className="h-4 w-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"/>
     </DocTooltip>
   );
 }
@@ -653,7 +711,7 @@ export function InfoTooltip({ content, title, ...rest }: Omit<DocTooltipProps, '
 /**
  * Documentation link with tooltip.
  */
-export function DocsLink({ href, content, title }: { href: string; content: React.ReactNode; title?: string }) {
+export function DocsLink({href, content, title}: { href: string; content: React.ReactNode; title?: string }) {
   return (
     <DocTooltip
       content={content}
@@ -672,7 +730,7 @@ export function DocsLink({ href, content, title }: { href: string; content: Reac
         className="inline-flex items-center text-xs text-blue-500 hover:underline"
       >
         Docs
-        <ExternalLink className="ml-1 h-3 w-3" />
+        <ExternalLink className="ml-1 h-3 w-3"/>
       </a>
     </DocTooltip>
   );
