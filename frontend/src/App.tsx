@@ -12,7 +12,7 @@ import Layout from '@/components/Layout';
 
 // pages
 import Dashboard from '@/pages/Dashboard';
-import MCPTools from '@/pages/MCPTools';
+import MCPTools from '@/pages/MCPProtocol/MCPTools.tsx';
 import Chat from '@/pages/Chat';
 import AdminProviders from '@/pages/AdminProviders';
 import AdminTools from '@/pages/AdminTools';
@@ -21,13 +21,13 @@ import ToolSimulator from '@/pages/ToolSimulator';
 import ReadinessCheck from '@/pages/ReadinessCheck';
 import ServerInfo from '@/pages/ServerInfo';
 import HealthCheck from '@/pages/HealthCheck';
-import MCPCallTool from '@/pages/MCPCallTool';
-import MCPSSE from '@/pages/MCPSSE';
+import MCPCallTool from '@/pages/MCPProtocol/MCPCallTool.tsx';
+import MCPSSE from '@/pages/MCPProtocol/MCPSSE.tsx';
 import ConversationsList from '@/pages/ConversationsList';
 import ConversationDetail from '@/pages/ConversationDetail';
 import ChatStream from '@/pages/ChatStream';
-import MCPInfo from '@/pages/MCPInfo';
-import MCPHealth from '@/pages/MCPHealth';
+import MCPInfo from '@/pages/MCPProtocol/MCPInfo.tsx';
+import MCPHealth from '@/pages/MCPProtocol/MCPHealth.tsx';
 import ModelsList from '@/pages/ModelsList';
 import ToolDetail from '@/pages/ToolDetail';
 import CustomTools from '@/pages/CustomTools';
