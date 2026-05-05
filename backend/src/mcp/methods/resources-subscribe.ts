@@ -6,6 +6,7 @@
 
 import {ErrorCodes, McpMethods, McpMethodSignature} from '@/mcp/types';
 import {McpProtocolError} from '@/mcp/protocol';
+import {isNonEmptyString, isPlainObject} from '@/helpers/validator';
 
 /**
  * Handle `resources/subscribe` — subscribe to resource updates.
@@ -16,8 +17,27 @@ import {McpProtocolError} from '@/mcp/protocol';
 export default {
   name: McpMethods.RESOURCES_SUBSCRIBE,
   description: 'Subscribe to resource updates',
-  params: 'Resource URI',
-  async handler() {
-    throw new McpProtocolError(ErrorCodes.UNSUPPORTED_OPERATION, 'Resource subscription is not supported');
+  params: '{ uri: string } — URI of the resource to subscribe to',
+  async handler(params) {
+    const p = params as Record<string, unknown>;
+
+    if (!isPlainObject(p)) {
+      throw new McpProtocolError(ErrorCodes.INVALID_PARAMS, 'Subscribe params are required and must be an object');
+    }
+
+    if (!isNonEmptyString(p.uri as string)) {
+      throw new McpProtocolError(ErrorCodes.INVALID_PARAMS, 'uri is required and must be a non-empty string');
+    }
+
+    // Validate URI format
+    try {
+      new URL(p.uri as string);
+    } catch {
+      throw new McpProtocolError(ErrorCodes.INVALID_PARAMS, `Invalid resource URI format: ${p.uri}`);
+    }
+
+    // In a full implementation, this would register the client's subscription
+    // and enable notifications/resources/updated when the resource changes.
+    return {};
   },
 } as McpMethodSignature;

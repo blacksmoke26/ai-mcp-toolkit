@@ -21,6 +21,12 @@ import resourcesSubscribe from '@/mcp/methods/resources-subscribe';
 import resourcesUnsubscribe from '@/mcp/methods/resources-unsubscribe';
 import rootsList from '@/mcp/methods/roots-list';
 import samplingCreateMessage from '@/mcp/methods/sampling-createMessage';
+import notificationsToolsListChanged from '@/mcp/methods/notifications-toolsListChanged';
+import notificationsResourcesListChanged from '@/mcp/methods/notifications-resourcesListChanged';
+import notificationsPromptsListChanged from '@/mcp/methods/notifications-promptsListChanged';
+import notificationsResourcesUpdated from '@/mcp/methods/notifications-resourcesUpdated';
+import notificationsProgress from '@/mcp/methods/notifications-progress';
+import loggingMessage from '@/mcp/methods/logging-message';
 
 export {
   initialize,
@@ -40,4 +46,10 @@ export {
   resourcesUnsubscribe,
   rootsList,
   samplingCreateMessage,
+  notificationsToolsListChanged,
+  notificationsResourcesListChanged,
+  notificationsPromptsListChanged,
+  notificationsResourcesUpdated,
+  notificationsProgress,
+  loggingMessage,
 };

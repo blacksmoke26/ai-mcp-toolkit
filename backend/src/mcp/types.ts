@@ -266,7 +266,7 @@ export interface ClientCapabilities {
 
 /**
  * Server capabilities advertised during initialization.
- * @changelog Added `experimental`, `sampling`, and stricter typing for `logging`.
+ * @changelog Added `experimental`, `sampling`, `roots`, and stricter typing for `logging`.
  */
 export interface ServerCapabilities {
   resources?: { subscribe?: boolean; listChanged?: boolean };
@@ -276,6 +276,8 @@ export interface ServerCapabilities {
   logging?: { level?: LoggingLevel };
   /** Server supports sampling (LLM requests) */
   sampling?: {};
+  /** Server supports requesting roots from the client */
+  roots?: { listChanged?: boolean };
   /** Experimental features */
   experimental?: Record<string, unknown>;
 }
@@ -819,47 +821,99 @@ export interface ProgressParams {
  * Enumeration of all supported MCP methods.
  * @changelog Added `CANCELLED`, `RESOURCES_UPDATED`, `COMPLETIONS_COMPLETE`, `SAMPLING_CREATE_MESSAGE`, `ROOTS_LIST`.
  */
+/**
+ * Enumeration of all supported MCP methods.
+ * @changelog Added `NOTIFICATIONS_TOOLS_LIST_CHANGED`, `NOTIFICATIONS_RESOURCES_LIST_CHANGED`,
+ * `NOTIFICATION_PROMPTS_LIST_CHANGED`, `NOTIFICATION_PROGRESS`, and `LOGGING_MESSAGE` in v1.3.0.
+ */
 export const McpMethods = {
-  // Lifecycle
+  // ── Lifecycle ─────────────────────────────────────────────────────────────────────
+
+  /** Initialize the MCP session and exchange capabilities */
   INITIALIZE: 'initialize',
+  /** Acknowledgment from the client that initialization is complete */
   NOTIFICATION_INITIALIZED: 'notifications/initialized',
 
-  // Ping
+  // ── Ping ──────────────────────────────────────────────────────────────────────────
+
+  /** Keep-alive / heartbeat check */
   PING: 'ping',
 
-  // Cancellation
+  // ── Cancellation ──────────────────────────────────────────────────────────────────
+
+  /** Notification that a request was cancelled */
   NOTIFICATION_CANCELLED: 'notifications/cancelled',
 
-  // Tools
+  // ── Tools ─────────────────────────────────────────────────────────────────────────
+
+  /** List all available tools that can be called */
   TOOLS_LIST: 'tools/list',
+  /** Invoke a specific tool with arguments */
   TOOLS_CALL: 'tools/call',
+  /** Request cancellation of a running tool */
   TOOLS_CANCEL: 'tools/cancel',
 
-  // Resources
+  // ── Resources ─────────────────────────────────────────────────────────────────────
+
+  /** List all available resources (read-only data sources) */
   RESOURCES_LIST: 'resources/list',
+  /** Read the content of a specific resource */
   RESOURCES_READ: 'resources/read',
+  /** Subscribe to resource updates */
   RESOURCES_SUBSCRIBE: 'resources/subscribe',
+  /** Unsubscribe from resource updates */
   RESOURCES_UNSUBSCRIBE: 'resources/unsubscribe',
+  /** Notify client that a specific resource has been updated */
   RESOURCES_UPDATED: 'notifications/resources/updated',
 
-  // Prompts
+  // ── Resource List Changed Notification ────────────────────────────────────────────
+
+  /** Notification that the list of available resources has changed */
+  NOTIFICATIONS_RESOURCES_LIST_CHANGED: 'notifications/resources/list_changed',
+
+  // ── Prompt List Changed Notification ──────────────────────────────────────────────
+
+  /** Notify that the available prompts list has changed */
+  NOTIFICATION_PROMPTS_LIST_CHANGED: 'notifications/prompts/list_changed',
+
+  // ── Tools List Changed Notification ───────────────────────────────────────────────
+
+  /** Notify that the tools list has changed and clients should re-fetch it */
+  NOTIFICATIONS_TOOLS_LIST_CHANGED: 'notifications/tools/list_changed',
+
+  // ── Prompts ───────────────────────────────────────────────────────────────────────
+
+  /** List all available prompt templates */
   PROMPTS_LIST: 'prompts/list',
+  /** Get a specific prompt template with variable substitution */
   PROMPTS_GET: 'prompts/get',
 
-  // Completions
+  // ── Completions ───────────────────────────────────────────────────────────────────
+
+  /** Request autocompletion suggestions for prompt or resource template arguments */
   COMPLETIONS_COMPLETE: 'completion/complete',
 
-  // Logging
-  LOGGING_SET_LEVEL: 'logging/setLevel',
+  // ── Logging ───────────────────────────────────────────────────────────────────────
 
-  // Sampling
+  /** Set the minimum logging level */
+  LOGGING_SET_LEVEL: 'logging/setLevel',
+  /** Server-to-client notification for log messages */
+  LOGGING_MESSAGE: 'logging/message',
+
+  // ── Sampling ──────────────────────────────────────────────────────────────────────
+
+  /** Request the client to create a sampling via an LLM */
   SAMPLING_CREATE_MESSAGE: 'sampling/createMessage',
 
-  // Roots
+  // ── Roots ─────────────────────────────────────────────────────────────────────────
+
+  /** List root directories provided by the client */
   ROOTS_LIST: 'roots/list',
 
-  // Progress
-  PROGRESS: 'notifications/progress',
+  // ── Progress Notification ─────────────────────────────────────────────────────────
+
+  /** Progress update for long-running operations */
+  NOTIFICATION_PROGRESS: 'notifications/progress',
 } as const;
 
 export type McpMethodName = (typeof McpMethods)[keyof typeof McpMethods];

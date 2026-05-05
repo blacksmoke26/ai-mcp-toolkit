@@ -477,9 +477,11 @@ export class McpProtocolHandler {
         protocolVersion: negotiatedVersion,
         capabilities: {
           tools: {listChanged: true},
-          resources: {listChanged: true},
+          resources: {listChanged: true, subscribe: true},
           prompts: {listChanged: true},
           logging: {},
+          sampling: {},
+          roots: {listChanged: true},
         },
         serverInfo: {...this._serverInfo},
         instructions:
