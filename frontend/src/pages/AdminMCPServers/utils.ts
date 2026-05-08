@@ -119,3 +119,102 @@ export const parseExportedJson = (json: string): Partial<UpdateMCPServerRequest>
     return record as Partial<UpdateMCPServerRequest>;
   });
 };
+
+/**
+ * Represents a single key-value pair row in the environment variables table.
+ *
+ * @remarks
+ * The `id` field is a unique identifier used for React key reconciliation
+ * and for reordering rows. The `key` and `value` fields represent the
+ * actual environment variable name and its corresponding value.
+ */
+export interface EnvVarRow {
+  /** Unique identifier for the row */
+  id: string;
+  /** The variable name (e.g., `DATABASE_URL`) */
+  key: string;
+  /** The variable value (e.g., `postgres://localhost/mydb`) */
+  value: string;
+}
+
+/**
+ * Generates a unique identifier using a combination of timestamp and random
+ * string to minimize collision risk.
+ *
+ * @returns A unique string identifier
+ */
+export const generateId = (): string =>
+  `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
+/**
+ * Converts a JSON string of environment variables into an array of `EnvVarRow` objects.
+ *
+ * @param jsonValue - A JSON string representing an object of key-value pairs.
+ * @returns An array of `EnvVarRow` objects parsed from the JSON string.
+ * @throws Will throw an error if the JSON string is invalid.
+ *
+ * @remarks
+ * Empty string input returns an empty array. Invalid JSON returns a single
+ * empty row to provide a starting point for the user.
+ */
+export const parseJsonToRows = (jsonValue: string): EnvVarRow[] => {
+  if (!jsonValue || jsonValue.trim() === '') {
+    return [{id: generateId(), key: '', value: ''}];
+  }
+
+  try {
+    const obj = JSON.parse(jsonValue);
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+      return [{id: generateId(), key: '', value: ''}];
+    }
+
+    const rows: EnvVarRow[] = Object.entries(obj).map(([k, v]) => ({
+      id: generateId(),
+      key: k,
+      value: String(v),
+    }));
+
+    return rows.length > 0 ? rows : [{id: generateId(), key: '', value: ''}];
+  } catch {
+    // Invalid JSON — provide a blank starting row
+    return [{id: generateId(), key: '', value: ''}];
+  }
+};
+
+/**
+ * Converts an array of `EnvVarRow` objects into a JSON string.
+ *
+ * @param rows - An array of key-value row objects to serialize.
+ * @returns A JSON string representation of the non-empty key-value pairs.
+ *
+ * @remarks
+ * Rows with empty keys are excluded from the output. The result is
+ * a compact JSON string suitable for storage or transmission.
+ */
+export const convertRowsToJson = (rows: EnvVarRow[]): string => {
+  const result: Record<string, string> = {};
+
+  rows.forEach((row) => {
+    if (row.key.trim() !== '') {
+      result[row.key.trim()] = row.value;
+    }
+  });
+
+  return JSON.stringify(result, null, 2);
+};
+
+/**
+ * Validates whether a given string is valid JSON.
+ *
+ * @param str - The string to validate.
+ * @returns `true` if the string is valid JSON, `false` otherwise.
+ */
+export const isValidJson = (str: string): boolean => {
+  if (!str || str.trim() === '') return true;
+  try {
+    JSON.parse(str);
+    return true;
+  } catch {
+    return false;
+  }
+};
