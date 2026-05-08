@@ -22,8 +22,11 @@ import {
   Clock,
   FileJson,
 } from 'lucide-react';
-import {Button} from '@/components/ui/Button';
 import {Badge} from '@/components/ui/Badge';
+import {Button} from '@/components/ui/Button';
+import Checkbox from '@/components/ui/Checkbox';
+import CodeEditor from '@/components/ui/CodeEditor';
+import JsonViewer from '@/components/ui/JsonViewer';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/Tabs';
 import {Card, CardContent, CardHeader, CardTitle, CardDescription} from '@/components/ui/Card';
@@ -53,8 +56,6 @@ import {
   request,
 } from '@/lib/api';
 import type {ScenarioResult, LoadResults} from '@/lib/api';
-import CodeEditor from '@/components/ui/CodeEditor';
-import JsonViewer from '@/components/ui/JsonViewer';
 
 export function ToolSimulator() {
   const [activeTab, setActiveTab] = React.useState('tool-test');
@@ -559,21 +560,18 @@ export function ToolSimulator() {
 
                 <div className="space-y-2">
                   <Label htmlFor="tool-args">Arguments (JSON)</Label>
-                  <CodeEditor language="json" onChange={setToolArgs} heightClass="h-[150px]"
-                              value={toolArgs} editorProps={{placeholder: '{"expression": "2 + 2"}'}}/>
+                  <CodeEditor
+                    language="json" onChange={setToolArgs} heightClass="h-[150px]"
+                    value={toolArgs} editorProps={{placeholder: '{"expression": "2 + 2"}'}}/>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="use-mock"
+                  <Checkbox
+                    color="secondary"
                     checked={useMockForTool}
-                    onChange={(e) => setUseMockForTool(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
+                    onCheckedChange={setUseMockForTool}
+                    label="Use mock response (if configured)"
                   />
-                  <Label htmlFor="use-mock" className="cursor-pointer">
-                    Use mock response (if configured)
-                  </Label>
                 </div>
 
                 <div className="flex gap-2">
@@ -705,16 +703,12 @@ export function ToolSimulator() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="mock-error"
                     checked={mockIsError}
-                    onChange={(e) => setMockIsError(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300"
+                    onCheckedChange={checked => setMockIsError(checked)}
+                    label="Mark as error response"
                   />
-                  <Label htmlFor="mock-error" className="cursor-pointer">
-                    Mark as error response
-                  </Label>
                 </div>
 
                 <div className="flex gap-2">
@@ -866,16 +860,12 @@ export function ToolSimulator() {
 
                 {/* Cleanup Mocks */}
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     id="cleanup-mocks"
                     checked={scenarioBuilder.cleanupMocks}
-                    onChange={(e) => setScenarioBuilder(prev => ({...prev, cleanupMocks: e.target.checked}))}
-                    className="h-4 w-4 rounded border-gray-300"
+                    onCheckedChange={checked => setScenarioBuilder(prev => ({...prev, cleanupMocks: checked}))}
+                    label="Clean up mocks after scenario"
                   />
-                  <Label htmlFor="cleanup-mocks" className="cursor-pointer">
-                    Clean up mocks after scenario
-                  </Label>
                 </div>
 
                 {/* Steps Header */}
@@ -989,16 +979,12 @@ export function ToolSimulator() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
+                              <Checkbox
                                 id={`expects-error-${index}`}
                                 checked={step.expectsError}
-                                onChange={(e) => updateScenarioStep(step.id, 'expectsError', e.target.checked)}
-                                className="h-4 w-4 rounded"
+                                onCheckedChange={checked => updateScenarioStep(step.id, 'expectsError', checked)}
+                                label="Expect error response"
                               />
-                              <Label htmlFor={`expects-error-${index}`} className="text-xs cursor-pointer">
-                                Expect error response
-                              </Label>
                             </div>
                           </div>
                         </div>
@@ -1228,21 +1214,13 @@ export function ToolSimulator() {
                       {showArgsTemplates ? 'Hide' : 'Show'} Args Templates
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-lg p-2">
+                  <div className="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto border rounded-lg p-2">
                     {availableTools.map((tool) => (
-                      <label
-                        key={tool}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={loadTools.includes(tool)}
-                          onChange={() => selectToolForLoad(tool)}
-                          className="h-4 w-4 rounded"
-                        />
-                        <span>{tool}</span>
-                      </label>
-                    ))}
+                      <Checkbox
+                        checked={loadTools.includes(tool)}
+                        onCheckedChange={() => selectToolForLoad(tool)}
+                        label={tool}
+                      />))}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Selected: {loadTools.length} tool(s)
@@ -1312,16 +1290,11 @@ export function ToolSimulator() {
 
                   <div className="flex items-end">
                     <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="use-mocks-load"
+                      <Checkbox
                         checked={useMocksForLoad}
-                        onChange={(e) => setUseMocksForLoad(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300"
+                        onCheckedChange={checked => setUseMocksForLoad(checked)}
+                        label="Use mock responses"
                       />
-                      <Label htmlFor="use-mocks-load" className="cursor-pointer">
-                        Use mock responses
-                      </Label>
                     </div>
                   </div>
                 </div>
@@ -1364,7 +1337,7 @@ export function ToolSimulator() {
                       <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                         <div
                           className="h-full bg-green-500 transition-all"
-                          style={{ width: `${((loadResults.successfulRequests / loadResults.totalRequests) * 100) || 0}%` }}
+                          style={{width: `${((loadResults.successfulRequests / loadResults.totalRequests) * 100) || 0}%`}}
                         />
                       </div>
                       <span className="text-sm font-medium">
@@ -1435,7 +1408,7 @@ export function ToolSimulator() {
                           <div className="h-2 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full bg-blue-500"
-                              style={{ width: `${Math.min((stats.avgLatencyMs / loadResults.p99LatencyMs) * 100, 100)}%` }}
+                              style={{width: `${Math.min((stats.avgLatencyMs / loadResults.p99LatencyMs) * 100, 100)}%`}}
                             />
                           </div>
                         </div>

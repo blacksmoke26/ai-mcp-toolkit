@@ -61,6 +61,7 @@ import {
 import {PromptTemplateSelector} from '@/components/ui/PromptTemplateSelector';
 import {VariableInputModal} from '@/components/ui/VariableInputModal';
 import {AdvancedTextarea} from '@/components/ui/AdvancedTextarea';
+import {AdvancedInput} from '@/components/ui/AdvanceInput';
 
 // Types
 interface MessageBubbleProps {
@@ -238,7 +239,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = (props) => {
   /** Determines if the message is a tool execution result. */
   const isTool = message.role === 'tool';
   /** Determines if the message is from the AI assistant. */
-  const isAssistant = message.role === 'assistant';
+  //const isAssistant = message.role === 'assistant';
 
   /**
    * Handles the copy action for the message content.
@@ -433,12 +434,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({messages, onSelectMessage, onC
               <div className="flex gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-                  <input
-                    type="text"
+                  <AdvancedInput
+                    leftIcon={<Search className="h-5 w-5 text-muted-foreground"/>}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search in messages..."
-                    className="w-full bg-muted rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    onClearClick={() => setSearchTerm('')}
                     autoFocus
                   />
                 </div>
@@ -846,17 +847,6 @@ const Chat = () => {
       e.preventDefault();
       handleSendMessage();
     }
-  };
-
-  /**
-   * Handles changes to the textarea input.
-   * Auto-resizes the textarea height based on content.
-   * @param e - The change event.
-   */
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputMessage(e.target.value);
-    e.target.style.height = 'auto';
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
   };
 
   /**

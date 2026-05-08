@@ -9,7 +9,8 @@ import {useEffect, useState} from 'react';
 import {
   AlertCircle,
   BookOpen,
-  CheckCircle2, CheckSquare,
+  CheckCircle2,
+  CheckSquare,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -37,6 +38,7 @@ import {
   updateTool,
 } from '@/lib/api';
 import JsonViewer from '@/components/ui/JsonViewer';
+import Checkbox from '@/components/ui/Checkbox';
 
 /**
  * AdminTools component displays a list of tools with filtering and search capabilities.
@@ -161,11 +163,6 @@ export function AdminTools() {
     }
   };
 
-  // Batch operation text
-  const batchOperationText = selectedTools.size > 0
-    ? `${selectedTools.size} selected`
-    : '';
-
   // Filter tools based on search and category
   const filteredTools = React.useMemo(() => {
     return tools.filter((tool) => {
@@ -226,15 +223,6 @@ export function AdminTools() {
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
-
-  // Format JSON for display
-  const formatJSON = (data: unknown): string => {
-    try {
-      return JSON.stringify(data, null, 2);
-    } catch {
-      return String(data);
-    }
-  };
 
   const scrollCategories = (direction: 'left' | 'right') => {
     const container = categoryScrollRef.current;
@@ -507,16 +495,12 @@ export function AdminTools() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 {/* Selection Checkbox */}
-                                <input
-                                  type="checkbox"
+                                <Checkbox
                                   checked={isChecked}
-                                  onChange={(e) => {
-                                    e.stopPropagation();
+                                  onCheckedChange={() => {
                                     toggleToolSelection(tool.name);
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                />
+                                  }}/>
+
                                 <h3 className="font-medium truncate">{tool.name}</h3>
                                 {tool.category && (
                                   <Badge variant="secondary" className="text-xs">

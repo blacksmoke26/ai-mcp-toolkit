@@ -85,6 +85,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/Tooltip';
 import * as Tabs from '@radix-ui/react-tabs';
+import Checkbox from '@/components/ui/Checkbox.tsx';
+import {AdvancedInput} from '@/components/ui/AdvanceInput';
 
 interface CreateEditDialogProps {
   /** Controls the visibility of the dialog. */
@@ -1591,11 +1593,12 @@ const CustomTools: React.FC = () => {
             <div className="flex-1">
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground"/>
-                <Input
+                <AdvancedInput
+                  leftIcon={<Search className="h-5 w-5 text-muted-foreground"/>}
                   placeholder="Search tools..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9"
+                  className="pl-10"
                 />
               </div>
             </div>
@@ -1722,11 +1725,10 @@ const CustomTools: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3 flex-1">
                     {/* Checkbox for selection */}
-                    <input
-                      type="checkbox"
+                    <Checkbox
+                      className="relative top-2"
                       checked={selectedToolIds.includes(tool.id)}
-                      onChange={() => toggleToolSelection(tool.id)}
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                      onCheckedChange={() => toggleToolSelection(tool.id)}
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">

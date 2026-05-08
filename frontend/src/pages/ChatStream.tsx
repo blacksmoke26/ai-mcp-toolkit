@@ -49,6 +49,7 @@ import {
 import {PromptTemplateSelector} from '@/components/ui/PromptTemplateSelector';
 import {VariableInputModal} from '@/components/ui/VariableInputModal';
 import {AdvancedTextarea} from '@/components/ui/AdvancedTextarea';
+import {AdvancedInput} from '@/components/ui/AdvanceInput';
 
 // Types
 interface StreamMessage {
@@ -320,14 +321,13 @@ const SearchPanel: React.FC<{
             <div className="space-y-4">
               <div className="flex gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-                  <input
-                    type="text"
+                  <AdvancedInput
                     value={searchTerm}
+                    leftIcon={<Search className="h-5 w-5 text-muted-foreground"/>}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Search in messages..."
-                    className="w-full bg-muted rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 border border-border/50"
                     autoFocus
+                    onCopyClick={() => setSearchTerm('')}
                   />
                 </div>
               </div>
@@ -988,26 +988,12 @@ const ChatStream: React.FC = () => {
     }
   };
 
-  /** Handles changes to the textarea input, including auto-resizing. */
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputMessage(e.target.value);
-    e.target.style.height = 'auto';
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
-  };
-
   const handleCopyMessage = (content: string) => {
     navigator.clipboard.writeText(content);
   };
 
   const formatTokenUsage = (tokens: { input: number; output: number; total: number }): string => {
     return tokens.total.toLocaleString();
-  };
-
-  const formatTime = (date: Date): string => {
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const currentModels = providerModels[provider]?.models || [];
@@ -1195,15 +1181,17 @@ const ChatStream: React.FC = () => {
                 {/* Max Tokens Input */}
                 <div className="relative w-full lg:w-32 h-10">
                   <Activity className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-                  <input
-                    type="number"
-                    value={maxTokens}
+                  <AdvancedInput
+                    allowNumericOnly
+                    value={String(maxTokens)}
                     onChange={(e) =>
                       setStreamState((prev) => ({...prev, maxTokens: parseInt(e.target.value) || 4096}))
                     }
                     disabled={isStreaming}
-                    className="w-full bg-background/50 border border-border/50 rounded-lg pl-9 pr-3 py-2 text-sm font-mono h-full"
                     placeholder="4096"
+                    onClearClick={() => {
+                      setStreamState((prev) => ({...prev, maxTokens: parseInt('0')}))
+                    }}
                   />
                 </div>
               </div>
@@ -1212,8 +1200,9 @@ const ChatStream: React.FC = () => {
 
           {/* Error Alert */}
           {error && (
-            <Alert variant="destructive"
-                   className="border-0 bg-red-500/10 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 shadow-lg">
+            <Alert
+              variant="destructive"
+              className="border-0 bg-red-500/10 backdrop-blur-sm animate-in fade-in slide-in-from-top-4 shadow-lg">
               <AlertCircle className="h-5 w-5"/>
               <AlertTitle className="text-base">Error</AlertTitle>
               <AlertDescription className="text-sm">{error}</AlertDescription>
