@@ -24,6 +24,9 @@ import {Button} from '@/components/ui/Button.tsx';
 /**
  * Properties for the HealthDialog component.
  */
+/**
+ * Props for the HealthDialog component.
+ */
 export interface HealthDialogProps {
   /**
    * Controls whether the dialog is currently open.
@@ -41,11 +44,22 @@ export interface HealthDialogProps {
    * If null or undefined, the dialog will not render content.
    */
   server?: MCPServerResponse | null;
+
+  /**
+   * Pre-fetched health check result from the parent component.
+   * If provided, the dialog will display this result instead of running a new check.
+   */
+  healthResult?: MCPServerHealthResponse | null;
+
+  /**
+   * Whether a health check is currently in progress.
+   */
+  isHealthChecking?: boolean;
 }
 
-const HealthDialog: React.FC<HealthDialogProps> = ({open, onOpenChange, server}) => {
+const HealthDialog: React.FC<HealthDialogProps> = ({open, onOpenChange, server, healthResult: preFetchedResult, isHealthChecking: propIsChecking = false}) => {
   const [checking, setChecking] = useState<boolean>(false);
-  const [healthResult, setHealthResult] = useState<MCPServerHealthResponse | null>(null);
+  const [healthResult, setHealthResult] = useState<MCPServerHealthResponse | null>(preFetchedResult);
 
   const runHealthCheck = async () => {
     if (!server) return;
@@ -71,10 +85,14 @@ const HealthDialog: React.FC<HealthDialogProps> = ({open, onOpenChange, server})
 
   useEffect(() => {
     if (open) {
-      runHealthCheck();
+      if (preFetchedResult) {
+        setHealthResult(preFetchedResult);
+      } else {
+        runHealthCheck();
+      }
     }
     // eslint-disable-next-line
-  }, [open]);
+  }, [open, preFetchedResult]);
 
   if (!server) return null;
 
@@ -192,10 +210,16 @@ const HealthDialog: React.FC<HealthDialogProps> = ({open, onOpenChange, server})
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
           </Button>
-          {!checking && (
+          {!(checking || propIsChecking) && (
             <Button onClick={runHealthCheck} variant="secondary">
               <RefreshCw className="w-4 h-4 mr-2"/>
               Refresh Health
+            </Button>
+          )}
+          {(checking || propIsChecking) && (
+            <Button disabled variant="outline">
+              <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
+              Checking...
             </Button>
           )}
         </DialogFooter>

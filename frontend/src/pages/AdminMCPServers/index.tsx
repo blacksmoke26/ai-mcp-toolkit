@@ -6,47 +6,59 @@
 
 /**
  * @module pages/AdminMCPServers
- * @description MCP Servers Management page for creating, editing, starting, stopping, and monitoring external MCP servers.
+ * @description MCP Servers Management page with full CRUD, bulk operations,
+ * list/grid view toggle, keyboard shortcuts, and professional advanced UI.
  *
  * Features:
  * - List all MCP servers with filtering and search
  * - Create new MCP servers with configuration forms
- * - Edit existing MCP server configurations
- * - Start, stop, and restart server connections
- * - Monitor server health and status in real-time
- * - Test server connectivity
- * - Load server templates for quick setup
- * - Enable/Disable servers dynamically
- * - View server logs and connection history
- * - Interactive documentation and help tooltips
+ * - Edit existing server configurations
+ * - Start, stop, restart, clone, and delete servers
+ * - Bulk operations with floating action bar
+ * - Real-time health monitoring
+ * - Test connectivity
+ * - Load server templates
+ * - Enable/disable servers dynamically
+ * - List/Grid view toggle
+ * - Keyboard shortcuts (Ctrl+N, Ctrl+F, Esc)
+ * - Export/Import configurations
+ * - Expandable details with JSON viewer
  */
 
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {createContext, useCallback, useEffect, useMemo, useState} from 'react';
 import {
   Activity,
   AlertCircle,
+  AlertTriangle,
   Check,
-  Edit,
+  ChevronDown,
+  ChevronUp,
+  Download,
   Globe,
   Loader2,
-  Play,
   Plus,
-  RefreshCw,
   Search,
   Server,
   ServerCrash,
-  Square,
   TestTube,
-  ChevronDown,
-  ChevronUp,
-  ToggleLeft,
-  ToggleRight,
   Trash2,
+  Upload,
+  X,
 } from 'lucide-react';
-import type {CreateMCPServerRequest, MCPServerResponse, MCPServerTemplate, UpdateMCPServerRequest} from '@/types/api';
+
+import type {
+  CreateMCPServerRequest,
+  MCPServerHealthResponse,
+  MCPServerResponse,
+  MCPServerStatus,
+  MCPServerTemplate,
+  UpdateMCPServerRequest,
+} from '@/types/api';
+
 import {
   createMCPServer,
   deleteMCPServer,
+  getMCPServerHealth,
   listMCPServers,
   restartMCPServer,
   startMCPServer,
@@ -54,18 +66,14 @@ import {
   testMCPServerConnection,
   updateMCPServer,
 } from '@/lib/api';
+
 import * as Select from '@radix-ui/react-select';
 import {Button} from '@/components/ui/Button';
 import {Input} from '@/components/ui/Input';
-import {Badge} from '@/components/ui/Badge';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/Alert';
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/Card';
-import Separator from '@/components/ui/Separator';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from '@/components/ui/Tooltip';
-import StatusBadge from './StatusBadge';
-import CreateEditDialog from './CreateEditDialog';
-import TemplateDialog from './TemplateDialog';
-import HealthDialog from './HealthDialog';
+import {Switch} from '@/components/ui/Switch';
 import {
   Dialog,
   DialogContent,
@@ -74,74 +82,176 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/Dialog';
+import CodeEditor from '@/components/ui/CodeEditor';
+import {Label} from '@/components/ui/Label';
+import CreateEditDialog from './CreateEditDialog';
+import TemplateDialog from './TemplateDialog';
+import HealthDialog from './HealthDialog';
+import ServerCard from './ServerCard';
+import ServerRow from './ServerRow';
+import BulkActionBar from './BulkActionBar';
+import {
+  exportServersToJson,
+  formatDuration,
+  formatTimestamp,
+  generateUniqueName,
+  parseExportedJson,
+} from './utils';
+
+// ========== Type Definitions ==========
+
+/**
+ * Allowed status filter values
+ */
+type StatusFilter = 'all' | MCPServerStatus;
+
+/**
+ * Allowed enabled filter values
+ */
+type EnabledFilter = 'all' | 'enabled' | 'disabled';
+
+/**
+ * View mode for server list display
+ */
+type ViewMode = 'grid' | 'list';
+
+/**
+ * Result from a connectivity test
+ */
+interface TestResultEntry {
+  success: boolean;
+  message: string;
+  status?: string;
+  lastError?: string;
+}
+
+/**
+ * Context for global toast/notification system
+ */
+interface NotificationContextValue {
+  success: (message: string) => void;
+  error: (message: string) => void;
+  dismiss: (id: string) => void;
+}
+
+const NotificationContext = createContext<NotificationContextValue>({
+  success: () => {
+  },
+  error: () => {
+  },
+  dismiss: () => {
+  },
+});
+
+// ========== Helper Functions ==========
+
+// --- Small helper icons ---
+const GridIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+       strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7"/>
+    <rect x="14" y="3" width="7" height="7"/>
+    <rect x="3" y="14" width="7" height="7"/>
+    <rect x="14" y="14" width="7" height="7"/>
+  </svg>
+);
+
+const ListIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+       strokeLinejoin="round">
+    <line x1="8" y1="6" x2="21" y2="6"/>
+    <line x1="8" y1="12" x2="21" y2="12"/>
+    <line x1="8" y1="18" x2="21" y2="18"/>
+    <line x1="3" y1="6" x2="3.01" y2="6"/>
+    <line x1="3" y1="12" x2="3.01" y2="12"/>
+    <line x1="3" y1="18" x2="3.01" y2="18"/>
+  </svg>
+);
+
+// ========== Main Page Component ==========
 
 /**
  * Main AdminMCPServers page component.
+ * Provides server management with CRUD, bulk operations, and advanced UI.
  */
 const AdminMCPServers: React.FC = () => {
-  /** Full API response containing pagination and servers */
+  // --- Data State ---
   const [listResponse, setListResponse] = useState<{
     servers: MCPServerResponse[];
-    pagination?: { total: number; page: number; limit: number; totalPages: number }
+    pagination?: { total: number; page: number; limit: number; totalPages: number };
   } | null>(null);
-  /** Loading state for data fetching */
+
   const [loading, setLoading] = useState<boolean>(true);
-  /** Error message string */
-  const [error, setError] = useState<string>('');
-  /** Success message string */
-  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [/*error*/, setError] = useState<string>('');
 
-  // Search and filter
-  /** Current search query string */
+  // --- Toast Notifications ---
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    type: 'success' | 'error';
+    message: string;
+  }>>([]);
+
+  const addNotification = useCallback((type: 'success' | 'error', message: string) => {
+    const id = `notif-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setNotifications(prev => [...prev, {id, type, message}]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4000);
+  }, []);
+
+  const dismissNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  // --- Search & Filters ---
   const [searchQuery, setSearchQuery] = useState<string>('');
-  /** Current status filter value */
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  /** Current enabled/disabled filter value */
-  const [enabledFilter, setEnabledFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [enabledFilter, setEnabledFilter] = useState<EnabledFilter>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [refreshInterval, setRefreshInterval] = useState<number>(5000);
+  const [isLive, setIsLive] = useState<boolean>(true);
 
-  // Dialogs
-  /** Controls visibility of the Create Server dialog */
+  // --- Dialogs ---
   const [createDialogOpen, setCreateDialogOpen] = useState<boolean>(false);
-  /** Controls visibility of the Edit Server dialog */
   const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
-  /** Controls visibility of the Template Selection dialog */
   const [templateDialogOpen, setTemplateDialogOpen] = useState<boolean>(false);
-  /** Controls visibility of the Health Check dialog */
   const [healthDialogOpen, setHealthDialogOpen] = useState<boolean>(false);
-  /** Data for the selected template to be applied */
+  const [testDialogOpen, setTestDialogOpen] = useState<boolean>(false);
+  const [importDialogOpen, setImportDialogOpen] = useState<boolean>(false);
+
   const [templateData, setTemplateData] = useState<MCPServerTemplate | null>(null);
+  const [importedJson, setImportedJson] = useState<string>('');
+  const [importErrors, setImportErrors] = useState<string>('');
 
-  // Selected server for operations
-  /** The server currently selected for editing or viewing details */
+  // --- Selected Server ---
   const [selectedServer, setSelectedServer] = useState<MCPServerResponse | null>(null);
+  const [healthResult, setHealthResult] = useState<MCPServerHealthResponse | null>(null);
 
-  // Pagination state
-  /** Current page number for server list pagination */
+  // --- Pagination ---
   const [currentPage, setCurrentPage] = useState<number>(1);
-  /** Number of items per page */
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
 
-  // Operation states
-  /** ID of the server currently undergoing a start/stop/restart operation */
-  const [operatingServerId, setOperatingServerId] = useState<number | null>(null);
-  /** ID of the server currently being deleted */
-  const [deletingServerId, setDeletingServerId] = useState<number | null>(null);
-  /** ID of the server currently being tested */
-  const [testingServerId, setTestingServerId] = useState<number | null>(null);
-  /** Test result for the currently tested server */
-  const [testResult, setTestResult] = useState<{
-    success: boolean;
-    message: string;
-    status?: string;
-    lastError?: string
-  } | null>(null);
-  /** ID of the server whose details are expanded */
-  const [expandedServerId, setExpandedServerId] = useState<number | null>(null);
-  /** Controls visibility of the test result dialog */
-  const [testDialogOpen, setTestDialogOpen] = useState<boolean>(false);
+  // --- Bulk Operations ---
+  const [selectedServerIds, setSelectedServerIds] = useState<Set<number>>(new Set());
 
-  // Fetch servers
-  /** Fetches the list of servers from the API */
+  // --- Operation States (discriminated union) ---
+  interface OperationState {
+    id: number;
+    operation: 'start' | 'stop' | 'restart';
+  }
+
+  const [operationState, setOperationState] = useState<OperationState | null>(null);
+  const [testingServerId, setTestingServerId] = useState<number | null>(null);
+  const [deletingServerId, setDeletingServerId] = useState<number | null>(null);
+  const [/*cloningServerId*/, setCloningServerId] = useState<number | null>(null);
+
+  // --- Test Results per server ---
+  const [testResults, setTestResults] = useState<Map<number, TestResultEntry>>(new Map());
+
+  // --- Expanded Details ---
+  const [expandedServerId, setExpandedServerId] = useState<number | null>(null);
+
+  // --- Fetch Servers ---
   const fetchServers = useCallback(async (): Promise<void> => {
     setLoading(true);
     setError('');
@@ -157,8 +267,6 @@ const AdminMCPServers: React.FC = () => {
         servers: response.servers || [],
         pagination: response.pagination,
       });
-      // Reset test result when data changes
-      setTestResult(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load servers');
     } finally {
@@ -168,686 +276,759 @@ const AdminMCPServers: React.FC = () => {
 
   useEffect(() => {
     fetchServers();
-
-    // Auto-refresh every 5 seconds
-    const interval: NodeJS.Timeout = setInterval(fetchServers, 5000);
-    return () => clearInterval(interval);
   }, [fetchServers]);
 
-  // Reset to page 1 when filters change
+  // --- Auto-refresh ---
+  useEffect(() => {
+    if (!isLive) return;
+    const interval = setInterval(fetchServers, refreshInterval);
+    return () => clearInterval(interval);
+  }, [isLive, refreshInterval, fetchServers]);
+
+  // Reset page on filter change
   useEffect(() => {
     setCurrentPage(1);
   }, [enabledFilter, statusFilter, searchQuery]);
 
-  // Statistics from backend pagination
+  // --- Computed Values ---
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const currentServers = listResponse?.servers || [];
   const paginationInfo = listResponse?.pagination;
-
-  /** Total count of servers from backend */
-  const totalServers: number = paginationInfo?.total || 0;
-  /** Count of connected servers */
-  const connectedServers: number = currentServers.filter((s: MCPServerResponse) => s.status === 'connected').length;
-  /** Count of disconnected servers */
-  const disconnectedServers: number = currentServers.filter((s: MCPServerResponse) => s.status === 'disconnected').length;
-  /** Count of servers in error state */
-  const errorServers: number = currentServers.filter((s: MCPServerResponse) => s.status === 'error').length;
-
-  // Pagination info
-  const totalPages: number = totalServers > 0 ? Math.ceil(totalServers / itemsPerPage) : 0;
+  const totalServers = paginationInfo?.total || 0;
+  const totalPages = totalServers > 0 ? Math.ceil(totalServers / itemsPerPage) : 0;
   const currentPageNum = paginationInfo?.page || 1;
 
-  // Handle page change
-  const handlePageChange = (page: number): void => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
+  // Count from server list for current page
+  const connectedServers = currentServers.filter(s => s.status === 'connected').length;
+  const connectingServers = currentServers.filter(s => s.status === 'connecting').length;
+  //const disconnectedServers = currentServers.filter(s => s.status === 'disconnected').length;
+  const errorServersCount = currentServers.filter(s => s.status === 'error').length;
 
-  // Handlers
-  /** Opens the create server dialog */
-  const handleCreate = (): void => {
+  // --- Bulk Operations ---
+  const selectedServers = useMemo(
+    () => currentServers.filter(s => selectedServerIds.has(s.id)),
+    [currentServers, selectedServerIds],
+  );
+
+  const handleSelectAll = useCallback((): void => {
+    setSelectedServerIds(prev => {
+      if (prev.size === currentServers.length) {
+        return new Set<number>();
+      }
+      return new Set(currentServers.map(s => s.id));
+    });
+  }, [currentServers]);
+
+  const handleSelectServer = useCallback((id: number, selected: boolean): void => {
+    setSelectedServerIds(prev => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }, []);
+
+  // --- Bulk Actions ---
+  const handleBulkStart = useCallback(async (): Promise<void> => {
+    setOperationState({id: -1, operation: 'start'});
+    try {
+      const promises = selectedServers.map(s => startMCPServer(s.id));
+      await Promise.allSettled(promises);
+      addNotification('success', `Started ${selectedServers.length} servers`);
+      await fetchServers();
+    } catch (err) {
+      addNotification('error', `Failed to start servers: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setOperationState(null);
+    }
+  }, [selectedServers, fetchServers, addNotification]);
+
+  const handleBulkStop = useCallback(async (): Promise<void> => {
+    setOperationState({id: -1, operation: 'stop'});
+    try {
+      const promises = selectedServers.map(s => stopMCPServer(s.id));
+      await Promise.allSettled(promises);
+      addNotification('success', `Stopped ${selectedServers.length} servers`);
+      await fetchServers();
+    } catch (err) {
+      addNotification('error', `Failed to stop servers: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setOperationState(null);
+    }
+  }, [selectedServers, fetchServers, addNotification]);
+
+  const handleBulkRestart = useCallback(async (): Promise<void> => {
+    setOperationState({id: -1, operation: 'restart'});
+    try {
+      const promises = selectedServers.map(s => restartMCPServer(s.id));
+      await Promise.allSettled(promises);
+      addNotification('success', `Restarted ${selectedServers.length} servers`);
+      await fetchServers();
+    } catch (err) {
+      addNotification('error', `Failed to restart servers: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setOperationState(null);
+    }
+  }, [selectedServers, fetchServers, addNotification]);
+
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState<boolean>(false);
+
+  const handleBulkDelete = useCallback(async (): Promise<void> => {
+    setDeletingServerId(-1);
+    try {
+      const promises = selectedServers.map(s => deleteMCPServer(s.id));
+      await Promise.allSettled(promises);
+      addNotification('success', `Deleted ${selectedServers.length} servers`);
+      setSelectedServerIds(new Set());
+      await fetchServers();
+    } catch (err) {
+      addNotification('error', `Failed to delete servers: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setDeletingServerId(null);
+    }
+  }, [selectedServers, fetchServers, addNotification]);
+
+  // --- CRUD Handlers ---
+  const handleCreate = useCallback((): void => {
     setTemplateData(null);
     setCreateDialogOpen(true);
-  };
+  }, []);
 
-  /** Opens the edit server dialog for a specific server */
-  const handleEdit = (server: MCPServerResponse): void => {
+  const handleEdit = useCallback((server: MCPServerResponse): void => {
     setSelectedServer(server);
     setEditDialogOpen(true);
-  };
+  }, []);
 
-  /** Handles selection of a template and opens the create dialog with pre-filled data */
-  const handleSelectTemplate = (template: MCPServerTemplate): void => {
+  // --- Clone Handler ---
+  const handleClone = useCallback(async (server: MCPServerResponse): Promise<void> => {
+    setCloningServerId(server.id);
+    try {
+      const existingNames = new Set(currentServers.map(s => s.name));
+      const uniqueName = generateUniqueName(server.name, existingNames);
+      const template: MCPServerTemplate = {
+        id: `clone-${server.id}`,
+        name: uniqueName,
+        displayName: `${server.displayName} (Copy)`,
+        description: server.description,
+        type: server.type,
+        command: server.command,
+        args: server.args,
+        url: server.url,
+        env: server.env,
+        headers: server.headers,
+        notes: undefined,
+        documentationUrl: undefined,
+        category: undefined,
+        icon: undefined,
+        tags: undefined,
+        runtime: undefined,
+        homepage: undefined,
+        variables: undefined,
+      };
+      setTemplateData(template);
+      setCreateDialogOpen(true);
+      setCloningServerId(null);
+      addNotification('success', `Cloned "${server.displayName}"`);
+    } catch (err) {
+      addNotification('error', `Failed to clone server: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setCloningServerId(null);
+    }
+  }, [currentServers, addNotification]);
+
+  const handleSave = useCallback(async (data: CreateMCPServerRequest | UpdateMCPServerRequest): Promise<void> => {
+    try {
+      if (editDialogOpen && selectedServer) {
+        const updateData = {
+          name: data.name,
+          displayName: data.displayName,
+          description: data.description,
+          type: data.type,
+          command: data.command,
+          args: data.args,
+          env: data.env,
+          url: data.url,
+          headers: data.headers,
+          timeout: data.timeout,
+          autoReconnect: data.autoReconnect,
+          maxReconnectAttempts: data.maxReconnectAttempts,
+          reconnectDelay: data.reconnectDelay,
+          settings: data.settings,
+          enabled: data.enabled,
+        } as UpdateMCPServerRequest;
+
+        await updateMCPServer(selectedServer.id, updateData);
+        setEditDialogOpen(false);
+        setSelectedServer(null);
+        addNotification('success', 'Server updated successfully');
+      } else {
+        const createData = {
+          name: data.name,
+          displayName: data.displayName,
+          description: data.description,
+          type: data.type,
+          command: data.command,
+          args: data.args,
+          env: data.env,
+          url: data.url,
+          headers: data.headers,
+          enabled: data.enabled,
+          timeout: data.timeout,
+          autoReconnect: data.autoReconnect,
+          maxReconnectAttempts: data.maxReconnectAttempts,
+          reconnectDelay: data.reconnectDelay,
+          settings: data.settings,
+        } as CreateMCPServerRequest;
+
+        await createMCPServer(createData);
+        setCreateDialogOpen(false);
+        addNotification('success', 'Server created successfully');
+      }
+      await fetchServers();
+    } catch (err) {
+      addNotification('error', `Failed to save server: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }, [editDialogOpen, selectedServer, fetchServers, addNotification]);
+
+  const handleSelectTemplate = useCallback((template: MCPServerTemplate): void => {
     setTemplateData(template);
     setTemplateDialogOpen(false);
     setCreateDialogOpen(true);
-  };
+  }, []);
 
-  /** Handles saving (creating or updating) a server configuration */
-  const handleSave = async (data: UpdateMCPServerRequest): Promise<void> => {
-    if (editDialogOpen && selectedServer) {
-      // Update existing
-      const updateData: Partial<UpdateMCPServerRequest> = {
-        displayName: data.displayName,
-        description: data.description,
-        type: data.type,
-        command: data.command,
-        args: data.args,
-        env: data.env,
-        url: data.url,
-        headers: data.headers,
-        timeout: data.timeout,
-        autoReconnect: data.autoReconnect,
-        maxReconnectAttempts: data.maxReconnectAttempts,
-        reconnectDelay: data.reconnectDelay,
-        settings: data.settings,
-      };
-      await updateMCPServer(selectedServer.id, updateData as UpdateMCPServerRequest);
-      setEditDialogOpen(false);
-      setSelectedServer(null);
-      setSuccessMessage('Server updated successfully');
-    } else {
-      // Create new
-      await createMCPServer(data as CreateMCPServerRequest);
-      setCreateDialogOpen(false);
-      setSuccessMessage('Server created successfully');
-    }
-    fetchServers();
-
-    setTimeout(() => setSuccessMessage(''), 3000);
-  };
-
-  /** Handles testing server connectivity */
-  const handleTestConnection = async (server: MCPServerResponse): Promise<void> => {
+  // --- Individual Operations ---
+  const handleTestConnection = useCallback(async (server: MCPServerResponse): Promise<void> => {
     setTestingServerId(server.id);
-    setTestResult(null);
     try {
       const result = await testMCPServerConnection(server.id);
-      setTestResult({
-        success: result.success,
-        message: result.message,
-        status: result.status,
-        lastError: result.lastError,
+      setTestResults(prev => {
+        const next = new Map(prev);
+        next.set(server.id, {
+          success: result.success,
+          message: result.message,
+          status: result.status,
+          lastError: result.lastError,
+        });
+        return next;
       });
       setTestDialogOpen(true);
-      setSuccessMessage(`Test ${result.success ? 'successful' : 'failed'} for ${server.displayName}`);
+      addNotification(result.success ? 'success' : 'error', `${result.success ? 'Test successful' : 'Test failed'} for ${server.displayName}`);
     } catch (err) {
-      setTestResult({
-        success: false,
-        message: err instanceof Error ? err.message : 'Test failed',
+      setTestResults(prev => {
+        const next = new Map(prev);
+        next.set(server.id, {
+          success: false,
+          message: err instanceof Error ? err.message : 'Test failed',
+        });
+        return next;
       });
       setTestDialogOpen(true);
-      setError(`Test failed for ${server.displayName}`);
+      addNotification('error', `Test failed for ${server.displayName}`);
     } finally {
       setTestingServerId(null);
-      setTimeout(() => setSuccessMessage(''), 3000);
     }
-  };
+  }, [addNotification]);
 
-  /** Handles starting a server connection */
-  const handleStart = async (server: MCPServerResponse): Promise<void> => {
-    setOperatingServerId(server.id);
+  const handleStart = useCallback(async (server: MCPServerResponse): Promise<void> => {
+    setOperationState({id: server.id, operation: 'start'});
     try {
       await startMCPServer(server.id);
-      setSuccessMessage(`Started ${server.displayName}`);
+      addNotification('success', `Started ${server.displayName}`);
+      await fetchServers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start server');
+      addNotification('error', `Failed to start ${server.displayName}: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
-      setOperatingServerId(null);
-      setTimeout(() => setSuccessMessage(''), 3000);
-      fetchServers();
+      setOperationState(null);
     }
-  };
+  }, [fetchServers, addNotification]);
 
-  /** Handles stopping a server connection */
-  const handleStop = async (server: MCPServerResponse): Promise<void> => {
-    setOperatingServerId(server.id);
+  const handleStop = useCallback(async (server: MCPServerResponse): Promise<void> => {
+    setOperationState({id: server.id, operation: 'stop'});
     try {
       await stopMCPServer(server.id);
-      setSuccessMessage(`Stopped ${server.displayName}`);
+      addNotification('success', `Stopped ${server.displayName}`);
+      await fetchServers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to stop server');
+      addNotification('error', `Failed to stop ${server.displayName}: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
-      setOperatingServerId(null);
-      setTimeout(() => setSuccessMessage(''), 3000);
-      fetchServers();
+      setOperationState(null);
     }
-  };
+  }, [fetchServers, addNotification]);
 
-  /** Handles restarting a server connection */
-  const handleRestart = async (server: MCPServerResponse): Promise<void> => {
-    setOperatingServerId(server.id);
+  const handleRestart = useCallback(async (server: MCPServerResponse): Promise<void> => {
+    setOperationState({id: server.id, operation: 'restart'});
     try {
       await restartMCPServer(server.id);
-      setSuccessMessage(`Restarted ${server.displayName}`);
+      addNotification('success', `Restarted ${server.displayName}`);
+      await fetchServers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to restart server');
+      addNotification('error', `Failed to restart ${server.displayName}: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
-      setOperatingServerId(null);
-      setTimeout(() => setSuccessMessage(''), 3000);
+      setOperationState(null);
     }
-  };
+  }, [fetchServers, addNotification]);
 
-  /** Handles deleting a server */
-  const handleDelete = async (server: MCPServerResponse): Promise<void> => {
-    if (!confirm(`Are you sure you want to delete "${server.displayName}"?`)) {
-      return;
-    }
-
+  const handleDelete = useCallback(async (server: MCPServerResponse): Promise<void> => {
     setDeletingServerId(server.id);
     try {
       await deleteMCPServer(server.id);
-      setSuccessMessage(`Deleted ${server.displayName}`);
+      addNotification('success', `Deleted ${server.displayName}`);
+      await fetchServers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete server');
+      addNotification('error', `Failed to delete ${server.displayName}: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setDeletingServerId(null);
-      setTimeout(() => setSuccessMessage(''), 3000);
-      fetchServers();
     }
-  };
+  }, [fetchServers, addNotification]);
 
-  /** Opens the health check dialog for a specific server */
-  const handleHealthCheck = (server: MCPServerResponse): void => {
+  const handleHealthCheck = useCallback(async (server: MCPServerResponse): Promise<void> => {
     setSelectedServer(server);
     setHealthDialogOpen(true);
-  };
-
-  /** Handles toggling the enabled state of a server */
-  const handleEnableToggle = async (server: MCPServerResponse): Promise<void> => {
+    setTestDialogOpen(true);
     try {
-      const updateData = {enabled: !server.enabled} as UpdateMCPServerRequest;
-      await updateMCPServer(server.id, updateData);
-      setSuccessMessage(`${!server.enabled ? 'Enabled' : 'Disabled'} ${server.displayName}`);
+      const result = await getMCPServerHealth(server.id);
+      setHealthResult(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to toggle server');
-    } finally {
-      setTimeout(() => setSuccessMessage(''), 3000);
-      fetchServers();
+      setHealthResult(null);
+      addNotification('error', `Health check failed for ${server.displayName}`);
     }
-  };
+  }, [addNotification]);
 
+  const handleEnableToggle = useCallback(async (server: MCPServerResponse): Promise<void> => {
+    try {
+      await updateMCPServer(server.id, {enabled: !server.enabled} as UpdateMCPServerRequest);
+      addNotification('success', `${!server.enabled ? 'Enabled' : 'Disabled'} ${server.displayName}`);
+      await fetchServers();
+    } catch (err) {
+      addNotification('error', `Failed to toggle ${server.displayName}`);
+    }
+  }, [fetchServers, addNotification]);
+
+  // --- Page Change ---
+  const handlePageChange = useCallback((page: number): void => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  }, [totalPages]);
+
+  // --- Export ---
+  const handleExport = useCallback((): void => {
+    const json = exportServersToJson(currentServers);
+    const blob = new Blob([json], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mcp-servers-export-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addNotification('success', 'Servers exported successfully');
+  }, [currentServers, addNotification]);
+
+  // --- Import ---
+  const handleImport = useCallback(async (): Promise<void> => {
+    setImportErrors('');
+    try {
+      const configs = parseExportedJson(importedJson);
+      const results = await Promise.allSettled(
+        configs.map(config => {
+          const requiredFields = config.name && config.displayName && config.description && config.type;
+          if (!requiredFields) {
+            throw new Error(`Missing required fields: name, displayName, description, type`);
+          }
+          return createMCPServer(config as CreateMCPServerRequest);
+        }),
+      );
+      let successCount = 0;
+      let failCount = 0;
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      });
+      setImportDialogOpen(false);
+      setImportedJson('');
+      addNotification('success', `Imported ${successCount} servers, ${failCount} failed`);
+      await fetchServers();
+    } catch (err) {
+      setImportErrors(err instanceof Error ? err.message : 'Import failed');
+    }
+  }, [importedJson, fetchServers, addNotification]);
+
+  // --- Keyboard Shortcuts ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      // Ctrl+N: New server
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        setCreateDialogOpen(true);
+      }
+      // Ctrl+F: Focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        document.getElementById('server-search')?.focus();
+      }
+      // Esc: Close dialogs
+      if (e.key === 'Escape') {
+        if (createDialogOpen) setCreateDialogOpen(false);
+        if (editDialogOpen) setEditDialogOpen(false);
+        if (templateDialogOpen) setTemplateDialogOpen(false);
+        if (healthDialogOpen) setHealthDialogOpen(false);
+        if (testDialogOpen) setTestDialogOpen(false);
+        if (importDialogOpen) setImportDialogOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [createDialogOpen, editDialogOpen, templateDialogOpen, healthDialogOpen, testDialogOpen, importDialogOpen]);
+
+  // --- Render ---
   return (
-    <TooltipProvider>
-      <div className="container mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <ServerCrash className="w-8 h-8"/>
-              MCP Servers
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Manage external Model Context Protocol server connections
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setTemplateDialogOpen(true)}>
-              <Globe className="w-4 h-4 mr-2"/>
-              Templates
-            </Button>
-            <Button onClick={handleCreate}>
-              <Plus className="w-4 h-4 mr-2"/>
-              Add Server
-            </Button>
-          </div>
-        </div>
+    <>
+      <NotificationContext.Provider value={{
+        success: (msg) => addNotification('success', msg),
+        error: (msg) => addNotification('error', msg),
+        dismiss: dismissNotification,
+      }}>
+        <TooltipProvider>
+          <div className="container mx-auto p-6 space-y-6">
+            {/* --- Toast Notifications --- */}
+            <div className="fixed top-4 right-4 z-[100] space-y-2 max-w-md">
+              {notifications.map(notif => (
+                <Alert
+                  key={notif.id}
+                  variant={notif.type === 'error' ? 'destructive' : 'default'}
+                  className="shadow-lg animate-in slide-in-from-right-5"
+                >
+                  {notif.type === 'success' ? (
+                    <Check className="h-4 w-4 text-green-500"/>
+                  ) : (
+                    <AlertCircle className="h-4 w-4"/>
+                  )}
+                  <AlertTitle className={notif.type === 'success' ? 'text-green-600 dark:text-green-400' : ''}>
+                    {notif.type === 'success' ? 'Success' : 'Error'}
+                  </AlertTitle>
+                  <AlertDescription className="flex items-center justify-between">
+                    <span className="flex-1">{notif.message}</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-2"
+                            onClick={() => dismissNotification(notif.id)}>
+                      <X className="h-3 w-3"/>
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ))}
+            </div>
 
-        {/* Success/Error Messages */}
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4"/>
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {successMessage && (
-          <Alert>
-            <Check className="h-4 w-4"/>
-            <AlertTitle>Success</AlertTitle>
-            <AlertDescription>{successMessage}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* Statistics */}
-        <div className="grid grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Servers</CardTitle>
-              <Server className="w-4 h-4 text-muted-foreground"/>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalServers}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Connected</CardTitle>
-              <Check className="w-4 h-4 text-green-500"/>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-500">{connectedServers}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Disconnected</CardTitle>
-              <Square className="w-4 h-4 text-gray-500"/>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-500">{disconnectedServers}</div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Errors</CardTitle>
-              <AlertCircle className="w-4 h-4 text-red-500"/>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-500">{errorServers}</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground"/>
-                <Input
-                  placeholder="Search servers..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8"
-                />
+            {/* --- Header --- */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+                  <ServerCrash className="w-8 h-8 text-blue-500"/>
+                  MCP Servers
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  Manage external Model Context Protocol server connections
+                </p>
               </div>
 
-              <Select.Root value={statusFilter} onValueChange={setStatusFilter}>
-                <Select.Trigger className="w-[150px]">
-                  <Select.Value placeholder="Status"/>
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Item value="all">All Status</Select.Item>
-                  <Select.Item value="connected">Connected</Select.Item>
-                  <Select.Item value="connecting">Connecting</Select.Item>
-                  <Select.Item value="disconnected">Disconnected</Select.Item>
-                  <Select.Item value="error">Error</Select.Item>
-                </Select.Content>
-              </Select.Root>
+              <div className="flex items-center gap-2">
+                {/* Live Indicator */}
+                <div className="flex items-center gap-1 mr-2">
+                  <div className={`w-2 h-2 rounded-full ${isLive ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}/>
+                  <span className="text-xs text-muted-foreground">
+                  {isLive ? 'Live' : 'Paused'}
+                </span>
+                </div>
 
-              <Select.Root value={enabledFilter} onValueChange={(v) => setEnabledFilter(v as any)}>
-                <Select.Trigger className="w-[150px]">
-                  <Select.Value placeholder="Enabled"/>
-                </Select.Trigger>
-                <Select.Content>
-                  <Select.Item value="all">All</Select.Item>
-                  <Select.Item value="enabled">Enabled</Select.Item>
-                  <Select.Item value="disabled">Disabled</Select.Item>
-                </Select.Content>
-              </Select.Root>
+                {/* Refresh Interval */}
+                <Select.Root value={String(refreshInterval)} onValueChange={(v) => {
+                  setRefreshInterval(parseInt(v, 10));
+                  setIsLive(true);
+                }}>
+                  <Select.Trigger className="w-[100px]">
+                    <Select.Value placeholder="Refresh"/>
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="1000">1s</Select.Item>
+                    <Select.Item value="5000">5s</Select.Item>
+                    <Select.Item value="15000">15s</Select.Item>
+                    <Select.Item value="30000">30s</Select.Item>
+                    <Select.Item value="60000">1m</Select.Item>
+                  </Select.Content>
+                </Select.Root>
+
+                {/* Toggle Live */}
+                <Switch
+                  size="sm"
+                  color="primary"
+                  checked={isLive}
+                  onCheckedChange={setIsLive}
+                  label="Live"
+                  labelPosition="left"
+                />
+
+                {/* Export */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="sm" onClick={handleExport}>
+                        <Download className="w-4 h-4 mr-2"/>
+                        Export
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Export current view as JSON</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Import */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
+                        <Upload className="w-4 h-4 mr-2"/>
+                        Import
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Import servers from JSON</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Templates */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="outline" size="sm" onClick={() => setTemplateDialogOpen(true)}>
+                        <Globe className="w-4 h-4 mr-2"/>
+                        Templates
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Browse server templates</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* New Server */}
+                <Button size="sm" onClick={handleCreate} className="bg-blue-600 hover:bg-blue-700 text-white">
+                  <Plus className="w-4 h-4 mr-2"/>
+                  New Server
+                  <span className="ml-2 text-xs opacity-60">⌘N</span>
+                </Button>
+              </div>
             </div>
-          </CardHeader>
-        </Card>
 
-        {/* Server List */}
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin"/>
-          </div>
-        ) : currentServers.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <Server className="w-12 h-12 mx-auto text-muted-foreground mb-4"/>
-              <h3 className="text-lg font-medium">No servers found</h3>
-              <p className="text-muted-foreground">
-                {searchQuery || statusFilter !== 'all' || enabledFilter !== 'all'
-                  ? 'Try adjusting your filters'
-                  : 'Create your first MCP server to get started'}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {currentServers.map((server) => (
-              <Card key={server.id} className={server.enabled ? '' : 'opacity-50'}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">{server.displayName}</CardTitle>
-                        <StatusBadge status={server.status}/>
-                        {server.enabled ? (
-                          <Badge variant="secondary">Enabled</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-gray-500">Disabled</Badge>
-                        )}
-                      </div>
-                      <CardDescription className="line-clamp-1">
-                        {server.description}
-                      </CardDescription>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {server.name}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {/* Enable/Disable Toggle */}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEnableToggle(server)}
-                              className="h-8 w-8"
-                            >
-                              {server.enabled ? (
-                                <ToggleRight className="h-4 w-4"/>
-                              ) : (
-                                <ToggleLeft className="h-4 w-4"/>
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {server.enabled ? 'Disable' : 'Enable'}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      {/* Start Button */}
-                      {server.status !== 'connected' && server.enabled && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleStart(server)}
-                                disabled={operatingServerId === server.id}
-                              >
-                                {operatingServerId === server.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin"/>
-                                ) : (
-                                  <Play className="w-4 h-4"/>
-                                )}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Start</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-
-                      {/* Stop Button */}
-                      {server.status === 'connected' && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleStop(server)}
-                                disabled={operatingServerId === server.id}
-                              >
-                                {operatingServerId === server.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin"/>
-                                ) : (
-                                  <Square className="w-4 h-4"/>
-                                )}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Stop</TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-
-                      {/* Restart Button */}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRestart(server)}
-                              disabled={operatingServerId === server.id}
-                            >
-                              {operatingServerId === server.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin"/>
-                              ) : (
-                                <RefreshCw className="w-4 h-4"/>
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Restart</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      {/* Test Connectivity Button */}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleTestConnection(server)}
-                              disabled={testingServerId === server.id}
-                            >
-                              {testingServerId === server.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin"/>
-                              ) : (
-                                <TestTube className="w-4 h-4"/>
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Test Connectivity</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      {/* Health Check Button */}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleHealthCheck(server)}
-                            >
-                              <Activity className="w-4 h-4"/>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Health Check</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      {/* Expand Details Button */}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setExpandedServerId(expandedServerId === server.id ? null : server.id)}
-                            >
-                              {expandedServerId === server.id ? (
-                                <ChevronUp className="w-4 h-4"/>
-                              ) : (
-                                <ChevronDown className="w-4 h-4"/>
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>{expandedServerId === server.id ? 'Collapse' : 'Expand'}</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      {/* Edit Button */}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEdit(server)}
-                            >
-                              <Edit className="w-4 h-4"/>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Edit</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-
-                      {/* Delete Button */}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(server)}
-                              disabled={deletingServerId === server.id || server.status === 'connected'}
-                              className={server.status === 'connected' ? 'text-muted-foreground' : ''}
-                            >
-                              {deletingServerId === server.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin"/>
-                              ) : (
-                                <Trash2 className="w-4 h-4"/>
-                              )}
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            {server.status === 'connected' ? 'Stop server first' : 'Delete'}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                  </div>
+            {/* --- Statistics Cards --- */}
+            <div className="grid grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total</CardTitle>
+                  <Server className="w-4 h-4 text-muted-foreground"/>
                 </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{totalServers}</div>
+                </CardContent>
+              </Card>
 
-                <Separator/>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Connected</CardTitle>
+                  <Check className="w-4 h-4 text-green-500"/>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-500">{connectedServers}</div>
+                </CardContent>
+              </Card>
 
-                <CardContent className="pt-3">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Type:</span>
-                      <div className="font-medium">{server.type}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Connections:</span>
-                      <div className="font-medium">{server.connectionCount}</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Failures:</span>
-                      <div className="font-medium">{server.failureCount}</div>
-                    </div>
-                    {server.lastConnectedAt && (
-                      <div>
-                        <span className="text-muted-foreground">Last Connected:</span>
-                        <div className="font-medium">
-                          {new Date(server.lastConnectedAt).toLocaleDateString()}
-                        </div>
-                      </div>
-                    )}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Connecting</CardTitle>
+                  <Activity className="w-4 h-4 text-yellow-500"/>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-yellow-500">{connectingServers}</div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Errors</CardTitle>
+                  <AlertCircle className="w-4 h-4 text-red-500"/>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-500">{errorServersCount}</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* --- Filters --- */}
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-4">
+                  {/* Search */}
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
+                    <Input
+                      id="server-search"
+                      placeholder="Search servers..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
                   </div>
 
-                  {/* Expandable Details Section */}
-                  {expandedServerId === server.id && (
-                    <div className="mt-4 space-y-3">
-                      <div className="text-sm font-semibold text-muted-foreground">Configuration Details</div>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Timeout:</span>
-                          <div className="font-medium">{server.timeout}ms</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Auto Reconnect:</span>
-                          <div className="font-medium">{server.autoReconnect ? 'Yes' : 'No'}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Max Attempts:</span>
-                          <div
-                            className="font-medium">{server.maxReconnectAttempts === -1 ? '∞' : server.maxReconnectAttempts}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Reconnect Delay:</span>
-                          <div className="font-medium">{server.reconnectDelay}ms</div>
-                        </div>
-                        {server.url && (
-                          <div className="col-span-2">
-                            <span className="text-muted-foreground">URL:</span>
-                            <div className="font-medium break-all">{server.url}</div>
-                          </div>
-                        )}
-                        {server.command && (
-                          <div className="col-span-2">
-                            <span className="text-muted-foreground">Command:</span>
-                            <div className="font-medium break-all">{server.command}</div>
-                          </div>
-                        )}
-                        {server.version && (
-                          <div>
-                            <span className="text-muted-foreground">Version:</span>
-                            <div className="font-medium">{server.version}</div>
-                          </div>
-                        )}
-                        <div>
-                          <span className="text-muted-foreground">Created:</span>
-                          <div className="font-medium">{new Date(server.createdAt).toLocaleString()}</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Updated:</span>
-                          <div className="font-medium">{new Date(server.updatedAt).toLocaleString()}</div>
-                        </div>
-                      </div>
-                      {server.args && server.args.length > 0 && (
-                        <div>
-                          <span className="text-muted-foreground text-xs">Arguments:</span>
-                          <div
-                            className="font-mono text-xs bg-muted p-2 rounded mt-1">{JSON.stringify(server.args, null, 2)}</div>
-                        </div>
-                      )}
-                      {server.env && Object.keys(server.env).length > 0 && (
-                        <div>
-                          <span className="text-muted-foreground text-xs">Environment:</span>
-                          <div
-                            className="font-mono text-xs bg-muted p-2 rounded mt-1">{JSON.stringify(server.env, null, 2)}</div>
-                        </div>
-                      )}
-                      {server.headers && Object.keys(server.headers).length > 0 && (
-                        <div>
-                          <span className="text-muted-foreground text-xs">Headers:</span>
-                          <div
-                            className="font-mono text-xs bg-muted p-2 rounded mt-1">{JSON.stringify(server.headers, null, 2)}</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  {/* Status Filter */}
+                  <Select.Root value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+                    <Select.Trigger className="w-[150px]">
+                      <Select.Value placeholder="Status"/>
+                    </Select.Trigger>
+                    <Select.Content>
+                      <Select.Item value="all">All Status</Select.Item>
+                      <Select.Item value="connected">Connected</Select.Item>
+                      <Select.Item value="connecting">Connecting</Select.Item>
+                      <Select.Item value="disconnected">Disconnected</Select.Item>
+                      <Select.Item value="error">Error</Select.Item>
+                    </Select.Content>
+                  </Select.Root>
 
-                  {/* Test Result Alert */}
-                  {testResult && testResult.lastError && (
-                    <Alert variant="destructive" className="mt-3">
-                      <AlertCircle className="h-4 w-4"/>
-                      <AlertTitle>Test Result</AlertTitle>
-                      <AlertDescription className="line-clamp-2">{testResult.message}</AlertDescription>
-                    </Alert>
-                  )}
+                  {/* Enabled Filter */}
+                  <Select.Root value={enabledFilter} onValueChange={(v) => setEnabledFilter(v as EnabledFilter)}>
+                    <Select.Trigger className="w-[130px]">
+                      <Select.Value placeholder="Enabled"/>
+                    </Select.Trigger>
+                    <Select.Content>
+                      <Select.Item value="all">All</Select.Item>
+                      <Select.Item value="enabled">Enabled</Select.Item>
+                      <Select.Item value="disabled">Disabled</Select.Item>
+                    </Select.Content>
+                  </Select.Root>
 
-                  {server.lastError && (
-                    <Alert variant="destructive" className="mt-3">
-                      <AlertCircle className="h-4 w-4"/>
-                      <AlertTitle>Error</AlertTitle>
-                      <AlertDescription className="line-clamp-2">{server.lastError}</AlertDescription>
-                    </Alert>
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center border rounded-md">
+                    <Button
+                      variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="rounded-r-none border-r"
+                      onClick={() => setViewMode('grid')}
+                    >
+                      <GridIcon className="w-4 h-4"/>
+                    </Button>
+                    <Button
+                      variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="rounded-l-none"
+                      onClick={() => setViewMode('list')}
+                    >
+                      <ListIcon className="w-4 h-4"/>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* --- Server List --- */}
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin"/>
+                <span className="ml-2 text-muted-foreground">Loading servers...</span>
+              </div>
+            ) : currentServers.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <Server className="w-12 h-12 mx-auto text-muted-foreground mb-4"/>
+                  <h3 className="text-lg font-medium">No servers found</h3>
+                  <p className="text-muted-foreground mt-2">
+                    {searchQuery || statusFilter !== 'all' || enabledFilter !== 'all'
+                      ? 'Try adjusting your filters'
+                      : 'Create your first MCP server to get started'}
+                  </p>
+                  {!searchQuery && statusFilter === 'all' && enabledFilter === 'all' && (
+                    <Button onClick={handleCreate} className="mt-4">
+                      <Plus className="w-4 h-4 mr-2"/>
+                      Add Server
+                    </Button>
                   )}
                 </CardContent>
               </Card>
-            ))}
+            ) : viewMode === 'grid' ? (
+              <div className="grid gap-4">
+                {currentServers.map((server) => (
+                  <ServerCard
+                    key={server.id}
+                    server={server}
+                    isOperating={operationState?.id === server.id}
+                    isTesting={testingServerId === server.id}
+                    isSelected={selectedServerIds.has(server.id)}
+                    onSelect={(selected) => handleSelectServer(server.id, selected)}
+                    onStart={() => handleStart(server)}
+                    onStop={() => handleStop(server)}
+                    onRestart={() => handleRestart(server)}
+                    onTestConnection={() => handleTestConnection(server)}
+                    onHealthCheck={() => handleHealthCheck(server)}
+                    onEdit={() => handleEdit(server)}
+                    onDelete={() => handleDelete(server)}
+                    onClone={() => handleClone(server)}
+                    onToggleEnabled={() => handleEnableToggle(server)}
+                    onToggleExpand={() => setExpandedServerId(expandedServerId === server.id ? null : server.id)}
+                    isExpanded={expandedServerId === server.id}
+                    testResult={testResults.get(server.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                  <tr className="border-b border-border">
+                    <th className="py-3 px-4 text-left w-12">
+                      <input
+                        type="checkbox"
+                        checked={selectedServerIds.size === currentServers.length && currentServers.length > 0}
+                        onChange={handleSelectAll}
+                        className="rounded border-gray-300"
+                      />
+                    </th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-muted-foreground">Status</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-muted-foreground">Name / Type</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-muted-foreground">Connections</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-muted-foreground">Failures</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-muted-foreground">Last Connected</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-muted-foreground">Enabled</th>
+                    <th className="py-3 px-4 text-left text-sm font-medium text-muted-foreground">Actions</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                  {currentServers.map((server) => (
+                    <React.Fragment key={server.id}>
+                      <ServerRow
+                        server={server}
+                        isOperating={operationState?.id === server.id}
+                        isTesting={testingServerId === server.id}
+                        isSelected={selectedServerIds.has(server.id)}
+                        onSelect={(selected) => handleSelectServer(server.id, selected)}
+                        onStart={() => handleStart(server)}
+                        onStop={() => handleStop(server)}
+                        onRestart={() => handleRestart(server)}
+                        onTestConnection={() => handleTestConnection(server)}
+                        onHealthCheck={() => handleHealthCheck(server)}
+                        onEdit={() => handleEdit(server)}
+                        onDelete={() => handleDelete(server)}
+                        onClone={() => handleClone(server)}
+                        onToggleEnabled={() => handleEnableToggle(server)}
+                        onToggleExpand={() => setExpandedServerId(expandedServerId === server.id ? null : server.id)}
+                        isExpanded={expandedServerId === server.id}
+                      />
+                    </React.Fragment>
+                  ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-            {/* Pagination UI */}
+            {/* --- Pagination --- */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-4">
+              <div className="flex items-center justify-between">
                 <div className="text-sm text-muted-foreground">
                   Page {currentPageNum} of {totalPages} ({totalServers} total servers)
                 </div>
@@ -869,107 +1050,200 @@ const AdminMCPServers: React.FC = () => {
                       <Select.Item value="50">50 per page</Select.Item>
                     </Select.Content>
                   </Select.Root>
+
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(currentPageNum - 1)}
                     disabled={currentPageNum <= 1}
                   >
-                    Previous
+                    <ChevronDown className="w-4 h-4"/>
                   </Button>
+
+                  <div className="text-sm font-medium">
+                    {currentPageNum} / {totalPages}
+                  </div>
+
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handlePageChange(currentPageNum + 1)}
                     disabled={currentPageNum >= totalPages}
                   >
-                    Next
+                    <ChevronUp className="w-4 h-4"/>
                   </Button>
                 </div>
               </div>
             )}
-          </div>
-        )}
 
-        {/* Dialogs */}
-        <CreateEditDialog
-          open={createDialogOpen}
-          onOpenChange={setCreateDialogOpen}
-          isEditing={false}
-          templateData={templateData}
-          onSave={handleSave}
-        />
+            {/* --- Dialogs --- */}
+            <CreateEditDialog
+              open={createDialogOpen}
+              onOpenChange={setCreateDialogOpen}
+              isEditing={false}
+              templateData={templateData}
+              onSave={handleSave}
+            />
 
-        <CreateEditDialog
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          isEditing={true}
-          server={selectedServer}
-          onSave={handleSave}
-        />
+            <CreateEditDialog
+              open={editDialogOpen}
+              onOpenChange={setEditDialogOpen}
+              isEditing={true}
+              server={selectedServer}
+              onSave={handleSave}
+            />
 
-        <TemplateDialog
-          open={templateDialogOpen}
-          onOpenChange={setTemplateDialogOpen}
-          onSelectTemplate={handleSelectTemplate}
-        />
+            <TemplateDialog
+              open={templateDialogOpen}
+              onOpenChange={setTemplateDialogOpen}
+              onSelectTemplate={handleSelectTemplate}
+            />
 
-        <HealthDialog
-          open={healthDialogOpen}
-          onOpenChange={setHealthDialogOpen}
-          server={selectedServer}
-        />
+            <HealthDialog
+              open={healthDialogOpen}
+              onOpenChange={setHealthDialogOpen}
+              server={selectedServer}
+              healthResult={healthResult}
+              isHealthChecking={false}
+            />
 
-        {/* Test Result Dialog */}
-        <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <TestTube className="w-5 h-5"/>
-                Connectivity Test Result
-              </DialogTitle>
-              <DialogDescription>
-                Test result for {currentServers.find(s => s.id === testingServerId)?.displayName || 'server'}
-              </DialogDescription>
-            </DialogHeader>
+            {/* Test Result Dialog */}
+            <Dialog open={testDialogOpen} onOpenChange={setTestDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <TestTube className="w-5 h-5"/>
+                    Connectivity Test Result
+                  </DialogTitle>
+                  <DialogDescription>
+                    Test result for {selectedServer?.displayName || 'server'}
+                  </DialogDescription>
+                </DialogHeader>
 
-            {testResult && (
-              <>
-                <Alert variant={testResult.success ? 'default' : 'destructive'}>
-                  {testResult.success ? (
-                    <Check className="h-4 w-4"/>
-                  ) : (
-                    <AlertCircle className="h-4 w-4"/>
-                  )}
-                  <AlertTitle>{testResult.success ? 'Successful' : 'Failed'}</AlertTitle>
-                  <AlertDescription>
-                    {testResult.message}
-                    {testResult.status && (
-                      <div className="mt-2">
-                        <StatusBadge
-                          status={testResult.status as 'connected' | 'connecting' | 'disconnected' | 'error'}/>
-                      </div>
+                {healthResult && (
+                  <Alert>
+                    {healthResult.status === 'healthy' ? (
+                      <Check className="h-4 w-4"/>
+                    ) : healthResult.status === 'unhealthy' ? (
+                      <AlertCircle className="h-4 w-4"/>
+                    ) : (
+                      <Activity className="h-4 w-4"/>
                     )}
-                  </AlertDescription>
-                </Alert>
-
-                {testResult.lastError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4"/>
-                    <AlertTitle>Error Details</AlertTitle>
-                    <AlertDescription>{testResult.lastError}</AlertDescription>
+                    <AlertTitle>
+                      {healthResult.status === 'healthy' ? 'Successful' : healthResult.status === 'unhealthy' ? 'Failed' : 'Unknown'}
+                    </AlertTitle>
+                    <AlertDescription>
+                      {healthResult.lastError ? healthResult.lastError : 'Health check completed'}
+                      {healthResult.uptime && (
+                        <div className="mt-1 text-xs">
+                          <strong>Uptime:</strong> {formatDuration(healthResult.uptime)}
+                        </div>
+                      )}
+                      <div className="mt-1 text-xs">
+                        <strong>Checked:</strong> {formatTimestamp(healthResult.checkedAt)}
+                      </div>
+                    </AlertDescription>
                   </Alert>
                 )}
-              </>
-            )}
 
-            <DialogFooter>
-              <Button onClick={() => setTestDialogOpen(false)}>Close</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </TooltipProvider>
+                <DialogFooter>
+                  <Button onClick={() => setTestDialogOpen(false)}>Close</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* Import Dialog */}
+            <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Upload className="w-5 h-5"/>
+                    Import MCP Servers
+                  </DialogTitle>
+                  <DialogDescription>
+                    Paste exported JSON configuration to import servers
+                  </DialogDescription>
+                </DialogHeader>
+
+                {importErrors && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4"/>
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{importErrors}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="import-json">JSON Configuration</Label>
+                    <CodeEditor
+                      language="json"
+                      value={importedJson}
+                      onChange={setImportedJson}
+                      heightClass="h-[300px]"
+                      editorProps={{placeholder: '[{"name":"server1","displayName":"Server 1","description":"Imported server","type":"stdio","command":"npx"}]'}}
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleImport} disabled={!importedJson.trim()}>
+                    <Upload className="w-4 h-4 mr-2"/>
+                    Import
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {/* --- Bulk Action Bar --- */}
+            <BulkActionBar
+              count={selectedServerIds.size}
+              selectedIds={Array.from(selectedServerIds)}
+              selectedNames={selectedServers.map(s => s.displayName)}
+              isOperating={operationState?.id === -1}
+              onSelectAll={handleSelectAll}
+              onStartAll={handleBulkStart}
+              onStopAll={handleBulkStop}
+              onRestartAll={handleBulkRestart}
+              onDeleteAll={() => setBulkDeleteOpen(true)}
+              onClose={() => setSelectedServerIds(new Set())}
+            />
+          </div>
+        </TooltipProvider>
+      </NotificationContext.Provider>
+
+      {/* Bulk Delete Confirmation */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-500">
+              <AlertTriangle className="w-5 h-5"/>
+              Delete {selectedServerIds.size} Servers?
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently delete {selectedServers.map(s => `"${s.displayName}"`).join(', ')}. This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={async () => {
+              setBulkDeleteOpen(false);
+              await handleBulkDelete();
+            }} disabled={deletingServerId === -1}>
+              {deletingServerId === -1 ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin"/> Deleting...</>
+              ) : (
+                <><Trash2 className="w-4 h-4 mr-2"/> Delete All</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
