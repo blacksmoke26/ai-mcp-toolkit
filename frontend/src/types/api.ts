@@ -167,6 +167,224 @@ export interface JsonRpcNotification {
   params?: unknown;
 }
 
+// ====== MCP Capabilities Types ======
+
+/** MCP Server capability for tools */
+export interface CapabilitiesTools {
+  /** Whether tools are supported */
+  supported: boolean;
+}
+
+/** MCP Server capability for resources */
+export interface CapabilitiesResources {
+  /** Whether resources are supported */
+  supported: boolean;
+  /** Whether subscription to resource updates is supported */
+  subscribe: boolean;
+}
+
+/** MCP Server capability for prompts */
+export interface CapabilitiesPrompts {
+  /** Whether prompts are supported */
+  supported: boolean;
+}
+
+/** MCP Server capability for logging */
+export interface CapabilitiesLogging {
+  /** Whether logging is supported */
+  supported: boolean;
+}
+
+/** MCP Server capabilities */
+export interface McpCapabilities {
+  /** Tools capability */
+  tools: CapabilitiesTools;
+  /** Resources capability */
+  resources: CapabilitiesResources;
+  /** Prompts capability */
+  prompts: CapabilitiesPrompts;
+  /** Logging capability */
+  logging: CapabilitiesLogging;
+}
+
+/** Server information returned by capabilities endpoint */
+export interface ServerInfoCapabilities {
+  /** Server name */
+  name: string;
+  /** Server version */
+  version: string;
+}
+
+/** MCP capabilities response from /mcp/capabilities */
+export interface McpCapabilitiesResponse {
+  /** Protocol version */
+  protocolVersion: string;
+  /** Server capabilities */
+  capabilities: McpCapabilities;
+  /** Server info */
+  serverInfo: ServerInfoCapabilities;
+  /** Supported transport types */
+  transports: string[];
+  /** Available method names */
+  methods: string[];
+}
+
+// ====== MCP Version Types ======
+
+/** Protocol version info from /mcp/version */
+export interface McpVersionInfo {
+  /** MCP protocol version */
+  protocolVersion: string;
+  /** JSON-RPC version */
+  jsonRpcVersion: string;
+  /** Server software version */
+  serverVersion: string;
+  /** Server build date */
+  buildDate: string;
+}
+
+// ====== MCP Stats Types ======
+
+/** Server memory usage */
+export interface MemoryUsage {
+  /** Resident set size in bytes */
+  rss: number;
+  /** Total heap size in bytes */
+  heapTotal: number;
+  /** Used heap size in bytes */
+  heapUsed: number;
+  /** External memory in bytes */
+  external: number;
+}
+
+/** MCP request statistics */
+export interface McpStats {
+  /** Total single requests processed */
+  totalRequests: number;
+  /** Total batch requests processed */
+  totalBatchRequests: number;
+  /** Total SSE connections ever made */
+  totalSseConnections: number;
+  /** Currently active SSE connections */
+  activeSseConnections: number;
+  /** Total error count */
+  errorCount: number;
+  /** Timestamp of last request */
+  lastRequestAt: string | null;
+}
+
+/** Detailed MCP health response from /mcp/health?detailed=true */
+export interface McpDetailedHealthResponse {
+  /** Health status */
+  status: string;
+  /** ISO timestamp */
+  timestamp: string;
+  /** Uptime in seconds */
+  uptime: number;
+  /** Memory usage */
+  memory: MemoryUsage;
+  /** Request statistics */
+  stats: McpStats;
+}
+
+/** Reset MCP stats response */
+export interface McpStatsResetResponse {
+  /** Current stats snapshot */
+  totalRequests: number;
+  totalBatchRequests: number;
+  totalSseConnections: number;
+  activeSseConnections: number;
+  errorCount: number;
+  lastRequestAt: string | null;
+  uptime: number;
+  /** Error rate as percentage */
+  errorRate: number;
+}
+
+// ====== MCP Validation Types ======
+
+/** JSON-RPC validation result checks */
+export interface JsonRpcValidationChecks {
+  /** Whether body is a JSON object */
+  isObject: boolean;
+  /** Whether jsonrpc field is present */
+  hasJsonrpc: boolean;
+  /** Whether jsonrpc version is "2.0" */
+  jsonrpcVersion: boolean;
+  /** Whether method field is present */
+  hasMethod: boolean;
+  /** Whether method is a string */
+  methodType: boolean;
+  /** Whether method is non-empty */
+  methodNotEmpty: boolean;
+  /** Whether method is not reserved (rpc.*) */
+  methodNotReserved: boolean;
+  /** Whether id is valid */
+  idValid: boolean;
+  /** Whether params is valid */
+  paramsValid: boolean;
+  /** Whether request is a notification (no id) */
+  isNotification: boolean;
+}
+
+/** JSON-RPC validation response from /mcp/debug/validate */
+export interface JsonRpcValidationResponse {
+  /** Whether the request is valid */
+  valid: boolean;
+  /** Detailed field-level checks */
+  checks: JsonRpcValidationChecks;
+  /** List of validation errors */
+  errors: string[];
+  /** List of validation warnings */
+  warnings: string[];
+}
+
+// ====== MCP Available Methods Types ======
+
+/** Method description from /mcp/available-methods */
+export interface McpMethodDescription {
+  /** Method name */
+  method: string;
+  /** Method description */
+  description: string;
+  /** Expected parameters description */
+  params: string;
+}
+
+/** Available methods response from /mcp/available-methods */
+export interface McpAvailableMethodsResponse {
+  /** List of available methods */
+  list: McpMethodDescription[];
+}
+
+// ====== MCP Batch Request Types ======
+
+/** Options for dedicated batch endpoint */
+export interface McpBatchOptions {
+  /** Maximum concurrent requests (1-100) */
+  concurrency?: number;
+  /** Per-item timeout in milliseconds */
+  timeout?: number;
+  /** Whether to stop batch on first error */
+  failFast?: boolean;
+}
+
+/** Dedicate batch endpoint response item */
+export interface McpBatchResponseItem {
+  /** JSON-RPC version */
+  jsonrpc: string;
+  /** Request identifier */
+  id: string | number | null;
+  /** Result if successful */
+  result?: unknown;
+  /** Error if failed */
+  error?: {
+    code: number;
+    message: string;
+    data?: unknown;
+  };
+}
+
 // MCP Tool Definition
 export interface ToolDefinition {
   /** Tool name */
@@ -1446,6 +1664,8 @@ export interface MCPServerHealthResponse {
   id: number;
   /** Name */
   name: string;
+  /** Message */
+  message?: string;
   /** Health status */
   status: 'healthy' | 'unhealthy' | 'unknown';
   /** Connection status */
