@@ -8,22 +8,24 @@ import * as React from 'react';
 import {Link, useLocation} from 'react-router-dom';
 import {
   Activity,
-  MessageSquare,
-  Server,
-  Wrench,
+  Blocks,
   Bot,
-  Database,
-  LayoutDashboard,
-  ExternalLink,
   CheckCircle2,
-  Sun,
-  Moon,
-  Zap,
-  Info,
-  LayoutList,
-  Blocks, PocketKnife, ServerCrash, Gauge,
-  Rocket,
+  Database,
+  ExternalLink,
   FileText,
+  Gauge,
+  LayoutDashboard,
+  MessageSquare,
+  Moon,
+  PocketKnife,
+  Rocket,
+  Server,
+  ServerCrash,
+  Sun,
+  Unplug,
+  Wrench,
+  Zap,
 } from 'lucide-react';
 import {cn} from '@/lib/utils';
 import {Button} from './ui/Button';
@@ -103,45 +105,6 @@ const navSections: {
     ],
   },
   {
-    title: 'MCP Protocol',
-    items: [
-      {
-        label: 'List Tools',
-        href: '/mcp/tools',
-        icon: LayoutList,
-        description: 'List all available MCP tools',
-        badge: 'JSON-RPC',
-      },
-      {
-        label: 'Call Tool',
-        href: '/mcp/call',
-        icon: Wrench,
-        description: 'Execute MCP tools directly',
-        badge: 'JSON-RPC',
-      },
-      {
-        label: 'SSE Stream',
-        href: '/mcp/sse',
-        icon: Bot,
-        description: 'Server-Sent Events endpoint',
-        badge: 'Streaming',
-      },
-      {
-        label: 'MCP Health',
-        href: '/mcp/health',
-        icon: Activity,
-        description: 'Monitor MCP server health & debug',
-        badge: 'Health',
-      },
-      {
-        label: 'MCP Info',
-        href: '/mcp/info',
-        icon: Info,
-        description: 'Server-Sent Events endpoint',
-      },
-    ],
-  },
-  {
     title: 'Chat & Conversations',
     items: [
       {
@@ -192,6 +155,12 @@ const navSections: {
         href: '/admin/custom-tools',
         icon: PocketKnife,
         description: 'Custom tools management',
+      },
+      {
+        label: 'MCP Protocol',
+        href: '/mcp/dashboard',
+        icon: Unplug,
+        description: 'MCP status and quick stats',
       },
       {
         label: 'MCP Servers',
