@@ -6,21 +6,21 @@
  * @see https://github.com/blacksmoke26
  */
 
- /**
-  * @module lib/api
-  * @description API client service for all MCP Server endpoints.
-  *
-  * Provides a unified interface for all API endpoints with proper error handling
-  * and type safety.
-  *
-  * ## MCP Server Management
-  *
-  * Includes comprehensive endpoints for managing external MCP servers:
-  * - List, create, update, and delete MCP servers
-  * - Start, stop, and restart server connections
-  * - Test connectivity and health checks
-  * - Get server templates for quick setup
-  */
+/**
+ * @module lib/api
+ * @description API client service for all MCP Server endpoints.
+ *
+ * Provides a unified interface for all API endpoints with proper error handling
+ * and type safety.
+ *
+ * ## MCP Server Management
+ *
+ * Includes comprehensive endpoints for managing external MCP servers:
+ * - List, create, update, and delete MCP servers
+ * - Start, stop, and restart server connections
+ * - Test connectivity and health checks
+ * - Get server templates for quick setup
+ */
 
 import type {
   // Health & Info
@@ -34,6 +34,26 @@ import type {
   ToolsListResponse,
   ToolsCallRequest,
   CallToolResult,
+
+  // MCP Enhanced Protocol Types
+  McpCapabilitiesResponse,
+  McpVersionInfo,
+  McpDetailedHealthResponse,
+  McpStatsResetResponse,
+  JsonRpcValidationResponse,
+  JsonRpcValidationChecks,
+  McpAvailableMethodsResponse,
+  McpMethodDescription,
+  McpBatchOptions,
+  McpBatchResponseItem,
+  McpCapabilities,
+  CapabilitiesTools,
+  CapabilitiesResources,
+  CapabilitiesPrompts,
+  CapabilitiesLogging,
+  MemoryUsage,
+  McpStats,
+  ServerInfoCapabilities,
 
   // Chat
   ChatRequest,
@@ -405,46 +425,46 @@ export interface PromptTemplateRenameCategoryOutput {
 
 // ─── Raw API Response Types ══════════
 
- /**
-  * Raw prompt template as returned by the backend API.
-  *
-  * This interface represents the data structure received directly from the server,
-  * where complex objects like `variables` and `settings` are serialized as JSON strings
-  * and require parsing before use in the application.
-  */
- export interface RawPromptTemplate {
-   /** The unique numeric identifier for the template. */
-   id: number;
-   /** The unique machine-readable name for the template. */
-   name: string;
-   /** The human-readable display name for the template. */
-   displayName: string;
-   /** A detailed description of the template's purpose. */
-   description: string;
-   /** The raw content string of the template, containing placeholders for variables. */
-   content: string;
-   /** The category classification for the template (e.g., 'code', 'writing'). */
-   category: string;
-   /** Indicates whether this is a built-in system template that cannot be deleted. */
-   isBuiltIn: boolean;
-   /** Indicates whether this template is set as the default for its category or globally. */
-   isDefault: boolean;
-   /**
-    * The variables definition serialized as a JSON string.
-    * Must be parsed into an array of `PromptTemplateVariable` objects.
-    */
-   variables: string;
-   /**
-    * Arbitrary key-value settings serialized as a JSON string.
-    * Must be parsed into a `Record<string, unknown>` object.
-    * Can be null if no settings are associated.
-    */
-   settings: string | null;
-   /** ISO 8601 timestamp indicating when the template was created. */
-   createdAt: string;
-   /** ISO 8601 timestamp indicating when the template was last updated. */
-   updatedAt: string;
- }
+/**
+ * Raw prompt template as returned by the backend API.
+ *
+ * This interface represents the data structure received directly from the server,
+ * where complex objects like `variables` and `settings` are serialized as JSON strings
+ * and require parsing before use in the application.
+ */
+export interface RawPromptTemplate {
+  /** The unique numeric identifier for the template. */
+  id: number;
+  /** The unique machine-readable name for the template. */
+  name: string;
+  /** The human-readable display name for the template. */
+  displayName: string;
+  /** A detailed description of the template's purpose. */
+  description: string;
+  /** The raw content string of the template, containing placeholders for variables. */
+  content: string;
+  /** The category classification for the template (e.g., 'code', 'writing'). */
+  category: string;
+  /** Indicates whether this is a built-in system template that cannot be deleted. */
+  isBuiltIn: boolean;
+  /** Indicates whether this template is set as the default for its category or globally. */
+  isDefault: boolean;
+  /**
+   * The variables definition serialized as a JSON string.
+   * Must be parsed into an array of `PromptTemplateVariable` objects.
+   */
+  variables: string;
+  /**
+   * Arbitrary key-value settings serialized as a JSON string.
+   * Must be parsed into a `Record<string, unknown>` object.
+   * Can be null if no settings are associated.
+   */
+  settings: string | null;
+  /** ISO 8601 timestamp indicating when the template was created. */
+  createdAt: string;
+  /** ISO 8601 timestamp indicating when the template was last updated. */
+  updatedAt: string;
+}
 
 /**
  * Raw list response from the backend.
@@ -766,6 +786,159 @@ export async function callTool(toolRequest: ToolsCallRequest): Promise<CallToolR
   return response.result as CallToolResult;
 }
 
+// ====== MCP Protocol Enhanced Endpoints ======
+
+/**
+ * GET /mcp/capabilities - Get MCP server capabilities
+ *
+ * @changelog
+ * - Endpoint provides full server capability discovery including protocol version,
+ *   available primitives (tools, resources, prompts, logging), server info,
+ *   supported transports, and all available method names.
+ * @returns MCP capabilities response with server primitives and metadata
+ */
+export async function getMcpCapabilities(): Promise<McpCapabilitiesResponse> {
+  return request<McpCapabilitiesResponse>('/mcp/capabilities');
+}
+
+/**
+ * GET /mcp/version - Get protocol version information
+ *
+ * @description
+ * Returns version details for MCP protocol, JSON-RPC, server software,
+ * and build date. Useful for version compatibility checking.
+ *
+ * @changelog
+ * - Provides both MCP protocol version and JSON-RPC version
+ * - Includes server build date for debugging
+ * @returns Protocol version information
+ */
+export async function getMcpVersion(): Promise<McpVersionInfo> {
+  return request<McpVersionInfo>('/mcp/version');
+}
+
+/**
+ * GET /mcp/health?detailed=true - Get detailed MCP health with memory and stats
+ *
+ * @description
+ * Extended health check that includes memory usage details and request
+ * statistics. Provides deeper insight into server performance.
+ *
+ * @changelog
+ * - Returns memory usage (rss, heapTotal, heapUsed, external)
+ * - Returns comprehensive request statistics
+ * - Useful for monitoring dashboards
+ * @returns Detailed health response with memory and stats
+ */
+export async function getMcpDetailedHealth(): Promise<McpDetailedHealthResponse> {
+  return request<McpDetailedHealthResponse>('/mcp/health?detailed=true');
+}
+
+/**
+ * GET /mcp/stats - Get MCP request statistics
+ *
+ * @description
+ * Returns request statistics including total requests, batch requests,
+ * SSE connections, error counts, and uptime. Optionally resets counters.
+ *
+ * @param reset - Whether to reset all counters after fetching
+ *
+ * @changelog
+ * - Supports optional reset via query parameter
+ * - Returns errorRate as percentage of total requests
+ * - Useful for monitoring and alerting
+ * @returns Stats snapshot with counters
+ */
+export async function getMcpStats(reset = false): Promise<McpStatsResetResponse> {
+  return request<McpStatsResetResponse>(`/mcp/stats?reset=${reset}`);
+}
+
+/**
+ * POST /mcp/debug/validate - Validate a JSON-RPC request structure
+ *
+ * @description
+ * Validates JSON-RPC request structure without executing it. Returns
+ * detailed field-level validation results including checks, errors,
+ * and warnings. Useful for client developers.
+ *
+ * @param body - The JSON-RPC request to validate
+ *
+ * @changelog
+ * - Performs comprehensive field-level validation
+ * - Checks JSON-RPC 2.0 spec compliance
+ * - Returns detailed diagnostics per field
+ * - Includes warnings for non-spec-recommended patterns
+ * @returns Validation result with checks, errors, and warnings
+ */
+export async function validateJsonRpcRequest(
+  body: unknown,
+): Promise<JsonRpcValidationResponse> {
+  return request<JsonRpcValidationResponse>('/mcp/debug/validate', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * GET /mcp/available-methods - Get list of available MCP methods
+ *
+ * @description
+ * Returns all supported MCP methods with names, descriptions, and
+ * expected parameters. Useful for client discovery and documentation.
+ *
+ * @changelog
+ * - Dynamic method listing from registered handlers
+ * - Includes parameter descriptions for each method
+ * - Useful for auto-generating documentation
+ * @returns List of available method descriptions
+ */
+export async function getAvailableMethods(): Promise<McpAvailableMethodsResponse> {
+  return request<McpAvailableMethodsResponse>('/mcp/available-methods');
+}
+
+/**
+ * POST /mcp/batch - Send batch requests with advanced options
+ *
+ * @description
+ * Dedicated batch endpoint with support for concurrency control,
+ * timeout configuration, and fail-fast behavior. Supports streaming
+ * responses per JSON-RPC batch specification.
+ *
+ * @param requests - Array of JSON-RPC requests to execute
+ * @param options - Batch processing options
+ *
+ * @changelog
+ * - Supports concurrency control (default: 10)
+ * - Per-item timeout support (default: 30s)
+ * - failFast option for early termination
+ * - Max batch size: 100 items
+ * @returns Array of JSON-RPC response items
+ */
+export async function sendMcpBatchWith(
+  requests: JsonRpcRequest[],
+  options?: McpBatchOptions,
+): Promise<McpBatchResponseItem[]> {
+  const urls = ['/mcp/batch?'];
+  if (options?.concurrency) {
+    urls.push(`concurrency=${options?.concurrency}`);
+  }
+
+  if (options?.timeout) {
+    urls.push(`timeout=${options?.timeout}`);
+  }
+
+  if (options?.failFast) {
+    urls.push(`failFast=${options?.failFast}`);
+  }
+
+  const uri = urls.join('&').replace('?&', '?');
+
+  return request<McpBatchResponseItem[]>(uri, {
+    method: 'POST',
+    body: JSON.stringify(requests),
+  });
+}
+
 // ====== Chat Endpoints ======
 
 /**
@@ -795,7 +968,7 @@ export async function getPromptTemplateById(id: number): Promise<PromptTemplate>
   const response = await fetch(`${config.baseUrl}/api/prompt-templates/${id}`);
   if (!response.ok) throw new Error(`Failed to fetch template with id ${id}`);
   const raw = await response.json();
-  const data = raw as {template: RawPromptTemplate};
+  const data = raw as { template: RawPromptTemplate };
   return parsePromptTemplate(data.template);
 }
 
@@ -806,7 +979,7 @@ export async function getPromptTemplateByName(name: string): Promise<PromptTempl
   const response = await fetch(`${config.baseUrl}/api/prompt-templates/name/${name}`);
   if (!response.ok) throw new Error(`Failed to fetch template with name ${name}`);
   const raw = await response.json();
-  const data = raw as {template: RawPromptTemplate};
+  const data = raw as { template: RawPromptTemplate };
   return parsePromptTemplate(data.template);
 }
 
@@ -912,7 +1085,13 @@ export async function fetchSampleTemplates(): Promise<SampleTemplatesResponse> {
   if (!response.ok) throw new Error('Failed to fetch sample templates');
   const raw = await response.json();
   // Parse the variables JSON string that the backend returns
-  const templates: SampleTemplate[] = raw.templates.map((t: {name: string; displayName: string; description: string; content: string; variables: string}) => ({
+  const templates: SampleTemplate[] = raw.templates.map((t: {
+    name: string;
+    displayName: string;
+    description: string;
+    content: string;
+    variables: string
+  }) => ({
     name: t.name,
     displayName: t.displayName,
     description: t.description,
@@ -935,7 +1114,11 @@ export async function renderPromptTemplate(input: PromptTemplateRenderInput): Pr
     const error = await response.json().catch(() => ({message: 'Failed to render template'}));
     throw new Error(error.message || 'Failed to render template');
   }
-  const raw = await response.json() as {template: {id: number; name: string; displayName: string; content: string}; renderedContent: string; variables: Record<string, string>};
+  const raw = await response.json() as {
+    template: { id: number; name: string; displayName: string; content: string };
+    renderedContent: string;
+    variables: Record<string, string>
+  };
   return {
     id: raw.template.id,
     name: raw.template.name,
