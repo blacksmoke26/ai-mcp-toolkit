@@ -5,14 +5,14 @@
  */
 
 import React from 'react';
-import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
+import {BrowserRouter, Navigate, Route, Routes} from 'react-router-dom';
 
 // components
 import Layout from '@/components/Layout';
 
 // pages
 import Dashboard from '@/pages/Dashboard';
-import MCPTools from '@/pages/MCPProtocol/MCPTools.tsx';
+import {MCPDashboard} from '@/pages/MCPProtocol';
 import Chat from '@/pages/Chat';
 import AdminProviders from '@/pages/AdminProviders';
 import AdminTools from '@/pages/AdminTools';
@@ -21,13 +21,9 @@ import ToolSimulator from '@/pages/ToolSimulator';
 import ReadinessCheck from '@/pages/ReadinessCheck';
 import ServerInfo from '@/pages/ServerInfo';
 import HealthCheck from '@/pages/HealthCheck';
-import MCPCallTool from '@/pages/MCPProtocol/MCPCallTool.tsx';
-import MCPSSE from '@/pages/MCPProtocol/MCPSSE.tsx';
 import ConversationsList from '@/pages/ConversationsList';
 import ConversationDetail from '@/pages/ConversationDetail';
 import ChatStream from '@/pages/ChatStream';
-import MCPInfo from '@/pages/MCPProtocol/MCPInfo.tsx';
-import MCPHealth from '@/pages/MCPProtocol/MCPHealth.tsx';
 import ModelsList from '@/pages/ModelsList';
 import ToolDetail from '@/pages/ToolDetail';
 import CustomTools from '@/pages/CustomTools';
@@ -65,11 +61,7 @@ const App: React.FC = () => (
         <Route path="/health/ready" element={<ReadinessCheck/>}/>
 
         {/* MCP Protocol */}
-        <Route path="/mcp/tools" element={<MCPTools/>}/>
-        <Route path="/mcp/call" element={<MCPCallTool/>}/>
-        <Route path="/mcp/sse" element={<MCPSSE/>}/>
-        <Route path="/mcp/info" element={<MCPInfo/>}/>
-        <Route path="/mcp/health" element={<MCPHealth/>}/>
+        <Route path="/mcp/dashboard" element={<MCPDashboard/>}/>
 
         {/* Performance & Monitoring */}
         <Route path="/performance" element={<PerformanceDashboard/>}/>
