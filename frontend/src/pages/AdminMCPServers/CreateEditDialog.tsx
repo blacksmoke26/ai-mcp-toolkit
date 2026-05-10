@@ -26,6 +26,7 @@ import {Select, SelectContent, SelectItem, SelectTrigger} from '@/components/ui/
 import Popover from '@/components/ui/Popover';
 import {DocTooltip} from '@/components/ui/Tooltip';
 import type {MCPServerTemplate, UpdateMCPServerRequest} from '@/types/api';
+import Checkbox from '@/components/ui/Checkbox';
 
 /**
  * Properties for the CreateEditDialog component.
@@ -705,23 +706,17 @@ const CreateEditDialog: React.FC<CreateEditDialogProps> = (props) => {
           </div>
 
           <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="autoReconnect"
+            <Checkbox
               checked={autoReconnect}
-              onChange={(e) => setAutoReconnect(e.target.checked)}
-              className="rounded border-gray-300"
+              onCheckedChange={checked => setAutoReconnect(checked)}
             />
             <Label htmlFor="autoReconnect" className="cursor-pointer">Auto-reconnect on failure</Label>
           </div>
 
           <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              id="enabled"
+            <Checkbox
               checked={enabled}
-              onChange={(e) => setEnabled(e.target.checked)}
-              className="rounded border-gray-300"
+              onCheckedChange={setEnabled}
             />
             <Label htmlFor="enabled" className="cursor-pointer">
               Enable on save

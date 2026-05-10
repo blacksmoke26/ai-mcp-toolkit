@@ -36,6 +36,7 @@ import {
 } from '@/lib/api';
 import type {ProviderTestResponse} from '@/types/api';
 import {Select, SelectContent, SelectTrigger, SelectValue, SelectItem} from '@/components/ui/Select';
+import Checkbox from '@/components/ui/Checkbox';
 
 /**
  * AdminProviders Component
@@ -394,11 +395,9 @@ const AdminProviders: React.FC = () => {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Set as Default</label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={formIsDefault}
-                    onChange={(e) => setFormIsDefault(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    onCheckedChange={setFormIsDefault}
                   />
                   <span className="text-sm">Use as default provider</span>
                 </div>

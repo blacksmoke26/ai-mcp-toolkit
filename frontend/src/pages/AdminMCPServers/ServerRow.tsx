@@ -35,6 +35,7 @@ import {Separator} from '@/components/ui/Separator';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from '@/components/ui/Tooltip';
 import StatusBadge from './StatusBadge';
 import type {MCPServerResponse} from '@/types/api';
+import Checkbox from '@/components/ui/Checkbox';
 
 // ---------------------------------------------------------------------------
 // Type Definitions
@@ -385,11 +386,9 @@ const ServerRow: React.FC<ServerRowProps> = ({
       >
         {/* Checkbox */}
         <td className="py-2.5 px-4 w-12">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={isSelected}
-            onChange={(e) => onSelect(e.target.checked)}
-            className="h-4 w-4 rounded border-border bg-muted/50 text-primary focus:ring-primary/40 accent-primary cursor-pointer"
+            onCheckedChange={checked => onSelect(checked)}
           />
         </td>
 

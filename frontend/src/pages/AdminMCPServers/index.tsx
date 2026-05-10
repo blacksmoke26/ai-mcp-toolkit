@@ -98,6 +98,7 @@ import {
   generateUniqueName,
   parseExportedJson,
 } from './utils';
+import Checkbox from '@/components/ui/Checkbox';
 
 // ========== Type Definitions ==========
 
@@ -1026,11 +1027,9 @@ const AdminMCPServers: React.FC = () => {
                   <thead>
                   <tr className="border-b border-border">
                     <th className="py-3 px-4 text-left w-12">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={selectedServerIds.size === currentServers.length && currentServers.length > 0}
-                        onChange={handleSelectAll}
-                        className="rounded border-gray-300"
+                        onCheckedChange={handleSelectAll}
                       />
                     </th>
                     <th className="py-3 px-4 text-left text-sm font-medium text-muted-foreground">Status</th>

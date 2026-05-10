@@ -31,6 +31,7 @@ import {useToast, useWebSocket} from '@/context/WebSocketContext';
 import {CATEGORY_COLORS, type EventCategory, type WsEventType, type WsPayload} from '@/types/websocket';
 import {EVENT_DEFINITIONS, type EventDefinition, getCategoryGroups} from '@/lib/event-definitions';
 import {cn} from '@/lib/utils';
+import {AdvancedInput} from '@/components/ui/AdvanceInput';
 
 // ==== ==================== EventSimulatorHistoryEntry ====================
 
@@ -866,7 +867,7 @@ const EventSimulator: React.FC = () => {
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/>
-              <input
+              <AdvancedInput
                 type="text"
                 placeholder="Search events by type, name, or description..."
                 value={searchTerm}

@@ -34,6 +34,7 @@ import {useToast, useWebSocket} from '@/context/WebSocketContext';
 import {type WsPayload} from '@/types/websocket';
 import {cn} from '@/lib/utils';
 import MarkdownViewer from '@/components/ui/MarkdownViewer';
+import {AdvancedInput} from '@/components/ui/AdvanceInput';
 
 // ==================== Types ====================
 /**
@@ -1164,7 +1165,7 @@ const AdvancedChat: React.FC = () => {
           <div className="border-b border-border px-3 py-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"/>
-              <input
+              <AdvancedInput
                 type="text"
                 placeholder="Search conversations..."
                 value={searchTerm}

@@ -36,6 +36,7 @@ import {
 } from '@/types/websocket';
 import {QUICK_ACTIONS} from '@/lib/event-definitions';
 import {cn} from '@/lib/utils';
+import {AdvancedInput} from '@/components/ui/AdvanceInput';
 
 // ==== ==================== StatsCard ====================
 
@@ -382,7 +383,7 @@ const EventFilterControls: React.FC<EventFilterControlsProps> = ({ filters, setF
       {/* Search */}
       <div className="relative flex-1 min-w-[200px]">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
+        <AdvancedInput
           type="text"
           placeholder="Search events..."
           value={filters.searchTerm}

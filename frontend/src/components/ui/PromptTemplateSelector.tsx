@@ -48,6 +48,7 @@ import {ScrollArea} from './ScrollArea';
 import {Alert, AlertDescription} from './Alert';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from './Select';
 import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger} from './Tooltip';
+import Checkbox from '@/components/ui/Checkbox.tsx';
 
 // ─── Types ──────────────────────────────────────────────────────────────────────────────────────
 
@@ -420,11 +421,9 @@ const VariableEditModal: React.FC<VariableEditModalProps> = ({
                               />
                             </div>
                             <label className="flex items-center gap-2 text-xs cursor-pointer">
-                              <input
-                                type="checkbox"
+                              <Checkbox
                                 checked={variable.required}
-                                onChange={(e) => updateVariable(index, 'required', e.target.checked)}
-                                className="rounded border-gray-300"
+                                onCheckedChange={checked => updateVariable(index, 'required', checked)}
                               />
                               <span className="text-muted-foreground">Required</span>
                             </label>
