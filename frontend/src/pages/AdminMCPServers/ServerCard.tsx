@@ -63,7 +63,7 @@ interface StatusMeta {
 const STATUS_META: Record<MCPServerStatus, StatusMeta> = {
   connected: {
     label: 'Connected',
-    icon: <CheckCircle2 className="w-4 h-4" />,
+    icon: <CheckCircle2 className="w-4 h-4"/>,
     variant: 'success',
     barColor: 'from-emerald-500 to-green-400',
     badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
@@ -71,7 +71,7 @@ const STATUS_META: Record<MCPServerStatus, StatusMeta> = {
   },
   connecting: {
     label: 'Connecting',
-    icon: <Loader2 className="w-4 h-4 animate-spin" />,
+    icon: <Loader2 className="w-4 h-4 animate-spin"/>,
     variant: 'warning',
     barColor: 'from-yellow-500 to-amber-400',
     badgeColor: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -79,7 +79,7 @@ const STATUS_META: Record<MCPServerStatus, StatusMeta> = {
   },
   disconnected: {
     label: 'Disconnected',
-    icon: <XCircle className="w-4 h-4" />,
+    icon: <XCircle className="w-4 h-4"/>,
     variant: 'outline',
     barColor: 'from-gray-600 to-gray-500',
     badgeColor: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
@@ -87,7 +87,7 @@ const STATUS_META: Record<MCPServerStatus, StatusMeta> = {
   },
   error: {
     label: 'Error',
-    icon: <AlertCircle className="w-4 h-4" />,
+    icon: <AlertCircle className="w-4 h-4"/>,
     variant: 'destructive',
     barColor: 'from-red-600 to-red-500',
     badgeColor: 'bg-red-500/20 text-red-400 border-red-500/30',
@@ -98,17 +98,17 @@ const STATUS_META: Record<MCPServerStatus, StatusMeta> = {
 const TYPE_META: Record<MCPServerType, { label: string; icon: React.ReactNode; iconColor: string }> = {
   stdio: {
     label: 'stdio',
-    icon: <TerminalIcon className="w-3.5 h-3.5" />,
+    icon: <TerminalIcon className="w-3.5 h-3.5"/>,
     iconColor: 'text-sky-400',
   },
   sse: {
     label: 'SSE',
-    icon: <BroadcastIcon className="w-3.5 h-3.5" />,
+    icon: <BroadcastIcon className="w-3.5 h-3.5"/>,
     iconColor: 'text-violet-400',
   },
   'streamable-http': {
     label: 'Streamable HTTP',
-    icon: <GlobeIcon className="w-3.5 h-3.5" />,
+    icon: <GlobeIcon className="w-3.5 h-3.5"/>,
     iconColor: 'text-indigo-400',
   },
 };
@@ -116,29 +116,32 @@ const TYPE_META: Record<MCPServerType, { label: string; icon: React.ReactNode; i
 // Small inline icons to avoid import paths
 function TerminalIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <polyline points="4 17 10 11 4 5" />
-      <line x1="12" y1="19" x2="20" y2="19" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+         strokeLinejoin="round" {...props}>
+      <polyline points="4 17 10 11 4 5"/>
+      <line x1="12" y1="19" x2="20" y2="19"/>
     </svg>
   );
 }
 
 function BroadcastIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M12 20V10" />
-      <path d="M18 20V4" />
-      <path d="M6 20v-4" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+         strokeLinejoin="round" {...props}>
+      <path d="M12 20V10"/>
+      <path d="M18 20V4"/>
+      <path d="M6 20v-4"/>
     </svg>
   );
 }
 
 function GlobeIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <circle cx="12" cy="12" r="10" />
-      <line x1="2" y1="12" x2="22" y2="12" />
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+         strokeLinejoin="round" {...props}>
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="2" y1="12" x2="22" y2="12"/>
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
     </svg>
   );
 }
@@ -248,7 +251,16 @@ interface ActionBtnProps {
   className?: string;
 }
 
-function ActionButton({ icon, label, onClick, disabled, loading, variant = 'ghost', size = 'sm', className = '' }: ActionBtnProps) {
+function ActionButton({
+                        icon,
+                        label,
+                        onClick,
+                        disabled,
+                        loading,
+                        variant = 'ghost',
+                        size = 'sm',
+                        className = '',
+                      }: ActionBtnProps) {
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip>
@@ -265,7 +277,7 @@ function ActionButton({ icon, label, onClick, disabled, loading, variant = 'ghos
             aria-label={label}
             title={label}
           >
-            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : icon}
+            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : icon}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="bottom" className="text-xs">
@@ -286,7 +298,7 @@ interface StatusBadgeProps {
   compact?: boolean;
 }
 
-function StatusBadge({ status, pulse = false, compact = false }: StatusBadgeProps) {
+function StatusBadge({status, pulse = false, compact = false}: StatusBadgeProps) {
   const meta = STATUS_META[status];
   const badgeClass = `${meta.badgeColor} ${pulse ? 'animate-pulse' : ''}`;
 
@@ -300,7 +312,8 @@ function StatusBadge({ status, pulse = false, compact = false }: StatusBadgeProp
           }}
         />
       )}
-      <Badge variant={meta.variant} className={`${badgeClass} gap-1 ${compact ? 'text-[10px] px-1.5 py-0' : 'text-xs px-2 py-0.5'}`}>
+      <Badge variant={meta.variant}
+             className={`${badgeClass} gap-1 ${compact ? 'text-[10px] px-1.5 py-0' : 'text-xs px-2 py-0.5'}`}>
         {meta.icon}
         {!compact && meta.label}
       </Badge>
@@ -312,7 +325,7 @@ function StatusBadge({ status, pulse = false, compact = false }: StatusBadgeProp
 // Connection health pill
 // ---------------------------------------------------------------------------
 
-function HealthPill({ server }: { server: MCPServerResponse }) {
+function HealthPill({server}: { server: MCPServerResponse }) {
   const healthRatio = useMemo(() => {
     const total = server.connectionCount + server.failureCount;
     if (total === 0) return null;
@@ -326,7 +339,7 @@ function HealthPill({ server }: { server: MCPServerResponse }) {
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-default">
-            <Activity className="w-3.5 h-3.5" />
+            <Activity className="w-3.5 h-3.5"/>
             <span>
               <span className="text-emerald-400 font-semibold">{server.connectionCount}</span> connected ·{' '}
               <span className="text-red-400 font-semibold">{server.failureCount}</span> failures
@@ -349,13 +362,13 @@ function HealthPill({ server }: { server: MCPServerResponse }) {
 // Expandable content panel
 // ---------------------------------------------------------------------------
 
-function ExpandableDetails({ server, isExpanded }: Pick<ServerCardProps, 'server' | 'isExpanded'>) {
+function ExpandableDetails({server, isExpanded}: Pick<ServerCardProps, 'server' | 'isExpanded'>) {
   const ref = useRef<HTMLDivElement>(null);
 
   return (
     <div
       className="overflow-hidden transition-[max-height] duration-300 ease-in-out"
-      style={{ maxHeight: isExpanded ? ref.current?.scrollHeight ?? 9999 : 0 }}
+      style={{maxHeight: isExpanded ? ref.current?.scrollHeight ?? 9999 : 0}}
     >
       <div ref={ref} className="pt-4 space-y-4">
         {/* Configuration */}
@@ -369,42 +382,39 @@ function ExpandableDetails({ server, isExpanded }: Pick<ServerCardProps, 'server
           </div>
 
           <div className="rounded-lg border border-border/50 bg-muted/20 overflow-hidden">
-            <ScrollArea className="max-h-[320px]">
-              <JsonViewer
-                value={{
-                  id: server.id,
-                  name: server.name,
-                  displayName: server.displayName,
-                  description: server.description,
-                  type: server.type,
-                  enabled: server.enabled,
-                  status: server.status,
-                  ...(server.type === 'stdio' && {
-                    command: server.command,
-                    args: server.args,
-                    env: server.env,
-                  }),
-                  ...(server.type !== 'stdio' && {
-                    url: server.url,
-                    headers: server.headers,
-                  }),
-                  timeout: server.timeout,
-                  autoReconnect: server.autoReconnect,
-                  maxReconnectAttempts: server.maxReconnectAttempts,
-                  reconnectDelay: server.reconnectDelay,
-                  version: server.version,
-                  lastConnectedAt: formatTimestamp(server.lastConnectedAt),
-                  connectionCount: server.connectionCount,
-                  failureCount: server.failureCount,
-                  createdAt: formatTimestamp(server.createdAt),
-                  updatedAt: formatTimestamp(server.updatedAt),
-                }}
-                displayDataTypes={false}
-                displayObjectSize={false}
-                enableClipboard={false}
-              />
-              <ScrollBar />
-            </ScrollArea>
+            <JsonViewer
+              value={{
+                id: server.id,
+                name: server.name,
+                displayName: server.displayName,
+                description: server.description,
+                type: server.type,
+                enabled: server.enabled,
+                status: server.status,
+                ...(server.type === 'stdio' && {
+                  command: server.command,
+                  args: server.args,
+                  env: server.env,
+                }),
+                ...(server.type !== 'stdio' && {
+                  url: server.url,
+                  headers: server.headers,
+                }),
+                timeout: server.timeout,
+                autoReconnect: server.autoReconnect,
+                maxReconnectAttempts: server.maxReconnectAttempts,
+                reconnectDelay: server.reconnectDelay,
+                version: server.version,
+                lastConnectedAt: formatTimestamp(server.lastConnectedAt),
+                connectionCount: server.connectionCount,
+                failureCount: server.failureCount,
+                createdAt: formatTimestamp(server.createdAt),
+                updatedAt: formatTimestamp(server.updatedAt),
+              }}
+              displayDataTypes={false}
+              displayObjectSize={false}
+              enableClipboard={false}
+            />
           </div>
         </div>
 
@@ -435,7 +445,7 @@ function ExpandableDetails({ server, isExpanded }: Pick<ServerCardProps, 'server
                       </div>
                     ))}
                   </div>
-                  <ScrollBar />
+                  <ScrollBar/>
                 </ScrollArea>
               </div>
             )}
@@ -445,7 +455,8 @@ function ExpandableDetails({ server, isExpanded }: Pick<ServerCardProps, 'server
         {server.type !== 'stdio' && server.url && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-muted-foreground">URL</Label>
-            <div className="rounded-lg border border-border/50 bg-muted/20 p-3 font-mono text-sm text-violet-400 break-all">
+            <div
+              className="rounded-lg border border-border/50 bg-muted/20 p-3 font-mono text-sm text-violet-400 break-all">
               {server.url}
             </div>
             {server.headers && Object.keys(server.headers).length > 0 && (
@@ -461,7 +472,7 @@ function ExpandableDetails({ server, isExpanded }: Pick<ServerCardProps, 'server
                       </div>
                     ))}
                   </div>
-                  <ScrollBar />
+                  <ScrollBar/>
                 </ScrollArea>
               </div>
             )}
@@ -548,25 +559,25 @@ function ExpandableDetails({ server, isExpanded }: Pick<ServerCardProps, 'server
  * ```
  */
 function ServerCard({
-  server,
-  isOperating,
-  isTesting,
-  isSelected,
-  onSelect,
-  onStart,
-  onStop,
-  onRestart,
-  onTestConnection,
-  onHealthCheck,
-  onEdit,
-  onDelete,
-  onClone,
-  onToggleEnabled,
-  onToggleExpand,
-  isExpanded,
-  isDisabled = false,
-  testResult: propTestResult,
-}: ServerCardProps) {
+                      server,
+                      isOperating,
+                      isTesting,
+                      isSelected,
+                      onSelect,
+                      onStart,
+                      onStop,
+                      onRestart,
+                      onTestConnection,
+                      onHealthCheck,
+                      onEdit,
+                      onDelete,
+                      onClone,
+                      onToggleEnabled,
+                      onToggleExpand,
+                      isExpanded,
+                      isDisabled = false,
+                      testResult: propTestResult,
+                    }: ServerCardProps) {
   const [hovered, setHovered] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -581,9 +592,6 @@ function ServerCard({
   const handleDelete = () => {
     setShowDeleteConfirm(true);
   };
-
-  // ---- status bar gradient via inline style for smooth transitions ----
-  const statusBarGradient = `linear-gradient(to right, var(--tw-gradient-from), var(--tw-gradient-to))`;
 
   return (
     <>
@@ -613,12 +621,11 @@ function ServerCard({
       >
         <Card
           className={`
-            relative overflow-hidden transition-all duration-200 cursor-pointer
+            relative overflow-hidden transition-all duration-200
             border-border/50 hover:border-border bg-card/80 hover:bg-card
             ${isSelected ? 'border-l-2 border-l-blue-500 bg-blue-500/5' : ''}
             ${!isSelected ? `border-l-2 border-l-transparent hover:border-l-blue-500` : ''}
           `}
-          onClick={() => onSelect(!isSelected)}
         >
           {/* Gradient header accent bar */}
           <div
@@ -630,7 +637,7 @@ function ServerCard({
             `}
           />
 
-          <CardHeader className="pb-3 pt-3 px-4 space-y-2">
+          <CardHeader className="pb-3 pt-3 px-4 space-y-2 cursor-pointer" onClick={() => onSelect(!isSelected)}>
             {/* Top row: name, status, enabled toggle */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -641,24 +648,25 @@ function ServerCard({
                     onSelect(!isSelected);
                   }}
                   className={`
-                    mt-0.5 w-4 h-4 rounded border border-border flex items-center justify-center
+                    mt-[-16px] w-4 h-4 rounded border border-border flex items-center justify-center
                     transition-colors cursor-pointer
                     ${isSelected ? 'bg-blue-500 border-blue-500' : 'bg-transparent hover:bg-muted'}
                   `}
                   aria-label="Select server"
                 >
-                  {isSelected && <Check className="w-3 h-3 text-white" />}
+                  {isSelected && <Check className="w-3 h-3 text-white"/>}
                 </button>
 
                 {/* Server icon + name */}
                 <div className="min-w-0">
                   <CardTitle className="text-base font-semibold truncate flex items-center gap-2">
-                    <Server className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <Server className="w-4 h-4 text-muted-foreground flex-shrink-0"/>
                     <span className="truncate">{server.displayName}</span>
                   </CardTitle>
                   <CardDescription className="text-xs truncate mt-0.5">
                     {server.name}
-                    {server.description && <span className="ml-1 opacity-60 truncate hidden sm:inline">— {server.description}</span>}
+                    {server.description &&
+                      <span className="ml-1 opacity-60 truncate hidden sm:inline">— {server.description}</span>}
                   </CardDescription>
                 </div>
 
@@ -677,8 +685,8 @@ function ServerCard({
                 pulse={server.status === 'connecting'}
                 compact
               />
-              <HealthPill server={server} />
-              <div className="flex-1" />
+              <HealthPill server={server}/>
+              <div className="flex-1"/>
               <TooltipProvider delayDuration={200}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -718,7 +726,7 @@ function ServerCard({
               }}
               className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
             >
-              {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              {isExpanded ? <ChevronUp className="w-3.5 h-3.5"/> : <ChevronDown className="w-3.5 h-3.5"/>}
               <span>{isExpanded ? 'Collapse' : 'Expand'}</span>
               <span className="text-muted-foreground/60">configuration</span>
             </div>
@@ -726,7 +734,7 @@ function ServerCard({
             {/* Last error */}
             {server.lastError && (
               <Alert variant="destructive" className="py-2 px-3 text-xs border-red-500/30">
-                <AlertCircle className="w-3.5 h-3.5" />
+                <AlertCircle className="w-3.5 h-3.5"/>
                 <AlertTitle className="text-red-400 text-xs">Last Error</AlertTitle>
                 <AlertDescription className="text-xs text-red-300/80 truncate">
                   {server.lastError}
@@ -736,11 +744,12 @@ function ServerCard({
 
             {/* Test result (from parent prop) */}
             {propTestResult && (
-              <Alert variant={propTestResult.success ? 'default' : 'destructive'} className="py-2 px-3 text-xs border-border/50 animate-in slide-in-from-top-2">
+              <Alert variant={propTestResult.success ? 'default' : 'destructive'}
+                     className="py-2 px-3 text-xs border-border/50 animate-in slide-in-from-top-2">
                 {propTestResult.success ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400"/>
                 ) : (
-                  <XCircle className="w-3.5 h-3.5 text-red-400" />
+                  <XCircle className="w-3.5 h-3.5 text-red-400"/>
                 )}
                 <AlertDescription className="text-xs">
                   <span className={propTestResult.success ? 'text-emerald-400' : 'text-red-400'}>
@@ -751,10 +760,10 @@ function ServerCard({
             )}
 
             {/* Separator before details */}
-            {isExpanded && <Separator className="bg-border/30" />}
+            {isExpanded && <Separator className="bg-border/30"/>}
 
             {/* Expandable panel */}
-            <ExpandableDetails server={server} isExpanded={isExpanded} />
+            <ExpandableDetails server={server} isExpanded={isExpanded}/>
 
             {/* Action buttons bar (hover-reveal) */}
             <div
@@ -767,7 +776,7 @@ function ServerCard({
             >
               {/* Start */}
               <ActionButton
-                icon={<Play className="w-3.5 h-3.5" />}
+                icon={<Play className="w-3.5 h-3.5"/>}
                 label="Start server"
                 onClick={onStart}
                 disabled={!server.enabled || isOper || server.status === 'connected'}
@@ -778,7 +787,7 @@ function ServerCard({
 
               {/* Stop */}
               <ActionButton
-                icon={<Square className="w-3.5 h-3.5" />}
+                icon={<Square className="w-3.5 h-3.5"/>}
                 label="Stop server"
                 onClick={onStop}
                 disabled={!isOper || server.status !== 'connected'}
@@ -789,7 +798,7 @@ function ServerCard({
 
               {/* Restart */}
               <ActionButton
-                icon={<RefreshCw className="w-3.5 h-3.5" />}
+                icon={<RefreshCw className="w-3.5 h-3.5"/>}
                 label="Restart server"
                 onClick={onRestart}
                 disabled={isOper}
@@ -798,11 +807,11 @@ function ServerCard({
                 size="icon"
               />
 
-              <Separator className="mx-1 bg-border/30" />
+              <Separator className="mx-1 bg-border/30"/>
 
               {/* Test */}
               <ActionButton
-                icon={<TestTube className="w-3.5 h-3.5" />}
+                icon={<TestTube className="w-3.5 h-3.5"/>}
                 label="Test connection"
                 onClick={handleTest}
                 disabled={isTesting || !propTestResult}
@@ -813,7 +822,7 @@ function ServerCard({
 
               {/* Health */}
               <ActionButton
-                icon={<Activity className="w-3.5 h-3.5" />}
+                icon={<Activity className="w-3.5 h-3.5"/>}
                 label="Health check"
                 onClick={onHealthCheck}
                 disabled={isDisabled}
@@ -821,11 +830,11 @@ function ServerCard({
                 size="icon"
               />
 
-              <Separator className="mx-1 bg-border/30" />
+              <Separator className="mx-1 bg-border/30"/>
 
               {/* Edit */}
               <ActionButton
-                icon={<Edit className="w-3.5 h-3.5" />}
+                icon={<Edit className="w-3.5 h-3.5"/>}
                 label="Edit server"
                 onClick={onEdit}
                 disabled={isDisabled}
@@ -835,7 +844,7 @@ function ServerCard({
 
               {/* Clone */}
               <ActionButton
-                icon={<Copy className="w-3.5 h-3.5" />}
+                icon={<Copy className="w-3.5 h-3.5"/>}
                 label="Clone server"
                 onClick={onClone}
                 disabled={isDisabled}
@@ -843,11 +852,11 @@ function ServerCard({
                 size="icon"
               />
 
-              <Separator className="mx-1 bg-border/30" />
+              <Separator className="mx-1 bg-border/30"/>
 
               {/* Delete */}
               <ActionButton
-                icon={<Trash2 className="w-3.5 h-3.5" />}
+                icon={<Trash2 className="w-3.5 h-3.5"/>}
                 label="Delete server"
                 onClick={handleDelete}
                 disabled={isDisabled}
@@ -857,10 +866,11 @@ function ServerCard({
               />
 
               {/* Spacer */}
-              <div className="flex-1" />
+              <div className="flex-1"/>
 
               {/* Status icon (always visible) */}
-              <div className={`flex items-center gap-1 text-xs ${hovered ? 'opacity-0' : 'opacity-100'} transition-opacity`}>
+              <div
+                className={`flex items-center gap-1 text-xs ${hovered ? 'opacity-0' : 'opacity-100'} transition-opacity`}>
                 <div
                   className="w-2 h-2 rounded-full"
                   style={{
@@ -882,5 +892,5 @@ function ServerCard({
 // Named & default exports
 // ---------------------------------------------------------------------------
 
-export { ServerCard };
+export {ServerCard};
 export default ServerCard;
