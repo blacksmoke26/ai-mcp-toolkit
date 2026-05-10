@@ -13,10 +13,10 @@
 import React, {useCallback, useMemo, useState} from 'react';
 
 import {Button} from '@/components/ui/Button';
-import {Input} from '@/components/ui/Input';
 import {Label} from '@/components/ui/Label';
 import {Badge} from '@/components/ui/Badge';
 import CodeEditor from '@/components/ui/CodeEditor';
+import {AdvancedInput} from '@/components/ui/AdvanceInput';
 import {Alert, AlertDescription} from '@/components/ui/Alert';
 import {ScrollArea, ScrollBar} from '@/components/ui/ScrollArea';
 
@@ -28,7 +28,6 @@ import {
   isValidJson,
   parseJsonToRows,
 } from './utils';
-
 /**
  * Props for the EnvironmentVariablesEditor component.
  *
@@ -305,8 +304,9 @@ const EnvironmentVariablesEditor: React.FC<EnvironmentVariablesEditorProps> = (p
             {rows.map((row, index) => (
               <div key={row.id} className="flex items-center gap-4 group">
                 {/* Key Input */}
-                <Input
-                  className="w-1/4 font-mono text-sm"
+                <AdvancedInput
+                  className="font-mono text-sm"
+                  onClearClick={() => updateRow(row.id, 'key', '')}
                   placeholder="KEY"
                   value={row.key}
                   disabled={disabled}
@@ -314,8 +314,9 @@ const EnvironmentVariablesEditor: React.FC<EnvironmentVariablesEditorProps> = (p
                 />
 
                 {/* Value Input */}
-                <Input
-                  className="w-2/4 font-mono text-sm"
+                <AdvancedInput
+                  className="font-mono text-sm"
+                  onClearClick={() => updateRow(row.id, 'value', '')}
                   placeholder={placeholder}
                   value={row.value}
                   disabled={disabled}
