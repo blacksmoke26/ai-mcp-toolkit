@@ -87,6 +87,7 @@ import {Label} from '@/components/ui/Label';
 import CreateEditDialog from './CreateEditDialog';
 import TemplateDialog from './TemplateDialog';
 import HealthDialog from './HealthDialog';
+import VariableInputModal from '@/components/ui/VariableInputModal';
 import ServerCard from './ServerCard';
 import ServerRow from './ServerRow';
 import BulkActionBar from './BulkActionBar';
@@ -222,6 +223,11 @@ const AdminMCPServers: React.FC = () => {
   const [templateData, setTemplateData] = useState<MCPServerTemplate | null>(null);
   const [importedJson, setImportedJson] = useState<string>('');
   const [importErrors, setImportErrors] = useState<string>('');
+
+  // --- Variable Input Modal ---
+  const [variableModalOpen, setVariableModalOpen] = useState<boolean>(false);
+  const [pendingTemplate, setPendingTemplate] = useState<MCPServerTemplate | null>(null);
+  const [prefillVariableValues, setPrefillVariableValues] = useState<Record<string, string>>({});
 
   // --- Selected Server ---
   const [selectedServer, setSelectedServer] = useState<MCPServerResponse | null>(null);
@@ -493,9 +499,47 @@ const AdminMCPServers: React.FC = () => {
   }, [editDialogOpen, selectedServer, fetchServers, addNotification]);
 
   const handleSelectTemplate = useCallback((template: MCPServerTemplate): void => {
-    setTemplateData(template);
     setTemplateDialogOpen(false);
+    const variables = template?.variables;
+    const hasVariables = variables && variables.length > 0;
+    if (hasVariables) {
+      setPendingTemplate(template);
+      // Build prefilled values from template variable defaults
+      const prefills: Record<string, string> = {};
+      variables.forEach((v) => {
+        if (v.default) {
+          prefills[v.key] = v.default;
+        }
+      });
+      setPrefillVariableValues(prefills);
+      setVariableModalOpen(true);
+    } else {
+      setTemplateData(template);
+      setCreateDialogOpen(true);
+    }
+  }, []);
+
+  const handleVariableModalSubmit = useCallback((values: Record<string, string>): void => {
+    if (!pendingTemplate) return;
+    // Apply filled variable values to the template data
+    const appliedTemplate: MCPServerTemplate = {
+      ...pendingTemplate,
+      env: {
+        ...((pendingTemplate.env as any) ?? {}),
+        ...values,
+      },
+    };
+    setTemplateData(appliedTemplate);
+    setVariableModalOpen(false);
+    setPendingTemplate(null);
+    setPrefillVariableValues({});
     setCreateDialogOpen(true);
+  }, [pendingTemplate]);
+
+  const handleVariableModalClose = useCallback(() => {
+    setVariableModalOpen(false);
+    setPendingTemplate(null);
+    setPrefillVariableValues({});
   }, []);
 
   // --- Individual Operations ---
@@ -1097,6 +1141,15 @@ const AdminMCPServers: React.FC = () => {
               open={templateDialogOpen}
               onOpenChange={setTemplateDialogOpen}
               onSelectTemplate={handleSelectTemplate}
+            />
+
+            {/* Variable Input Modal - shows when a template with variables is selected */}
+            <VariableInputModal
+              isOpen={variableModalOpen}
+              variables={pendingTemplate?.variables}
+              prefillValues={prefillVariableValues}
+              onClose={handleVariableModalClose}
+              onSubmit={handleVariableModalSubmit}
             />
 
             <HealthDialog

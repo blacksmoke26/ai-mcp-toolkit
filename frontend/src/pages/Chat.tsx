@@ -59,7 +59,7 @@ import {
   renderPromptTemplate,
 } from '@/lib/api';
 import {PromptTemplateSelector} from '@/components/ui/PromptTemplateSelector';
-import {VariableInputModal} from '@/components/ui/VariableInputModal';
+import VariableInputModal from '@/components/ui/VariableInputModal';
 import {AdvancedTextarea} from '@/components/ui/AdvancedTextarea';
 import {AdvancedInput} from '@/components/ui/AdvanceInput';
 
