@@ -45,7 +45,7 @@ export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputE
   /**
    * Additional properties to pass to the Label component.
    */
-  labelOptions?: LabelProps;
+  labelOptions?: Omit<LabelProps, 'children'>;
 
   /**
    * Callback function invoked when the checked state changes.
