@@ -1567,7 +1567,7 @@ const PromptTemplates: React.FC = () => {
                       />
                     </div>
                     <div className="col-span-3 flex gap-3">
-                      <div className="flex">
+                      <div className="ml-1 flex relative top-[-7px]">
                         <Checkbox
                           checked={v.required}
                           onCheckedChange={(checked) => {
@@ -1575,8 +1575,9 @@ const PromptTemplates: React.FC = () => {
                             vars[idx] = {...v, required: !!checked};
                             setFormState((s) => ({...s, variables: vars}));
                           }}
+                          label="Required"
+                          labelOptions={{className: 'text-xs'}}
                         />
-                        <Label className="text-xs ml-1">Required</Label>
                       </div>
                       <Button
                         variant="ghost"
@@ -1646,7 +1647,7 @@ const PromptTemplates: React.FC = () => {
                             }}
                             placeholder="key"
                             allowClear={false}
-                            />
+                          />
                         </div>
                         <div className="col-span-6 space-y-1">
                           <Label className="text-xs">Value</Label>
